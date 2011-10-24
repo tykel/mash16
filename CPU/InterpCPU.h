@@ -33,12 +33,17 @@ namespace Chip16 {
 		void Init();
 		void Clear();
 
-		void nop(); void cls(); void vblnk(); void bgc(); void spr();
-		void drw_i(); void drw_r(); void rnd(); void flip(); void snd0();
-		void snd1(); void snd2(); void snd3(); void jmp_i(); void jmc();
-		void jx(); void jme(); void jmp_r(); void call_i(); void ret();
-		void cx(); void call_r(); void ldi_r(); void ldi_sp(); void ldm_i();
-		void ldm_r(); void mov(); void stm_i(); void stm_r(); void addi();
+		inline void flags_add(int32 rx, int32 ry);
+		inline void flags_sub(int32 rx, int32 ry);
+		inline void nop(); inline void cls(); inline void vblnk(); inline void bgc(); inline void spr();
+		inline void drw_i(); inline void drw_r(); inline void rnd(); inline void flip(); inline void snd0();
+		inline void snd1(); inline void snd2(); inline void snd3(); inline void jmp_i(); inline void jmc();
+		inline void jx(); inline void jme(); inline void jmp_r(); inline void call_i(); inline void ret();
+		inline void cx(); inline void call_r(); inline void ldi_r(); inline void ldi_sp(); inline void ldm_i();
+		inline void ldm_r(); inline void mov(); inline void stm_i(); inline void stm_r(); inline void addi();
+		inline void add_r2(); inline void add_r3(); inline void subi();/* inline void sub_r2(); 
+		inline void sub_r3(); inline void cmpi(); inline void cmp(); inline void andi(); inline void and_r2();
+		inline void and_r3(); inline void tsti(); inline void tst(); */
 	};
 
 }

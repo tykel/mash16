@@ -20,6 +20,12 @@
 #include "..\Common.h"
 #include "..\GPU\GPU.h"
 
+// Flags bits
+#define FLAG_C	0x02
+#define FLAG_Z	0x04
+#define FLAG_O	0x40
+#define FLAG_N	0x80
+
 // Used to represent CPU state
 struct cpu_state {
 	uint16* r;			// Registers R0..F
@@ -32,7 +38,7 @@ struct cpu_instr {
 	uint8	op;			// Opcode byte
 	uint8	yx;			// Registers Y, X
 	union {
-		uint16 addr;	// Address (HHLL)
+		uint16 hhll;	// Address (HHLL)
 		uint16 n;		// Nibble (000N)
 		uint16 z;		// Register Z
 		struct {
@@ -40,6 +46,12 @@ struct cpu_instr {
 			uint8 fp;	// Flip type
 		};
 	};
+};
+// Used to map conditional codes
+enum cpu_conds {
+	C_Z = 0, C_NZ, C_N, C_NN, C_P, C_O, C_NO, C_A, C_AE,
+	C_NC = 8, C_B, C_C = 9, C_BE, C_G, C_GE, C_L, C_LE,
+	C_RES
 };
 
 namespace Chip16 {
