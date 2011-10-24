@@ -31,7 +31,6 @@ Chip16::CPU::CPU(void)
 	m_state.sp = 0;
 
 	m_sprinfo.data = NULL;
-	m_sprinfo.len = 0;
 	m_sprinfo.x = 0;
 	m_sprinfo.y = 0;
 
@@ -68,8 +67,6 @@ void Chip16::CPU::LoadROM(const char* fp) {
 void Chip16::CPU::Draw(int16 x, int16 y, uint16 start) {
 	// Offset = rows * rowlen + column, / 2 because 2 spr/byte
 	m_sprinfo.data = (uint8*) ((uint32)m_mem + ((y*320 + x)>>1));
-	// If SPR HHLL, then len = HH * LL
-	m_sprinfo.len = (m_gpu->m_state.sz >> 8) * (m_gpu->m_state.sz & 0x00FF);
 	// Provide coords
 	m_sprinfo.x = x, m_sprinfo.y = y;
 	// Send to GPU for drawing!

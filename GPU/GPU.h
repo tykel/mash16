@@ -25,9 +25,15 @@ enum flip {
 };
 // GPU state info
 struct gpu_state {
-	uint16	sz;		// Sprite size
-	uint16	bg;		// Background color
-	uint32	fp;		// Flip orientation mask
+	uint32	bg;				// Background color
+	uint32	fp;				// Flip orientation mask
+	union {
+		uint32 sz;			// Sprite size (aggr.)
+		struct {
+			uint16	h;		// Sprite height
+			uint16	w;		// Sprite width
+		};
+	};
 };
 
 namespace Chip16 {

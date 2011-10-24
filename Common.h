@@ -26,13 +26,15 @@ typedef __int32 int32;
 
 const uint32 MEMORY_SIZE = 0x10000;
 const uint32 MAX_ADDRESS = 0x0FFFF;
+const uint16 MAX_VALUE16 = 0xFFFF;
+const int16	 MAX_NVALUE16 = -32768;
+const uint8  MAX_VALUE8	 = 0xFF;
 const uint32 REGS_SIZE	 = 16;
 
 // Shared by CPU and CPU for fast sprite blitting
 struct spr_info {
-	int32	x;			// x coordinate of the sprite
-	int32	y;			// y coordinate of the sprite
-	uint32	len;		// length (in B) of sprite data
+	int32 x;			// x coordinate of the sprite
+	int32 y;			// y coordinate of the sprite
 	const uint8* data;	// ptr to start of sprite data
 };
 
