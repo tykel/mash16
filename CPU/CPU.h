@@ -28,7 +28,7 @@
 
 // Used to represent CPU state
 struct cpu_state {
-	uint16* r;			// Registers R0..F
+	int16*  r;			// Registers R0..F
 	uint16	pc;			// Program counter
 	uint16	sp;			// Stack pointer
 	uint16	fl;			// Flags register
