@@ -20,7 +20,7 @@
 #include <fstream>
 
 // Global register file to avoid dynalloc
-uint16 g_regs[REGS_SIZE] = {0};
+int16 g_regs[REGS_SIZE]  = {0};
 // Global memory file to avoid dynalloc
 uint8 g_mem[MEMORY_SIZE] = {0};
 
