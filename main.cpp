@@ -14,22 +14,41 @@
 	If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "CPU\DynarecCPU.h"
-#include "CPU\InterpCPU.h"
+#include "Core/Common.h"
+#include "Core/System.h"
+
+#include <fstream>
+#include <iostream>
+
+bool readFile(const char* fp, uint8* dest) {	
+	std::fstream rom(fp,std::ios::binary);
+	if(rom.is_open()) {
+		// Find file length
+		rom.seekg (0, std::ios::end);
+		uint32 len = (uint32) rom.tellg();
+		rom.seekg (0, std::ios::beg);
+		// Copy it to memory
+		rom.read((char*)dest,len);
+		// Clean up
+		rom.close();
+		return true;
+	}
+	std::clog << "Could not open file" << std::endl;
+	return false;	
+}
 
 int main(int argc, char** argv) {
-	bool useDynarec = false;
-	Chip16::CPU* chip16;
-	if(useDynarec)
-		chip16 = new Chip16::DynarecCPU();
-	else
-		chip16 = new Chip16::InterpCPU();
-	chip16->Init();
-	chip16->LoadROM(argv[1]);
-	// TODO: Timing
-	while(chip16->IsReady()) {
-		chip16->Execute();
-	}
-	chip16->Clear();
+	Chip16::System chip16;
+	uint8* mem = new uint8[MEMORY_SIZE]();
+	if(argc > 1)
+		readFile(argv[1],mem);
+	else 
+		return 1;
+	chip16.LoadRom(mem);
+	chip16.Run();
+	chip16.Clear();
+	// All the windowing is missing
+	
+	delete mem;
 	return 0;
 }
