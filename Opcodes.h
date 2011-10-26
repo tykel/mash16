@@ -14,8 +14,8 @@
 	If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _OPCODES_H
-#define _OPCODES_H
+#ifndef OPCODES_H
+#define OPCODES_H
 
 typedef unsigned char OPCODE;
 
