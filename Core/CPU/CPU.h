@@ -17,8 +17,9 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include "..\Common.h"
-#include "..\GPU\GPU.h"
+#include "../Common.h"
+#include "../GPU/GPU.h"
+#include "../System.h"
 
 // Flags bits
 #define FLAG_C	0x02
@@ -59,13 +60,15 @@ namespace Chip16 {
 	class CPU
 	{
 	protected:
-		uint8*		m_mem;			// Ptr to memory
+		GPU*		m_gpu;			// Ptr to GPU
+		System*		m_system;		// Ptr to parent system
+	
 		cpu_state	m_state;		// CPU state info
 		spr_info	m_sprinfo;		// Sprite info
 		cpu_instr*	m_instr;		// Current instruction
-		GPU*		m_gpu;			// Ptr to GPU
+		uint8*		m_mem;			// Ptr to memory
 		bool		m_isReady;		// is the system ready?
-	
+		
 		void Draw(int16 x, int16 y, uint16 start);
 
 	public:

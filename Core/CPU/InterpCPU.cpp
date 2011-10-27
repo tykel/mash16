@@ -20,15 +20,6 @@
 #include <cstdlib>
 #include <ctime>
 
-#define _RX		(m_state.r[m_instr->yx & 0x0F])
-#define _RY		(m_state.r[m_instr->yx >> 4])
-#define _RZ		(m_state.r[m_instr->z])
-#define _IMM	(m_instr->hhll)
-#define _N		(m_instr->n)
-#define _SP		(m_state.sp)
-#define _PC		(m_state.pc)
-
-
 Chip16::InterpCPU::InterpCPU(void)
 {
 }
@@ -39,7 +30,11 @@ Chip16::InterpCPU::~InterpCPU(void)
 }
 
 void Chip16::InterpCPU::Execute() {
+	// Fetch
+	m_instr = (cpu_instr*)((uint8*)(m_mem +_PC));
+	// Increment PC
 	_PC += 4;
+	// Execute
 	switch(m_instr->op) {
 	case NOP:		nop(); break;
 	case CLS:		cls(); break;
@@ -51,15 +46,69 @@ void Chip16::InterpCPU::Execute() {
 	case RND:		rnd(); break;
 	case FLIP:		flip(); break;
 	case SND0:		snd0(); break;
-	//...
+	case SND1:		snd1(); break;
+	case SND2:		snd2(); break;
+	case SND3:		snd3();	break;
+	case JMP_I:		jmp_i(); break;
+	case JMC:		jmc(); break;
+	case JME:		jme(); break;
+	case JMP_R:		jmp_r(); break;
+	case CALL_I:	call_i(); break;
+	case RET:		ret(); break;
+	case Cx:		cx(); break;
+	case CALL_R:	call_r(); break;
+	case LDI_R:		ldi_r(); break;
+	case LDI_SP:	ldi_sp(); break;
+	case LDM_I:		ldm_i(); break;
+	case LDM_R:		ldm_r(); break;
+	case MOV:		mov(); break;
+	case STM_I:		stm_i(); break;
+	case STM_R:		stm_r(); break;
+	case ADDI:		addi(); break;
+	case ADD_R2:	add_r2(); break;
+	case ADD_R3:	add_r3(); break;
+	case SUBI:		subi(); break;
+	case SUB_R2:	sub_r2(); break;
+	case SUB_R3:	sub_r3(); break;
+	case CMPI:		cmpi(); break;
+	case CMP:		cmp(); break;
+	case ANDI:		andi(); break;
+	case AND_R2:	and_r2(); break;
+	case AND_R3:	and_r3(); break;
+	case TSTI:		tsti(); break;
+	case TST:		tst(); break;
+	case ORI:		ori(); break;
+	case OR_R2:		or_r2(); break;
+	case OR_R3:		or_r3(); break;
+	case XORI:		xori(); break;
+	case XOR_R2:	xor_r2(); break;
+	case XOR_R3:	xor_r3(); break;
+	case MULI:		muli(); break;
+	case MUL_R2:	mul_r2(); break;
+	case MUL_R3:	mul_r3(); break;
+	case DIVI:		divi(); break;
+	case DIV_R2:	div_r2(); break;
+	case DIV_R3:	div_r3(); break;
+	case SHL_N:		shl_n(); break;
+	case SHR_N:		shr_n(); break;
+	case SAR_N:		sar_n(); break;
+	case SHL_R:		shl_r(); break;
+	case SHR_R:		shr_r(); break;
+	case SAR_R:		sar_r(); break;
+	case PUSH:		push(); break;
+	case POP:		pop(); break;
+	case PUSHALL:	pushall(); break;
+	case POPALL:	popall(); break;
+	case PUSHF:		pushf(); break;
+	case POPF:		popf(); break;
+
 	default:
 		break;
 	}
-	m_instr = (cpu_instr*)((uint8*)(m_mem +_PC));
 }
 
 void Chip16::InterpCPU::Init(const uint8* mem) {
-	m_mem = mem;
+	m_mem = (uint8*)mem;
 	srand((uint32)time(NULL));
 }
 
@@ -67,249 +116,3 @@ void Chip16::InterpCPU::Clear() {
 
 }
 
-void Chip16::InterpCPU::nop() { }
-void Chip16::InterpCPU::cls() { m_gpu->Clear(); }
-void Chip16::InterpCPU::vblnk() { /* stop execution until next vblnk */ }
-void Chip16::InterpCPU::bgc() { m_gpu->m_state.bg = _N; }
-void Chip16::InterpCPU::spr() { m_gpu->m_state.sz = _IMM; }
-void Chip16::InterpCPU::drw_i() { 
-	m_sprinfo.x = _RX;
-	m_sprinfo.y = _RX;
-	m_sprinfo.data = (uint8*)(m_mem + _IMM); 
-	m_gpu->Blit(&m_sprinfo); 
-}
-void Chip16::InterpCPU::drw_r() {
-	m_sprinfo.x = _RX;
-	m_sprinfo.y = _RY;
-	m_sprinfo.data = (uint8*)(m_mem + _RZ); 
-	m_gpu->Blit(&m_sprinfo); 
-}
-void Chip16::InterpCPU::rnd() { 
-	_RX = rand() % (_IMM + 1); 
-}
-void Chip16::InterpCPU::flip() { m_gpu->m_state.fp = (uint32) m_instr->fp; }
-void Chip16::InterpCPU::snd0() { /* SPU: TODO*/ }
-void Chip16::InterpCPU::snd1() { /* SPU: TODO*/ }
-void Chip16::InterpCPU::snd2() { /* SPU: TODO*/ }
-void Chip16::InterpCPU::snd3() { /* SPU: TODO*/ }
-void Chip16::InterpCPU::jmp_i() { m_state.pc = _IMM; }
-void Chip16::InterpCPU::jmc() { }
-void Chip16::InterpCPU::jx() {
-	switch(m_instr->yx & 0x0F) {
-	case C_Z:
-		if(m_state.fl & FLAG_Z) _PC = _IMM;
-		break;
-	case C_NZ:
-		if(!(m_state.fl & FLAG_Z)) _PC = _IMM;
-		break;
-	case C_N:
-		if(m_state.fl & FLAG_N)
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_NN:
-		if(!(m_state.fl & FLAG_N))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_P:
-		if(!(m_state.fl & FLAG_N & FLAG_Z))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_O:
-		if(m_state.fl & FLAG_O)
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_NO:
-		if(!(m_state.fl & FLAG_O))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_A:
-		if(!(m_state.fl & FLAG_C & FLAG_Z))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_AE:
-		if(!(m_state.fl & FLAG_C))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_B:
-		if(m_state.fl & FLAG_C)
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_BE:
-		if(m_state.fl & FLAG_C & FLAG_Z)
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_G:
-		if(!(m_state.fl & FLAG_Z) && (((m_state.fl & FLAG_O) >> 6) == ((m_state.fl & FLAG_N) >> 7)))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_GE:
-		if(((m_state.fl & FLAG_O) >> 6) == ((m_state.fl & FLAG_N) >> 7))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_L:
-		if((((m_state.fl & FLAG_O) >> 6) != ((m_state.fl & FLAG_N) >> 7)))
-			m_state.pc = m_instr->hhll;
-		break;
-	case C_LE:
-		if((m_state.fl & FLAG_Z) && (((m_state.fl & FLAG_O) >> 6) != ((m_state.fl & FLAG_N) >> 7)))
-			m_state.pc = m_instr->hhll;
-		break;
-	default:
-		break;
-	}
-}
-void Chip16::InterpCPU::jme() { 
-	if(_RX == _RY)
-		_PC = _IMM;
-}
-void Chip16::InterpCPU::jmp_r() { m_state.pc = m_state.r[m_instr->yx & 0x0F]; }
-void Chip16::InterpCPU::call_i() {
-	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp =_PC;
-	m_state.sp += 2;
-	m_state.pc = _IMM;
-}
-void Chip16::InterpCPU::ret() {
-	_SP -= 2;
-	m_state.pc = m_mem[_SP];
-}
-void Chip16::InterpCPU::cx() { 
-	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp = m_state.pc;
-	m_state.sp += 2;
-	jx();
-}
-void Chip16::InterpCPU::call_r() { 
-	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp = m_state.pc;
-	m_state.sp += 2;
-	m_state.pc = _RX;
-}
-void Chip16::InterpCPU::ldi_r() {
-	int16* rx = &_RX; *rx = _IMM;
-}
-void Chip16::InterpCPU::ldi_sp() { m_state.sp = _IMM; }
-void Chip16::InterpCPU::ldm_i() { 
-	int16* rx = &_RX; *rx = m_mem[_IMM]; 
-}
-void Chip16::InterpCPU::ldm_r() { 
-	int16* rx = &_RX; *rx = m_mem[_RY];
-}
-void Chip16::InterpCPU::mov() { 
-	int16* rx = &_RX; *rx =_RY; 
-}
-void Chip16::InterpCPU::stm_i() { 
-	uint16* _pm = (uint16*)&m_mem[_IMM];
-	*_pm =  _RX;
-}
-void Chip16::InterpCPU::stm_r() { 
-	uint16* _pm = (uint16*)&m_mem[_RY];
-	*_pm =  _RX;
-}
-void Chip16::InterpCPU::flags_add(int32 rx, int32 ry) {
-	int32 res = rx + ry;
-	if(res > MAX_VALUE16)
-		m_state.fl |= FLAG_C;
-	else
-		m_state.fl &= ~FLAG_C;
-	if(res == 0)
-		m_state.fl |= FLAG_Z;
-	else
-		m_state.fl &= ~FLAG_Z;
-	if((rx < 0 && ry < 0 && res >= 0) || (rx > 0 && ry > 0 && res < 0))
-		m_state.fl |= FLAG_O;
-	else
-		m_state.fl &= ~FLAG_O;
-	if(res < 0)
-		m_state.fl |= FLAG_N;
-	else
-		m_state.fl &= ~FLAG_N;
-}
-void Chip16::InterpCPU::addi() {
-	int16* rx = &_RX; int16 imm = _IMM;
-	*rx += imm;
-	flags_add((int32)*rx,(int32)imm);
-}
-void Chip16::InterpCPU::add_r2() {	
-	int16* rx = &_RX; int16 ry = _RY;
-	*rx += ry;
-	flags_add((int32)*rx,(int32)ry);
-}
-void Chip16::InterpCPU::add_r3() {
-	int16 rx = _RX; int16 ry = _RY; int16* rz = &_RZ;
-	*rz = rx + ry;
-	flags_add((int32)rx,(int32)ry);
-}
-void Chip16::InterpCPU::flags_sub(int32 rx, int32 ry) {
-	int32 res = rx - ry;
-	if(res < MAX_NVALUE16)
-		m_state.fl |= FLAG_C;
-	else
-		m_state.fl &= ~FLAG_C;
-	if(res == 0)
-		m_state.fl |= FLAG_Z;
-	else
-		m_state.fl &= ~FLAG_Z;
-	if((rx < 0 && ry >= 0 && res >= 0) || (rx >= 0 && ry < 0 && res < 0))
-		m_state.fl |= FLAG_O;
-	else
-		m_state.fl &= ~FLAG_O;
-	if(res < 0)
-		m_state.fl |= FLAG_N;
-	else
-		m_state.fl &= ~FLAG_N;
-}
-void Chip16::InterpCPU::subi() {
-	int16* rx = &_RX; int16 imm = _IMM;
-	*rx -= imm;
-	flags_sub((int32)*rx,(int32)imm);
-}
-void Chip16::InterpCPU::sub_r2() {
-	int16* rx = &_RX; int16 ry = _RY;
-	*rx -= ry;
-	flags_sub((int32)*rx,(int32)ry);
-}
-void Chip16::InterpCPU::sub_r3() {
-	int16 rx = _RX; int16 ry = _RY; int16* rz = &_RZ;
-	*rz = rx - ry;
-	flags_sub((int32)rx,(int32)ry);
-}
-void Chip16::InterpCPU::cmpi() {
-	int16 rx = _RX; int16 imm = _IMM;
-	flags_sub((int32)rx,(int32)imm);
-}
-void Chip16::InterpCPU::cmp() {
-	int16 rx = _RX; int16 ry = _RY;
-	flags_sub((int32)rx,(int32)ry);
-}
-void Chip16::InterpCPU::flags_and(int32 rx, int32 ry) {
-	int32 res = rx & ry;
-	m_state.fl = 0;
-	if(!res) {
-		m_state.fl |= FLAG_Z;
-	}
-	else if(res < 0) {
-		m_state.fl |= FLAG_N;
-	}
-}
-void Chip16::InterpCPU::andi() {
-	int16* rx = &_RX; int16 imm = _IMM;
-	*rx &= imm;
-	flags_and((int32)*rx,(int32)imm);
-}
-void Chip16::InterpCPU::and_r2() {
-	int16* rx = &_RX; int16  ry = _RY;
-	*rx &= ry;
-	flags_and((int32)*rx,(int32)ry);
-}
-void Chip16::InterpCPU::and_r3() {
-	int16 rx = _RX; int16 ry = _RY; int16* rz = &_RZ;
-	*rz = rx & ry;
-	flags_and((int32)rx,(int32)ry);
-}
-void Chip16::InterpCPU::tsti() {
-	int16 rx  = _RX; int16 imm = _IMM;
-	flags_and((int32)rx,(int32)imm);
-}
-void Chip16::InterpCPU::tst() {
-	int16 rx = _RX; int16 ry = _RY;
-	flags_and((int32)rx,(int32)ry);
-}
-// And so on, TODO

@@ -17,6 +17,14 @@
 #ifndef INTERP_CPU_H
 #define INTERP_CPU_H
 
+#define _RX		(m_state.r[m_instr->yx & 0x0F])
+#define _RY		(m_state.r[m_instr->yx >> 4])
+#define _RZ		(m_state.r[m_instr->z])
+#define _IMM	(m_instr->hhll)
+#define _N		(m_instr->n)
+#define _SP		(m_state.sp)
+#define _PC		(m_state.pc)
+
 #include "CPU.h"
 
 namespace Chip16 {
@@ -32,10 +40,18 @@ namespace Chip16 {
 		void Execute();
 		void Init(const uint8* mem);
 		void Clear();
-
-		inline void flags_add(int32 rx, int32 ry);
-		inline void flags_sub(int32 rx, int32 ry);
-		inline void flags_and(int32 rx, int32 ry);
+		// Flags modifiers
+		void flags_add(int32 rx, int32 ry);
+		void flags_sub(int32 rx, int32 ry);
+		void flags_and(int32 rx, int32 ry);
+		void flags_or(int32 rx, int32 ry);
+		void flags_xor(int32 rx, int32 ry);
+		void flags_mul(int32 rx, int32 ry);
+		void flags_div(int32 rx, int32 ry);
+		void flags_shl(int32 rx, int32 ry);
+		void flags_shr(int32 rx, int32 ry);
+		void flags_sar(int32 rx, int32 ry);
+		// Big pile of instructions >:D
 		inline void nop(); inline void cls(); inline void vblnk(); inline void bgc(); inline void spr();
 		inline void drw_i(); inline void drw_r(); inline void rnd(); inline void flip(); inline void snd0();
 		inline void snd1(); inline void snd2(); inline void snd3(); inline void jmp_i(); inline void jmc();
@@ -44,7 +60,12 @@ namespace Chip16 {
 		inline void ldm_r(); inline void mov(); inline void stm_i(); inline void stm_r(); inline void addi();
 		inline void add_r2(); inline void add_r3(); inline void subi(); inline void sub_r2(); 
 		inline void sub_r3(); inline void cmpi(); inline void cmp(); inline void andi(); inline void and_r2();
-		inline void and_r3(); inline void tsti(); inline void tst();
+		inline void and_r3(); inline void tsti(); inline void tst(); inline void ori(); inline void or_r2();
+		inline void or_r3(); inline void xori(); inline void xor_r2(); inline void xor_r3();
+		inline void muli(); inline void mul_r2(); inline void mul_r3(); inline void divi(); inline void div_r2();
+		inline void div_r3(); inline void shl_n(); inline void shr_n(); inline void sar_n();
+		inline void shl_r(); inline void shr_r(); inline void sar_r(); inline void push(); inline void pop();
+		inline void pushall(); inline void popall(); inline void pushf(); inline void popf();
 	};
 
 }
