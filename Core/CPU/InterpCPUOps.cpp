@@ -45,6 +45,8 @@ void Chip16::InterpCPU::snd0() { /* SPU: TODO*/ }
 void Chip16::InterpCPU::snd1() { /* SPU: TODO*/ }
 void Chip16::InterpCPU::snd2() { /* SPU: TODO*/ }
 void Chip16::InterpCPU::snd3() { /* SPU: TODO*/ }
+void Chip16::InterpCPU::snp() { /* SPU: TODO*/ }
+void Chip16::InterpCPU::sng() { /* SPU: TODO*/ }
 void Chip16::InterpCPU::jmp_i() { m_state.pc = _IMM; }
 void Chip16::InterpCPU::jmc() { 
 	if(m_state.fl & FLAG_C)
@@ -438,4 +440,10 @@ void Chip16::InterpCPU::popf() {
 	int16* fl = (int16*)&m_state.fl; uint16* _sp = (uint16*)&m_mem[_SP];
 	*fl = *_sp;
 }
-// And so on, TODO
+
+void Chip16::InterpCPU::pal_i() {
+    // TODO: Needs GPU implementation
+}
+void Chip16::InterpCPU::pal_r() {
+    // TODO: Needs GPU implementation
+}

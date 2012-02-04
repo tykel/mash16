@@ -17,8 +17,13 @@
 #ifndef GPU_H
 #define GPU_H
 
-#include "..\Common.h"
+#include "../Common.h"
 
+// Default color palette
+enum color {
+    BLACK_TR = 0x0, BLACK, GRAY, RED, PINK, DK_BROWN, BROWN, ORANGE,
+    YELLOW, GREEN, LT_GREEN, DK_BLUE, BLUE, LT_BLUE, SKY_BLUE, WHITE
+}
 // Sprite flip states
 enum flip {
 	NONE = 0, VERT = 1, HORZ = 2, BOTH = 4
@@ -30,8 +35,8 @@ struct gpu_state {
 	union {
 		uint32 sz;			// Sprite size (aggr.)
 		struct {
-			uint16	h;		// Sprite height
-			uint16	w;		// Sprite width
+			uint16	h;		// Sprite height (in cols)
+			uint16	w;		// Sprite width (in B)
 		};
 	};
 };
@@ -42,7 +47,7 @@ namespace Chip16 {
 	{
 	public:
 		gpu_state m_state;
-
+        uint32 m_colors[16];
 		GPU(void);
 		~GPU(void);
 

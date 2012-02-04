@@ -29,6 +29,7 @@ Chip16::InterpCPU::~InterpCPU(void)
 {
 }
 
+// Apparently switch/case is faster than function pointers... so here goes
 void Chip16::InterpCPU::Execute() {
 	// Fetch
 	m_instr = (cpu_instr*)((uint8*)(m_mem +_PC));

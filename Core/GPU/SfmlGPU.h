@@ -18,13 +18,16 @@
 #define SFML_GPU_H
 
 #include "GPU.h"
-#include "..\Common.h"
+#include "../Common.h"
 
 namespace Chip16 {
 
 	class SfmlGPU : public GPU
 	{
-	public:
+    private:
+        sf::Image m_screen;        
+        uint8 buffer[320*240*4];
+    public:
 		SfmlGPU(void);
 		~SfmlGPU(void);
 

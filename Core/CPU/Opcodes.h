@@ -32,14 +32,15 @@ enum chip16_opcodes {
 	MULI =	0x90, MUL_R2, MUL_R3,
 	DIVI =	0xA0, DIV_R2, DIV_R3,
 	SHL_N = 0xB0, SHR_N, SAR_N, SHL_R, SHR_R, SAR_R,
-	PUSH =	0xC0, POP, PUSHALL, POPALL, PUSHF, POPF
+	PUSH =	0xC0, POP, PUSHALL, POPALL, PUSHF, POPF,
+    PAL_I = 0xD0, PAL_R
 };
 
 // Mnemonics for debugger output
 char* chip16_mnemonics[] = {
-	"nop","cls","vblnk","spr","drw","rnd","flip","snd0","snd1","snd2","snd3","","","",
-	"jmp","jmc","j","jme","call","ret","jmp","c","call","","","","","","","","",
-	"ldi","ldi","ldm","ldm","mov","","","","","","","","","","","","",
+	"nop","cls","vblnk","bgc","spr","drw","rnd","flip","snd0","snd1","snd2","snd3","snp","sng","",
+	"jmp","jmc","j","jme","call","ret","jmp","c","call","","","","","","","",
+	"ldi","ldi","ldm","ldm","mov","","","","","","","","","","",
 	"stm","stm","","","","","","","","","","","","","","","",
 	"addi","add","add","","","","","","","","","","","","","","",
 	"subi","sub","sub","cmpi","cmp","","","","","","","","","","","","",
@@ -49,7 +50,8 @@ char* chip16_mnemonics[] = {
 	"muli","mul","mul","","","","","","","","","","","","","","",
 	"divi","div","div","","","","","","","","","","","","","","",
 	"shl","shr","sar","shl","shr","sar","","","","","","","","","","","",
-	"push","pop","pushall","popall","pushf","popf"
+	"push","pop","pushall","popall","pushf","popf","","","","","","","","","","",
+    "pal","pal"
 };
 
 #endif
