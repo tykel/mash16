@@ -39,3 +39,17 @@ Chip16::System::System() {
 void Chip16::System::LoadRom(uint8* mem) {
 	m_mem = mem;
 }
+
+void Chip16::System::Run() {
+    // TODO
+}
+
+void Chip16::System::Clear() {
+    // Zero-ing memory is not necessary, as it is undefined behaviour
+    m_cpu->pc = 0x0000;
+    m_cpu->sp = ADDR_SP;
+    m_cpu->fl = 0x0000;
+    for(int i=0; i<REGS_SIZE; ++i) {
+        m_cpu->r[i] = 0;
+    }
+}

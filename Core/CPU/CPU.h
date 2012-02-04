@@ -21,6 +21,10 @@
 #include "../GPU/GPU.h"
 #include "../System.h"
 
+// Memory addresses
+#define ADDR_SP 0xFDF0
+#define ADDR_IO 0xFFF0
+
 // Flags bits
 #define FLAG_C	0x02
 #define FLAG_Z	0x04
