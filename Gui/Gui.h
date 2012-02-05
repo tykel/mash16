@@ -32,9 +32,10 @@ namespace Chip16 {
             
         public:
             Gui();
-            ~Gui();
+            virtual ~Gui();
 
             void Init(int w, int h) = 0;
+            void Update() = 0;
             void Close() = 0;
     };
 }

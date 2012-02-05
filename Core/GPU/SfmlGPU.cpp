@@ -62,3 +62,7 @@ void Chip16::SfmlGPU::Clear() {
     for(int i=0; i<320*240; ++i)
         buffer32[i] = bg;
 }
+
+sf::Image& Chip16::SfmlGPU::getBuffer() {
+    return m_screen;
+}

@@ -23,7 +23,7 @@
 enum color {
     BLACK_TR = 0x0, BLACK, GRAY, RED, PINK, DK_BROWN, BROWN, ORANGE,
     YELLOW, GREEN, LT_GREEN, DK_BLUE, BLUE, LT_BLUE, SKY_BLUE, WHITE
-}
+};
 // Sprite flip states
 enum flip {
 	NONE = 0, VERT = 1, HORZ = 2, BOTH = 4
@@ -49,7 +49,7 @@ namespace Chip16 {
 		gpu_state m_state;
         uint32 m_colors[16];
 		GPU(void);
-		~GPU(void);
+		virtual ~GPU(void);
 
 		virtual void Blit(spr_info* si) = 0;
 		virtual void Draw() = 0;

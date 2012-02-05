@@ -59,6 +59,10 @@ namespace Chip16 {
 		void Run();
 		// Clean up after use
 		void Clear();
+
+        // Getters for intercomponent communication
+        Chip16::CPU* getCPU();
+        Chip16::GPU* getGPU();
 	}
 
 }

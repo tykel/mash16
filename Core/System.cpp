@@ -53,3 +53,11 @@ void Chip16::System::Clear() {
         m_cpu->r[i] = 0;
     }
 }
+
+Chip16::CPU* Chip16::System::getCPU() {
+    return m_cpu;
+}
+
+Chip16::GPU* Chip16::System::getGPU() {
+    return m_gpu;
+}

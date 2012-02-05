@@ -38,17 +38,22 @@ bool readFile(const char* fp, uint8* dest) {
 }
 
 int main(int argc, char** argv) {
-	Chip16::System chip16;
+	// All the windowing is missing
+    Chip16::Gui window;
+	// The emulation proper
+    Chip16::System chip16;
+
 	uint8* mem = new uint8[MEMORY_SIZE]();
 	if(argc > 1)
 		readFile(argv[1],mem);
 	else 
 		return 1;
 	chip16.LoadRom(mem);
+
 	chip16.Run();
-	chip16.Clear();
-	// All the windowing is missing
-	
+	// Emulation is over
+    chip16.Clear();
 	delete mem;
+
 	return 0;
 }
