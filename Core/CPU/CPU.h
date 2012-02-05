@@ -77,7 +77,7 @@ namespace Chip16 {
 
 	public:
 		CPU(void);
-		~CPU(void);
+		virtual ~CPU(void);
 
 		virtual void Execute() = 0;
 		virtual void Init(const uint8* mem) = 0;

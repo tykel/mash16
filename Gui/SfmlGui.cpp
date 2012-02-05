@@ -17,32 +17,63 @@
 #include <SFML/Graphics.hpp>
 #include "SfmlGui.h"
 
-Chip16::SfmlGui::Init(int w, int h)
+Chip16::SfmlGui::SfmlGui() {
+    Gui();
+    m_window = new sf::RenderWindow();
+}
+
+void Chip16::SfmlGui::Init(int w, int h, const char* title, Chip16::System* sys)
  : m_width(w), m_height(h) {
+    m_title.assign(title);
+    m_cpu = sys->getCPU();
+    m_gpu = sys->getGPU();
+    m_spr_screen.setImage(m_gpu->getBuffer());
     m_scale = 1.0f;
     // Set up the SFML window
-    m_window = new sf::RenderWindow(sf::VideoMode(320,240),"mash16",sf::Style::Close);
+    m_window->Create(sf::VideoMode(320,240),m_title,sf::Style::Close);
     m_window->UseVerticalSync(true);
     m_window->SetFramerateLimit(60);
+}
+
+void Chip16::SfmlGui::Update() {
+    m_window->Draw(m_spr_screen);
+    m_window->Display();
 }
 
 Chip16::SfmlGui::Close() {
     delete m_window;
 }
 
-Chip16::SfmlGui::setScale(int scale) {
+void Chip16::SfmlGui::setScale(int scale) {
+    // Check the new scale is valid, apply it
     switch(scale) {
         case SCALE_1X:
+            if(m_scale != scale)
+                m_window->Create(sf::VideoMode(320,240),m_title,sf::Style::Close);
+            m_spr_screen.SetScale(1.0f,1.0f);
+            m_scale = scale;
             break;
         case SCALE_2X:
+            if(m_scale != scale)
+                m_window->Create(sf::VideoMode(640,480),m_title,sf::Style::Close);
+            m_spr_screen.SetScale(2.0f,2.0f);
+            m_scale = scale;
             break;
         case SCALE_4X:
+            if(m_scale != scale)
+                m_window->Create(sf::VideoMode(1280,960),m_title,sf::Style::Close);
+            m_spr_screen.SetScale(4.0f,4.0f);
+            m_scale = scale;
             break;
         case SCALE_FS:
+            if(m_scale != scale)
+                m_window->Create(VideoMode.GetDesktopMode(),m_title,sf::Style::Fullscreen);
+            m_spr_screen.SetScale(2.0f,2.0f);
+            m_scale = scale;
             break;
         default:
-            // Error
+            std::cerr << "error: Invalid scaling parameter: " << scale << std::endl;
             break;
     }
-    // Apply the new scale
 }
+

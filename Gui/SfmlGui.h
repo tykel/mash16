@@ -29,14 +29,16 @@ namespace Chip16 {
     class SfmlGui : public Gui {
         private:
             sf::RenderWindow* m_window;
-            
-            float m_scale;
+            sf::Sprite m_spr_screen;
+            std::string m_title;
+            int m_scale;
             
         public:
             SfmlGui();
             ~SfmlGui();
 
-            void Init(int w, int h);
+            void Init(int w, int h, const char* title);
+            void Update();
             void Close();
     
             void setScale(float scale);
