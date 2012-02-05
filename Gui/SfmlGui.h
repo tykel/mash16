@@ -20,15 +20,28 @@
 #include <SFML/Graphics.hpp>
 #include "Gui.h"
 
-class SfmlGui : public Gui {
-    private:
+enum scale {
+    SCALE_1X = 1, SCALE_2X = 2, SCALE_4X = 4, SCALE_FS = 0
+};
 
-    public:
-        SfmlGui();
-        ~SfmlGui();
+namespace Chip16 {
 
-        void Init();
-        void Resize();
+    class SfmlGui : public Gui {
+        private:
+            sf::RenderWindow* m_window;
+            
+            float m_scale;
+            
+        public:
+            SfmlGui();
+            ~SfmlGui();
+
+            void Init(int w, int h);
+            void Close();
+    
+            void setScale(float scale);
+    };
+
 }
 
 #endif

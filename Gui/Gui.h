@@ -17,17 +17,27 @@
 #ifndef GUI_H
 #define GUI_H
 
-class Gui {
-    private:
-        GPU* m_gpu;
+#include "../Core/CPU/CPU.h"
+#include "../Core/GPU/SfmlGPU.h"
 
-    public:
-        Gui();
-        ~Gui();
+namespace Chip16 {
+    
+    class Gui {
+        private:
+            Chip16::CPU* m_cpu;
+            Chip16::GPU* m_gpu;
+            
+            int m_width;
+            int m_height;
+            
+        public:
+            Gui();
+            ~Gui();
 
-        void Init(int w, int h) = 0;
-        void Resize(int w, int h) = 0;
-};
+            void Init(int w, int h) = 0;
+            void Close() = 0;
+    };
+}
 
 #endif
 
