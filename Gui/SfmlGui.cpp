@@ -22,8 +22,9 @@ Chip16::SfmlGui::SfmlGui() {
     m_window = new sf::RenderWindow();
 }
 
-void Chip16::SfmlGui::Init(int w, int h, const char* title, Chip16::System* sys)
- : m_width(w), m_height(h) {
+void Chip16::SfmlGui::Init(const char* title, Chip16::System* sys) {
+    m_width = 320;
+    m_height = 240;
     m_title.assign(title);
     m_cpu = sys->getCPU();
     m_gpu = sys->getGPU();

@@ -38,21 +38,37 @@ bool readFile(const char* fp, uint8* dest) {
 }
 
 int main(int argc, char** argv) {
-	// All the windowing is missing
-    Chip16::Gui window;
-	// The emulation proper
+	// Emulation core
     Chip16::System chip16;
-
+	
+    // Windowing system
+    Chip16::SfmlGui window;
+    window.Init("mash16",&chip16);
+    
+    // Read in file
 	uint8* mem = new uint8[MEMORY_SIZE]();
 	if(argc > 1)
 		readFile(argv[1],mem);
 	else 
 		return 1;
 	chip16.LoadRom(mem);
+    
+    bool stop = false;
+    // Start emulation
+    // TODO: Fix the VBLANK handling, it's ALL wrong for now!
+	while(!stop) {
+		uint32 dt = chip16.GetCurDt();
+		if(dt > CYCLE_DT) {
+			if(!chip16.getCPU()->IsWaitingVblnk())
+				chip16.ExecuteStep();
+		}
+		if(dt > FRAME_DT) {
+			window.Update();
+			chip16.getCPU()->WaitVblnk();
+		}
+	}
 
-	chip16.Run();
 	// Emulation is over
-    chip16.Clear();
 	delete mem;
 
 	return 0;

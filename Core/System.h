@@ -38,6 +38,7 @@ namespace Chip16 {
 		Chip16::GPU* m_gpu;
 		//Chip16::SPU* m_spu;
 		//Chip16::Pad* m_pad;
+		Chip16::Timer* m_timer;
 		
 		// System RAM
 		uint8* m_mem;
@@ -46,24 +47,23 @@ namespace Chip16 {
 		
 		// Return the dt since the last frame (ms)
 		uint32 GetCurDt();
-		// Runs a 'step' of the CPU's execution
-		// (Single instruction for the InterpCPU)
-		// (Basic block/fixed block for the DynarecCPU)
-		void ExecuteStep();
-	public:
+	
+    public:
 		System();
 		~System();
 		// Load a rom file
 		void LoadRom(uint8* mem);
-		// Use this to kick off the emulation
-		void Run();
+		// Runs a 'step' of the CPU's execution
+		// (Single instruction for the InterpCPU)
+		// (Basic block/fixed block for the DynarecCPU)
+		void ExecuteStep();
 		// Clean up after use
 		void Clear();
 
         // Getters for intercomponent communication
         Chip16::CPU* getCPU();
         Chip16::GPU* getGPU();
-	}
+	};
 
 }
 
