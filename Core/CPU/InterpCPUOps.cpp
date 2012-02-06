@@ -22,7 +22,7 @@
 
 void Chip16::InterpCPU::nop() { }
 void Chip16::InterpCPU::cls() { m_gpu->Clear(); }
-void Chip16::InterpCPU::vblnk() { /* stop execution until next vblnk */ }
+void Chip16::InterpCPU::vblnk() { WaitVblnk(); }
 void Chip16::InterpCPU::bgc() { m_gpu->m_state.bg = _N; }
 void Chip16::InterpCPU::spr() { m_gpu->m_state.sz = _IMM; }
 void Chip16::InterpCPU::drw_i() { 

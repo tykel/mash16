@@ -64,16 +64,14 @@ namespace Chip16 {
 	class CPU
 	{
 	protected:
-		GPU*		m_gpu;			// Ptr to GPU
-		System*		m_system;		// Ptr to parent system
+		GPU* m_gpu;	        // Ptr to GPU
+		System*	m_system;   // Ptr to parent system
 	
-		cpu_state	m_state;		// CPU state info
-		spr_info	m_sprinfo;		// Sprite info
-		cpu_instr*	m_instr;		// Current instruction
-		uint8*		m_mem;			// Ptr to memory
-		bool		m_isReady;		// is the system ready?
-		
-		void Draw(int16 x, int16 y, uint16 start);
+		cpu_state m_state;  // CPU state info
+		spr_info m_sprinfo; // Sprite info
+		cpu_instr* m_instr;	// Current instruction
+		uint8* m_mem;       // Ptr to memory
+		bool m_isWaitVblnk; // Is the system waiting for the next VBLNK?
 
 	public:
 		CPU(void);
@@ -82,8 +80,10 @@ namespace Chip16 {
 		virtual void Execute() = 0;
 		virtual void Init(const uint8* mem) = 0;
 		virtual void Clear() = 0;
-		bool IsReady();
-
+		
+		bool IsWaitingVblnk();
+		void WaitVblnk();
+		void UnWaitVblnk();
 	};
 
 }

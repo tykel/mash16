@@ -28,6 +28,7 @@ Chip16::System::System() {
 	m_gpu = new Chip16::SfmlGPU();
 	//m_spu = new Chip16::SfmlSPU();
 	//m_pad = new Chip16::SfmlPad();
+	m_timer = new Chip16::SfmlTimer();
 #else
 	// No other backends for now
 	m_gpu = NULL;
@@ -36,12 +37,16 @@ Chip16::System::System() {
 	// TODO: Initialize timing data
 }
 
+uint32 Chip16::System::GetCurDt() {
+	return m_timer->GetDt();
+}
+
 void Chip16::System::LoadRom(uint8* mem) {
 	m_mem = mem;
 }
 
-void Chip16::System::Run() {
-    // TODO
+void Chip16::System::ExecuteStep() {
+	// TODO
 }
 
 void Chip16::System::Clear() {

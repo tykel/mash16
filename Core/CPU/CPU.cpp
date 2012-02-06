@@ -34,28 +34,19 @@ Chip16::CPU::CPU(void)
 
 	m_mem = g_mem;
 	// TODO: Initalize m_gpu
-
-	bool m_isReady = true;
 }
 
 
-Chip16::CPU::~CPU(void)
-{
+Chip16::CPU::~CPU(void) { }
+
+bool Chip16::CPU::IsWaitingVblnk() {
+	return m_isWaitVblnk;
 }
 
-void Chip16::CPU::LoadROM(const char* fp) {
-	
+void Chip16::CPU::WaitVblnk() {
+	m_waitVblnk = true;
 }
 
-void Chip16::CPU::Draw(int16 x, int16 y, uint16 start) {
-	// Offset = rows * rowlen + column, / 2 because 2 spr/byte
-	m_sprinfo.data = (uint8*) ((uint32)m_mem + ((y*320 + x)>>1));
-	// Provide coords
-	m_sprinfo.x = x, m_sprinfo.y = y;
-	// Send to GPU for drawing!
-	m_gpu->Blit(&m_sprinfo);
-}
-
-bool Chip16::CPU::IsReady() {
-	return m_isReady;
+void Chip16::CPU::UnWaitVblnk() {
+	m_waitVblnk = false;
 }

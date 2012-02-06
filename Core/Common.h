@@ -33,7 +33,8 @@ const uint8  MAX_VALUE8	 = 0xFF;
 const uint16 NEG_BIT16   = 0x8000;
 const uint32 REGS_SIZE	 = 16;
 
-const uint32 FRAME_DT	= 16667;
+const uint32 CYCLE_DT = 1;
+const uint32 FRAME_DT = 16667;
 
 // Structure shared by CPU and CPU for fast sprite blitting
 struct spr_info {
