@@ -43,3 +43,9 @@ Chip16::GPU::GPU(void)
 Chip16::GPU::~GPU(void)
 {
 }
+
+void Chip16::LoadPalette(uint8* start) {
+    for(int i=0; i<16; ++i) {
+        m_colors[i] = (uint32)(*(start + i*4));
+    }
+}

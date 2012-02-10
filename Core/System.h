@@ -45,9 +45,6 @@ namespace Chip16 {
 		// Last frame counter/timestamp
 		uint32 m_lastT;
 		
-		// Return the dt since the last frame (ms)
-		uint32 GetCurDt();
-	
     public:
 		System();
 		~System();
@@ -59,10 +56,15 @@ namespace Chip16 {
 		void ExecuteStep();
 		// Clean up after use
 		void Clear();
+		// Return the dt since the last frame (ms)
+		uint32 GetCurDt();
+        // Reset timer
+        void ResetDt();	
 
         // Getters for intercomponent communication
         Chip16::CPU* getCPU();
         Chip16::GPU* getGPU();
+        Chip16::Timer* getTimer();
 	};
 
 }

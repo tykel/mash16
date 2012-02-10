@@ -33,7 +33,7 @@ Chip16::CPU::CPU(void)
 	m_sprinfo.y = 0;
 
 	m_mem = g_mem;
-	// TODO: Initalize m_gpu
+    m_gpu = m_system->getGPU();
 }
 
 

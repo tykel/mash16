@@ -17,12 +17,6 @@
 #include "System.h"
 
 Chip16::System::System() {
-// Initialize CPU core
-#ifdef CORE_DYNAREC
-	m_cpu = new Chip16::DynarecCPU();
-#else
-	m_cpu = new Chip16::InterpCPU();
-#endif
 // Initialize library-dependant components
 #ifdef BACKEND_SFML
 	m_gpu = new Chip16::SfmlGPU();
@@ -34,11 +28,20 @@ Chip16::System::System() {
 	m_gpu = NULL;
 #endif
 	m_mem = NULL;
-	// TODO: Initialize timing data
+// Initialize CPU core
+#ifdef CORE_DYNAREC
+	m_cpu = new Chip16::DynarecCPU();
+#else
+	m_cpu = new Chip16::InterpCPU();
+#endif
 }
 
 uint32 Chip16::System::GetCurDt() {
 	return m_timer->GetDt();
+}
+
+void Chip16:System::ResetDt() {
+    m_timer->Reset();
 }
 
 void Chip16::System::LoadRom(uint8* mem) {
@@ -57,6 +60,7 @@ void Chip16::System::Clear() {
     for(int i=0; i<REGS_SIZE; ++i) {
         m_cpu->r[i] = 0;
     }
+    m_gpu->Clear();
 }
 
 Chip16::CPU* Chip16::System::getCPU() {
@@ -65,4 +69,8 @@ Chip16::CPU* Chip16::System::getCPU() {
 
 Chip16::GPU* Chip16::System::getGPU() {
     return m_gpu;
+}
+
+Chip16::Timer* Chip16::System::getTimer() {
+    return m_timer;
 }
