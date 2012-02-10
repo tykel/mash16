@@ -54,21 +54,26 @@ int main(int argc, char** argv) {
 	chip16.LoadRom(mem);
     
     bool stop = false;
+    int cycles; 
     // Start emulation
-    // TODO: Fix the VBLANK handling, it's ALL wrong for now!
 	while(!stop) {
-		uint32 dt = chip16.GetCurDt();
-		if(dt > CYCLE_DT) {
+        // Process one frame's worth of CPU cycles
+		cycles = 0;
+        while(cycles++ < FRAME_DT) {
 			if(!chip16.getCPU()->IsWaitingVblnk())
-				chip16.ExecuteStep();
+                chip16.ExecuteStep();
 		}
-		if(dt > FRAME_DT) {
-			window.Update();
-			chip16.getCPU()->WaitVblnk();
-		}
+        // (Busy) Wait the remaining frame time
+		while(chip16.GetCurDt() > FRAME_DT) {
+        }
+        // Update the window contents
+		window.Update();
+        // Start timer for new frame
+        chip16.ResetDt();
 	}
 
 	// Emulation is over
+    chip16->Clear();
 	delete mem;
 
 	return 0;

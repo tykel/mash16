@@ -61,6 +61,23 @@ void Chip16::SfmlGPU::Clear() {
     // Reset the frame buffer
     for(int i=0; i<320*240; ++i)
         buffer32[i] = bg;
+    // Restore the color table to the default palette
+    m_colors[BLACK_TR]  = 0x00000000;
+    m_colors[BLACK]     = 0x00000000;
+    m_colors[GRAY]      = 0x88888800;
+    m_colors[RED]       = 0xBF393200;
+    m_colors[PINK]      = 0xDE7AAE00;
+    m_colors[DK_BROWN]  = 0x4C3D2100;
+    m_colors[BROWN]     = 0x905F2500;
+    m_colors[ORANGE]    = 0xE4945200;
+    m_colors[YELLOW]    = 0xEAD97900;
+    m_colors[GREEN]     = 0x537A3B00;
+    m_colors[LT_GREEN]  = 0xABD54A00;
+    m_colors[DK_BLUE]   = 0x252E3800;
+    m_colors[BLUE]      = 0x00467F00;
+    m_colors[LT_BLUE]   = 0x68ABCC00;
+    m_colors[SKY_BLUE]  = 0xBCDEE400;
+    m_colors[WHITE]     = 0xFFFFFF00;
 }
 
 sf::Image& Chip16::SfmlGPU::getBuffer() {

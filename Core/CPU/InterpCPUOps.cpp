@@ -442,8 +442,8 @@ void Chip16::InterpCPU::popf() {
 }
 
 void Chip16::InterpCPU::pal_i() {
-    // TODO: Needs GPU implementation
+    m_gpu->LoadPalette((uint8*)(m_mem + _IMM));
 }
 void Chip16::InterpCPU::pal_r() {
-    // TODO: Needs GPU implementation
+    m_gpu->LoadPalette((uint8*)(m_mem + m_mem[_RX]));
 }
