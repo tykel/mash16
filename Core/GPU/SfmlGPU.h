@@ -36,6 +36,9 @@ namespace Chip16 {
 		void Blit(spr_info* si);
 		void Draw();
 		void Clear();
+        void ResetPalette();
+        void UpdateBg(uint32 newcol);
+        void Dump();
 
         void* getBuffer();
 	};

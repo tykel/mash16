@@ -45,11 +45,6 @@ int main(int argc, char** argv) {
     std::clog << "creating chip16 system object\n";
 	// Emulation core
     Chip16::System chip16;
-	
-    std::clog << "creating window/render object\n";
-    // Windowing system
-    Chip16::SfmlGui window;
-    window.Init(title,&chip16);
     
     std::clog << "reading in file\n";
     // Read in file
@@ -63,6 +58,11 @@ int main(int argc, char** argv) {
     std::clog << "initialize system object fully\n";
     //Initialize it now we have memory occupied
     chip16.Init();
+	
+    std::clog << "creating window/render object\n";
+    // Windowing system
+    Chip16::SfmlGui window;
+    window.Init(title,&chip16);
 
     std::clog << "entering emulation loop\n";
     int cycles; 

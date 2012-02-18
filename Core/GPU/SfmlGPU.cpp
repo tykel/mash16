@@ -16,6 +16,8 @@
 
 #include "SfmlGPU.h"
 
+#include <iostream>
+
 Chip16::SfmlGPU::SfmlGPU(void)
 {
     m_screen.Create(320,240);
@@ -28,10 +30,13 @@ Chip16::SfmlGPU::~SfmlGPU(void)
 }
 
 void Chip16::SfmlGPU::Blit(spr_info* si) {
+    //std::clog << "spr: x=" << si->x << " y=" << si->y;
     // Address the buffer 32 bits at a time
     uint32* buffer32 = (uint32*)m_buffer;
     // Get the base location to blit
     uint32 base = (si->y * 320) + si->x;
+    //std::clog << std::hex << " badd=0x" << base << " w=" << m_state.w
+    //    << " h=" << m_state.h;
 	// Draw a sprite to the screen
     for(int i=0; i<m_state.w*m_state.h; ++i) {
         // Get the color pair to blit
@@ -39,10 +44,15 @@ void Chip16::SfmlGPU::Blit(spr_info* si) {
         // Offset to this pair of pixels
         uint32 offs = (i/m_state.w)*320 + i;
         // High-bit pixel
+        //std::clog << " [0x" << buffer32[base+offs]
+        //    << " -> 0x" << m_colors[col2 >> 4];
         buffer32[base + offs] = m_colors[col2 >> 4];
         // Low-bit pixel
+        //std::clog << "] [0x" << buffer32[base+offs+1]
+        //    << " -> 0x" << m_colors[col2 & 0x0F];
         buffer32[base + offs + 1] = m_colors[col2 & 0x0F];  
     }
+    //std::clog << "]" << std::dec << std::endl;
 }
 
 void Chip16::SfmlGPU::Draw() {
@@ -51,8 +61,6 @@ void Chip16::SfmlGPU::Draw() {
 }
 
 void Chip16::SfmlGPU::Clear() {
-	// Clear the screen to the bg color
-    m_screen.Create(320,240);
     // Get the color indexed as the bg
     uint32 bg = m_colors[m_state.bg];
     // Address the buffer 32 bits at a time
@@ -60,6 +68,9 @@ void Chip16::SfmlGPU::Clear() {
     // Reset the frame buffer
     for(int i=0; i<320*240; ++i)
         buffer32[i] = bg;
+}
+
+void Chip16::SfmlGPU::ResetPalette() {
     // Restore the color table to the default palette
     m_colors[BLACK_TR]  = 0x00000000;
     m_colors[BLACK]     = 0x00000000;
@@ -79,6 +90,29 @@ void Chip16::SfmlGPU::Clear() {
     m_colors[WHITE]     = 0xFFFFFF00;
 }
 
+void Chip16::SfmlGPU::UpdateBg(uint32 newcol) {
+    uint32 ncol = m_colors[newcol];
+    uint32* buffer32 = (uint32*)m_buffer;
+    for(int i=0; i<320*240; ++i) {
+        if(buffer32[i] == m_colors[m_state.bg])
+            buffer32[i] = ncol;
+    }
+    m_state.bg = newcol;
+}
+
 void* Chip16::SfmlGPU::getBuffer() {
     return (void*)(&m_screen);
+}
+
+void Chip16::SfmlGPU::Dump() {
+    Chip16::GPU::Dump();
+    for(int j=0; j<240; ++j) {
+        for(int i=0; i<320; ++i) {
+            if(m_buffer[i] != m_colors[m_state.bg])
+                std::clog << "#";
+            else
+                std::clog << ".";
+        }
+        std::clog << std::endl;
+    }
 }
