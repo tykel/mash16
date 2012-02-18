@@ -16,12 +16,15 @@
 
 #include "Core/Common.h"
 #include "Core/System.h"
+#include "Gui/SfmlGui.h"
 
 #include <fstream>
 #include <iostream>
 
+const char* title = "mash16";
+
 bool readFile(const char* fp, uint8* dest) {	
-	std::fstream rom(fp,std::ios::binary);
+	std::ifstream rom(fp,std::ios::binary);
 	if(rom.is_open()) {
 		// Find file length
 		rom.seekg (0, std::ios::end);
@@ -38,13 +41,17 @@ bool readFile(const char* fp, uint8* dest) {
 }
 
 int main(int argc, char** argv) {
+    std::clog << "argc: " << argc << "\nargv[1]: " << argv[1] << std::endl;
+    std::clog << "creating chip16 system object\n";
 	// Emulation core
     Chip16::System chip16;
 	
+    std::clog << "creating window/render object\n";
     // Windowing system
     Chip16::SfmlGui window;
-    window.Init("mash16",&chip16);
+    window.Init(title,&chip16);
     
+    std::clog << "reading in file\n";
     // Read in file
 	uint8* mem = new uint8[MEMORY_SIZE]();
 	if(argc > 1)
@@ -53,28 +60,34 @@ int main(int argc, char** argv) {
 		return 1;
 	chip16.LoadRom(mem);
     
-    bool stop = false;
+    std::clog << "initialize system object fully\n";
+    //Initialize it now we have memory occupied
+    chip16.Init();
+
+    std::clog << "entering emulation loop\n";
     int cycles; 
     // Start emulation
-	while(!stop) {
+	while(window.IsOpen()) {
         // Process one frame's worth of CPU cycles
 		cycles = 0;
         while(cycles++ < FRAME_DT) {
-			if(!chip16.getCPU()->IsWaitingVblnk())
+			if(!chip16.getCPU()->IsWaitingVblnk()) 
                 chip16.ExecuteStep();
 		}
         // (Busy) Wait the remaining frame time
-		while(chip16.GetCurDt() > FRAME_DT) {
+		while(chip16.GetCurDt() < FRAME_DT) {
         }
         // Update the window contents
 		window.Update();
         // Start timer for new frame
         chip16.ResetDt();
 	}
-
+    
+    std::clog << "clearing up\n";
 	// Emulation is over
-    chip16->Clear();
+    chip16.Clear();
 	delete mem;
 
+    std::clog << "exiting\n";
 	return 0;
 }

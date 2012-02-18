@@ -14,6 +14,9 @@
 	If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifndef INTERP_CPU_CPP
+#define INTERP_CPU_CPP
+
 #include "InterpCPU.h"
 #include "Opcodes.h"
 
@@ -27,7 +30,7 @@ void Chip16::InterpCPU::bgc() { m_gpu->m_state.bg = _N; }
 void Chip16::InterpCPU::spr() { m_gpu->m_state.sz = _IMM; }
 void Chip16::InterpCPU::drw_i() { 
 	m_sprinfo.x = _RX;
-	m_sprinfo.y = _RX;
+	m_sprinfo.y = _RY;
 	m_sprinfo.data = (uint8*)(m_mem + _IMM); 
 	m_gpu->Blit(&m_sprinfo); 
 }
@@ -275,7 +278,7 @@ void Chip16::InterpCPU::or_r2() {
 	*rx |= ry;
 	flags_or((int32)*rx,(int32)ry);
 }
-void Chip16::InterpCPU::ori() {
+void Chip16::InterpCPU::or_r3() {
 	int16 rx = _RX; int16 ry = _IMM; int16* rz = (int16*)&_RZ;
 	*rz = rx | ry;
 	flags_or((int32)rx,(int32)ry);
@@ -382,7 +385,7 @@ void Chip16::InterpCPU::flags_shr(int32 rx, int32 ry) {
 void Chip16::InterpCPU::shr_n() {
 	uint16* rx = (uint16*)&_RX; int16 n = _N;
 	*rx >>= n;
-	flags_shr((int32)*rx,(int32)ry);
+	flags_shr((int32)*rx,(int32)n);
 }
 void Chip16::InterpCPU::shr_r() {
 	uint16* rx = (uint16*)&_RX; int16 ry = _RY;
@@ -427,7 +430,7 @@ void Chip16::InterpCPU::popall() {
 	int16* _sp = (int16*)&m_mem[_SP];
 	for(int32 i=REGS_SIZE-1; i>=0; --i) {
 		--_sp; m_state.sp -= 2;
-		int16* rx = (in16*)&m_state.r[i];
+		int16* rx = (int16*)&m_state.r[i];
 		*rx = *_sp;
 	}
 }
@@ -447,3 +450,6 @@ void Chip16::InterpCPU::pal_i() {
 void Chip16::InterpCPU::pal_r() {
     m_gpu->LoadPalette((uint8*)(m_mem + m_mem[_RX]));
 }
+
+#endif
+

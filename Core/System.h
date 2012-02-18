@@ -22,6 +22,7 @@
 #include "GPU/GPU.h"
 //#include "SPU/SPU.h"
 //#include "Pad/Pad.h"
+#include "Timer/Timer.h"
 
 // Uncomment to use Dynamic recompiler core
 //#define CORE_DYNAREC
@@ -31,14 +32,16 @@
 
 namespace Chip16 {
 
+    class CPU;
+
 	class System {
 	private:
 		// (Base) components of the Chip16 system - use implementations
-		Chip16::CPU* m_cpu;
-		Chip16::GPU* m_gpu;
-		//Chip16::SPU* m_spu;
-		//Chip16::Pad* m_pad;
-		Chip16::Timer* m_timer;
+		CPU* m_cpu;
+		GPU* m_gpu;
+		//SPU* m_spu;
+		//Pad* m_pad;
+		Timer* m_timer;
 		
 		// System RAM
 		uint8* m_mem;
@@ -48,7 +51,9 @@ namespace Chip16 {
     public:
 		System();
 		~System();
-		// Load a rom file
+        // Initialization
+		void Init();
+        // Load a rom file
 		void LoadRom(uint8* mem);
 		// Runs a 'step' of the CPU's execution
 		// (Single instruction for the InterpCPU)
@@ -62,9 +67,9 @@ namespace Chip16 {
         void ResetDt();	
 
         // Getters for intercomponent communication
-        Chip16::CPU* getCPU();
-        Chip16::GPU* getGPU();
-        Chip16::Timer* getTimer();
+        CPU* getCPU();
+        GPU* getGPU();
+        Timer* getTimer();
 	};
 
 }

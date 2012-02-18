@@ -48,14 +48,17 @@ namespace Chip16 {
 	public:
 		gpu_state m_state;
         uint32 m_colors[16];
-		GPU(void);
+
+        GPU(void);
 		virtual ~GPU(void);
 
 		void LoadPalette(uint8* start);
 
-        virtual void Blit(spr_info* si) = 0;
-		virtual void Draw() = 0;
-		virtual void Clear() = 0;
+        virtual void Blit(spr_info* si);
+		virtual void Draw();
+		virtual void Clear();
+
+        virtual void* getBuffer();
 	};
 
 }

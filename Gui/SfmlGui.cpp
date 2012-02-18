@@ -14,21 +14,24 @@
 	If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <SFML/Graphics.hpp>
 #include "SfmlGui.h"
 
+#include <SFML/Graphics.hpp>
+#include <iostream>
+
 Chip16::SfmlGui::SfmlGui() {
-    Gui();
     m_window = new sf::RenderWindow();
 }
 
-void Chip16::SfmlGui::Init(const char* title, Chip16::System* sys) {
+Chip16::SfmlGui::~SfmlGui() { }
+
+void Chip16::SfmlGui::Init(const char* title, System* sys) {
     m_width = 320;
     m_height = 240;
     m_title.assign(title);
     m_cpu = sys->getCPU();
     m_gpu = sys->getGPU();
-    m_spr_screen.setImage(m_gpu->getBuffer());
+    m_spr_screen.SetImage(*(sf::Image*)m_gpu->getBuffer());
     m_scale = 1.0f;
     // Set up the SFML window
     m_window->Create(sf::VideoMode(320,240),m_title,sf::Style::Close);
@@ -37,12 +40,23 @@ void Chip16::SfmlGui::Init(const char* title, Chip16::System* sys) {
 }
 
 void Chip16::SfmlGui::Update() {
+    // Update screen contents
     m_window->Draw(m_spr_screen);
     m_window->Display();
+    // Process events
+    sf::Event evt;
+    while(m_window->GetEvent(evt)) {
+        if (evt.Type == sf::Event::Closed)
+            m_window->Close();
+    }
 }
 
-Chip16::SfmlGui::Close() {
+void Chip16::SfmlGui::Close() {
     delete m_window;
+}
+
+bool Chip16::SfmlGui::IsOpen(void) {
+    return m_window->IsOpened(); 
 }
 
 void Chip16::SfmlGui::setScale(int scale) {
@@ -68,7 +82,8 @@ void Chip16::SfmlGui::setScale(int scale) {
             break;
         case SCALE_FS:
             if(m_scale != scale)
-                m_window->Create(VideoMode.GetDesktopMode(),m_title,sf::Style::Fullscreen);
+                m_window->Create(sf::VideoMode::GetDesktopMode(),m_title,
+                        sf::Style::Fullscreen);
             m_spr_screen.SetScale(2.0f,2.0f);
             m_scale = scale;
             break;

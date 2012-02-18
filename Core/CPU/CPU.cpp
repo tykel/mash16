@@ -32,21 +32,26 @@ Chip16::CPU::CPU(void)
 	m_sprinfo.x = 0;
 	m_sprinfo.y = 0;
 
-	m_mem = g_mem;
-    m_gpu = m_system->getGPU();
+	m_mem = NULL;
+    m_gpu = NULL; 
+    m_isWaitVblnk = false;
 }
 
 
 Chip16::CPU::~CPU(void) { }
+
+void Chip16::CPU::Execute() {}
+void Chip16::CPU::Init(const uint8* mem, System* sys) {}
+void Chip16::CPU::Clear() {}
 
 bool Chip16::CPU::IsWaitingVblnk() {
 	return m_isWaitVblnk;
 }
 
 void Chip16::CPU::WaitVblnk() {
-	m_waitVblnk = true;
+	m_isWaitVblnk = true;
 }
 
 void Chip16::CPU::UnWaitVblnk() {
-	m_waitVblnk = false;
+	m_isWaitVblnk = false;
 }

@@ -20,13 +20,15 @@
 #include "GPU.h"
 #include "../Common.h"
 
+#include <SFML/Graphics.hpp>
+
 namespace Chip16 {
 
 	class SfmlGPU : public GPU
 	{
     private:
         sf::Image m_screen;        
-        uint8 buffer[320*240*4];
+        uint8 m_buffer[320*240*4];
     public:
 		SfmlGPU(void);
 		~SfmlGPU(void);
@@ -34,6 +36,8 @@ namespace Chip16 {
 		void Blit(spr_info* si);
 		void Draw();
 		void Clear();
+
+        void* getBuffer();
 	};
 
 }

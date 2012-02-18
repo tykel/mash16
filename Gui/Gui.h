@@ -18,14 +18,14 @@
 #define GUI_H
 
 #include "../Core/CPU/CPU.h"
-#include "../Core/GPU/SfmlGPU.h"
+#include "../Core/GPU/GPU.h"
 
 namespace Chip16 {
     
     class Gui {
-        private:
-            Chip16::CPU* m_cpu;
-            Chip16::GPU* m_gpu;
+        protected:
+            CPU* m_cpu;
+            GPU* m_gpu;
             
             int m_width;
             int m_height;
@@ -34,9 +34,10 @@ namespace Chip16 {
             Gui();
             virtual ~Gui();
 
-            void Init(int w, int h) = 0;
-            void Update() = 0;
-            void Close() = 0;
+            virtual void Init(const char* title, System* ch16);
+            virtual void Update();
+            virtual void Close();
+            virtual bool IsOpen();
     };
 }
 

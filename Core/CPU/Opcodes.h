@@ -37,7 +37,7 @@ enum chip16_opcodes {
 };
 
 // Mnemonics for debugger output
-char* chip16_mnemonics[] = {
+const char* chip16_mnemonics[] = {
 	"nop","cls","vblnk","bgc","spr","drw","rnd","flip","snd0","snd1","snd2","snd3","snp","sng","",
 	"jmp","jmc","j","jme","call","ret","jmp","c","call","","","","","","","",
 	"ldi","ldi","ldm","ldm","mov","","","","","","","","","","",

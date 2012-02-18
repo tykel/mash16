@@ -61,6 +61,8 @@ enum cpu_conds {
 
 namespace Chip16 {
 
+    class System;
+
 	class CPU
 	{
 	protected:
@@ -77,9 +79,9 @@ namespace Chip16 {
 		CPU(void);
 		virtual ~CPU(void);
 
-		virtual void Execute() = 0;
-		virtual void Init(const uint8* mem) = 0;
-		virtual void Clear() = 0;
+		virtual void Execute();
+		virtual void Init(const uint8* mem, System* sys);
+		virtual void Clear();
 		
 		bool IsWaitingVblnk();
 		void WaitVblnk();
