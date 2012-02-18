@@ -14,11 +14,13 @@
 	If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "InterpCPU.h"
 #include "Opcodes.h"
+#include "InterpCPU.h"
+#include "InterpCPUOps.cpp"
 
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
 
 Chip16::InterpCPU::InterpCPU(void)
 {
@@ -37,7 +39,7 @@ void Chip16::InterpCPU::Execute() {
 	_PC += 4;
 	// Execute
 	switch(m_instr->op) {
-	case NOP:		nop(); break;
+    case NOP:		nop(); break;
 	case CLS:		cls(); break;
 	case VBLNK:		vblnk(); break;
 	case BGC:		bgc(); break;
@@ -102,18 +104,29 @@ void Chip16::InterpCPU::Execute() {
 	case POPALL:	popall(); break;
 	case PUSHF:		pushf(); break;
 	case POPF:		popf(); break;
+    case PAL_I:     pal_i(); break;
+    case PAL_R:     pal_r(); break;
 
 	default:
-		break;
+        int bk = 0;
+        break;
 	}
 }
 
-void Chip16::InterpCPU::Init(const uint8* mem) {
+void Chip16::InterpCPU::Init(const uint8* mem, System* ch16) {
 	m_mem = (uint8*)mem;
+    m_system = ch16;
+    m_gpu = m_system->getGPU();
 	srand((uint32)time(NULL));
 }
 
 void Chip16::InterpCPU::Clear() {
-
+    // Zero-ing memory is not necessary, as it is undefined behaviour
+    m_state.pc = 0x0000;
+    m_state.sp = ADDR_SP;
+    m_state.fl = 0x0000;
+    for(int i=0; i<REGS_SIZE; ++i) {
+        m_state.r[i] = 0;
+    }
 }
 

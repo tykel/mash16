@@ -37,11 +37,12 @@ namespace Chip16 {
             SfmlGui();
             ~SfmlGui();
 
-            void Init(int w, int h, const char* title);
+            void Init(const char* title, System* ch16);
             void Update();
             void Close();
-    
-            void setScale(float scale);
+            bool IsOpen();
+
+            void setScale(int scale);
     };
 
 }

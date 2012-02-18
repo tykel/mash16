@@ -15,9 +15,13 @@
 */
 
 #include "System.h"
+#include "CPU/InterpCPU.h"
+#include "CPU/DynarecCPU.h"
+#include "GPU/SfmlGPU.h"
+#include "Timer/SfmlTimer.h"
 
 Chip16::System::System() {
-// Initialize library-dependant components
+// Allocate library-dependant components
 #ifdef BACKEND_SFML
 	m_gpu = new Chip16::SfmlGPU();
 	//m_spu = new Chip16::SfmlSPU();
@@ -36,12 +40,19 @@ Chip16::System::System() {
 #endif
 }
 
+Chip16::System::~System() { }
+
+void Chip16::System::Init() {
+    m_cpu->Init(m_mem, this);
+}
+
 uint32 Chip16::System::GetCurDt() {
 	return m_timer->GetDt();
 }
 
-void Chip16:System::ResetDt() {
+void Chip16::System::ResetDt() {
     m_timer->Reset();
+    m_cpu->UnWaitVblnk();
 }
 
 void Chip16::System::LoadRom(uint8* mem) {
@@ -49,17 +60,11 @@ void Chip16::System::LoadRom(uint8* mem) {
 }
 
 void Chip16::System::ExecuteStep() {
-	// TODO
+	m_cpu->Execute();
 }
 
 void Chip16::System::Clear() {
-    // Zero-ing memory is not necessary, as it is undefined behaviour
-    m_cpu->pc = 0x0000;
-    m_cpu->sp = ADDR_SP;
-    m_cpu->fl = 0x0000;
-    for(int i=0; i<REGS_SIZE; ++i) {
-        m_cpu->r[i] = 0;
-    }
+    m_cpu->Clear();
     m_gpu->Clear();
 }
 

@@ -17,12 +17,14 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-typedef unsigned __int8	 uint8;
-typedef signed __int8     int8;
-typedef unsigned __int16 uint16;
-typedef signed __int16    int16;
-typedef unsigned __int32 uint32;
-typedef signed __int32    int32;
+#include <stdint.h>
+
+typedef uint8_t uint8;
+typedef int8_t int8;
+typedef uint16_t uint16;
+typedef int16_t int16;
+typedef uint32_t uint32;
+typedef int32_t int32;
 
 const uint32 MEMORY_SIZE = 0x10000;
 const uint32 MAX_ADDRESS = 0x0FFFF;
