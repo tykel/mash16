@@ -16,6 +16,8 @@
 
 #include "GPU.h"
 
+#include <iostream>
+
 Chip16::GPU::GPU(void)
 {
 	m_state.bg = 0x0;
@@ -47,10 +49,16 @@ Chip16::GPU::~GPU(void)
 void Chip16::GPU::Blit(spr_info* si) { }
 void Chip16::GPU::Draw() { }
 void Chip16::GPU::Clear() { }
+void Chip16::GPU::UpdateBg(uint32 newcol) { }
 void* Chip16::GPU::getBuffer() { }
 
 void Chip16::GPU::LoadPalette(uint8* start) {
     for(int i=0; i<16; ++i) {
         m_colors[i] = (uint32)(*(start + i*4));
     }
+}
+
+void Chip16::GPU::Dump() {
+    std::clog << "BGC: " << m_state.bg
+        << "\nSIZE: " << m_state.sz << std::endl;
 }

@@ -57,6 +57,8 @@ namespace Chip16 {
         virtual void Blit(spr_info* si);
 		virtual void Draw();
 		virtual void Clear();
+        virtual void UpdateBg(uint32 newcol);
+        virtual void Dump();
 
         virtual void* getBuffer();
 	};
