@@ -20,7 +20,8 @@
 typedef unsigned char OPCODE;
 
 enum chip16_opcodes {
-	NOP =	0x00, CLS, VBLNK, BGC, SPR, DRW_I, DRW_R, RND, FLIP, SND0, SND1, SND2, SND3,
+	NOP =	0x00, CLS, VBLNK, BGC, SPR, DRW_I, DRW_R, RND, FLIP, 
+        SND0, SND1, SND2, SND3, SNP, SNG,
 	JMP_I = 0x10, JMC, Jx, JME, CALL_I, RET, JMP_R, Cx, CALL_R,
 	LDI_R = 0x20, LDI_SP, LDM_I, LDM_R, MOV,
 	STM_I = 0x30, STM_R,
@@ -38,18 +39,19 @@ enum chip16_opcodes {
 
 // Mnemonics for debugger output
 const char* chip16_mnemonics[] = {
-	"nop","cls","vblnk","bgc","spr","drw","rnd","flip","snd0","snd1","snd2","snd3","snp","sng","",
+	"nop","cls","vblnk","bgc","spr","drw","drw","rnd","flip",
+        "snd0","snd1","snd2","snd3","snp","sng","",
 	"jmp","jmc","j","jme","call","ret","jmp","c","call","","","","","","","",
-	"ldi","ldi","ldm","ldm","mov","","","","","","","","","","",
-	"stm","stm","","","","","","","","","","","","","","","",
-	"addi","add","add","","","","","","","","","","","","","","",
-	"subi","sub","sub","cmpi","cmp","","","","","","","","","","","","",
-	"andi","and","and","tsti","tst","","","","","","","","","","","","",
-	"ori","or","or","","","","","","","","","","","","","","",
-	"xori","xor","xor","","","","","","","","","","","","","","",
-	"muli","mul","mul","","","","","","","","","","","","","","",
-	"divi","div","div","","","","","","","","","","","","","","",
-	"shl","shr","sar","shl","shr","sar","","","","","","","","","","","",
+	"ldi","ldi","ldm","ldm","mov","","","","","","","","","","","",
+	"stm","stm","","","","","","","","","","","","","","",
+	"addi","add","add","","","","","","","","","","","","","",
+	"subi","sub","sub","cmpi","cmp","","","","","","","","","","","",
+	"andi","and","and","tsti","tst","","","","","","","","","","","",
+	"ori","or","or","","","","","","","","","","","","","",
+	"xori","xor","xor","","","","","","","","","","","","","",
+	"muli","mul","mul","","","","","","","","","","","","","",
+	"divi","div","div","","","","","","","","","","","","","",
+	"shl","shr","sar","shl","shr","sar","","","","","","","","","","",
 	"push","pop","pushall","popall","pushf","popf","","","","","","","","","","",
     "pal","pal"
 };

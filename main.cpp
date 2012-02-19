@@ -63,6 +63,7 @@ int main(int argc, char** argv) {
     // Windowing system
     Chip16::SfmlGui window;
     window.Init(title,&chip16);
+    window.setScale(2);
 
     std::clog << "entering emulation loop\n";
     int cycles; 
@@ -77,6 +78,8 @@ int main(int argc, char** argv) {
         // (Busy) Wait the remaining frame time
 		while(chip16.GetCurDt() < FRAME_DT) {
         }
+        // Let the GPU push screen changes 
+        chip16.getGPU()->Draw();
         // Update the window contents
 		window.Update();
         // Start timer for new frame

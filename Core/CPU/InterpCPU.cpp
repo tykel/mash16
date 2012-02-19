@@ -35,10 +35,12 @@ Chip16::InterpCPU::~InterpCPU(void)
 void Chip16::InterpCPU::Execute() {
 	// Fetch
 	m_instr = (cpu_instr*)((uint8*)(m_mem +_PC));
+    //std::clog << std::hex << _PC << ": " << chip16_mnemonics[m_instr->op]
+    //    << "(" << (int)m_instr->op << ")\n" << std::dec;
 	// Increment PC
 	_PC += 4;
 	// Execute
-	switch(m_instr->op) {
+    switch(m_instr->op) {
     case NOP:		nop(); break;
 	case CLS:		cls(); break;
 	case VBLNK:		vblnk(); break;
@@ -52,9 +54,12 @@ void Chip16::InterpCPU::Execute() {
 	case SND1:		snd1(); break;
 	case SND2:		snd2(); break;
 	case SND3:		snd3();	break;
+    case SNP:       snp(); break;
+    case SNG:       sng(); break;
 	case JMP_I:		jmp_i(); break;
+    case Jx:        jx(); break;
 	case JMC:		jmc(); break;
-	case JME:		jme(); break;
+    case JME:		jme(); break;
 	case JMP_R:		jmp_r(); break;
 	case CALL_I:	call_i(); break;
 	case RET:		ret(); break;
@@ -108,7 +113,9 @@ void Chip16::InterpCPU::Execute() {
     case PAL_R:     pal_r(); break;
 
 	default:
-        int bk = 0;
+        std::clog << "illegal opcode: 0x" 
+            << std::hex << (int)m_instr->op << " (@pc: 0x" 
+            << m_state.pc-4 << ")\n" << std::dec;
         break;
 	}
 }

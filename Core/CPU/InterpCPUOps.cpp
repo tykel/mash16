@@ -280,7 +280,7 @@ void Chip16::InterpCPU::or_r2() {
 	flags_or((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::or_r3() {
-	int16 rx = _RX; int16 ry = _IMM; int16* rz = (int16*)&_RZ;
+	int16 rx = _RX; int16 ry = _RY; int16* rz = (int16*)&_RZ;
 	*rz = rx | ry;
 	flags_or((int32)rx,(int32)ry);
 }
