@@ -30,7 +30,10 @@ Chip16::SfmlGPU::~SfmlGPU(void)
 }
 
 void Chip16::SfmlGPU::Blit(spr_info* si) {
-    //std::clog << "spr: x=" << si->x << " y=" << si->y;
+    //std::clog << "spr: x=" << si->x << " y=" << si->y 
+    //    << " w=" << m_state.w*2 << "=" << m_state.w << "B"
+    //    << " h=" << m_state.h << " sz=" << m_state.w*m_state.h
+    //    << std::endl;
     // Address the buffer 32 bits at a time
     uint32* buffer32 = (uint32*)m_buffer;
     uint32 base = (si->y * 320) + si->x;
