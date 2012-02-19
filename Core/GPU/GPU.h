@@ -35,8 +35,8 @@ struct gpu_state {
 	union {
 		uint32 sz;			// Sprite size (aggr.)
 		struct {
-			uint16	h;		// Sprite height (in cols)
 			uint16	w;		// Sprite width (in B)
+			uint16	h;		// Sprite height (in cols)
 		};
 	};
 };
