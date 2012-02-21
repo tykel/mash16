@@ -1,6 +1,6 @@
 /*
 	Mash16 - an open-source C++ Chip16 emulator
-    Copyright (C) 2011 Tim Kelsall
+    Copyright (C) 2011-12 Tim Kelsall
 
     Mash16 is free software: you can redistribute it and/or modify it under the terms 
 	of the GNU General Public License as published by the Free Software Foundation, 
@@ -27,6 +27,7 @@ Chip16::CPU::CPU(void)
 	m_state.r = g_regs;
 	m_state.pc = 0;
 	m_state.sp = 0;
+    m_state.fl = 0;
 
 	m_sprinfo.data = NULL;
 	m_sprinfo.x = 0;

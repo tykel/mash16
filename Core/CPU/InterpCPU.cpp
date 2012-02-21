@@ -1,6 +1,6 @@
 /*
 	Mash16 - an open-source C++ Chip16 emulator
-    Copyright (C) 2011 Tim Kelsall
+    Copyright (C) 2011-12 Tim Kelsall
 
     Mash16 is free software: you can redistribute it and/or modify it under the terms 
 	of the GNU General Public License as published by the Free Software Foundation, 
@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <iomanip>
 
 Chip16::InterpCPU::InterpCPU(void)
 {
@@ -35,10 +36,12 @@ Chip16::InterpCPU::~InterpCPU(void)
 void Chip16::InterpCPU::Execute() {
 	// Fetch
 	m_instr = (cpu_instr*)((uint8*)(m_mem +_PC));
-    //std::clog << std::hex << _PC << ": " << chip16_mnemonics[m_instr->op]
-    //    << "(" << (int)m_instr->op << ")\n" << std::dec;
 	// Increment PC
-	_PC += 4;
+	if(_PC + 4 < _PC) {
+        std::clog << "pc overflow: 0x" << std::hex << _PC << std::endl;
+        exit(1);
+    }
+    _PC += 4;
 	// Execute
     switch(m_instr->op) {
     case NOP:		nop(); break;
@@ -115,7 +118,15 @@ void Chip16::InterpCPU::Execute() {
 	default:
         std::clog << "illegal opcode: 0x" 
             << std::hex << (int)m_instr->op << " (@pc: 0x" 
-            << m_state.pc-4 << ")\n" << std::dec;
+            << m_state.pc-4 << ")\n" << "instr: 0x"
+            << (int)m_instr->op << (int)m_instr->yx 
+            << std::setw(4) << std::setfill('0')
+            << (int)m_instr->hhll << std::dec << std::endl;
+        for(int i=0; i<8; ++i)
+            std::clog << "r" << std::hex << i << ": 0x" << std::setw(4)
+                << m_state.r[i] << "\tr" << i+8 << ": 0x" << std::setw(4)
+                << m_state.r[i+8] << std::dec <<std::endl;
+        exit(1);
         break;
 	}
 }
