@@ -1,6 +1,6 @@
 /*
 	Mash16 - an open-source C++ Chip16 emulator
-    Copyright (C) 2011 Tim Kelsall
+    Copyright (C) 2011-12 Tim Kelsall
 
     Mash16 is free software: you can redistribute it and/or modify it under the terms 
 	of the GNU General Public License as published by the Free Software Foundation, 
@@ -41,31 +41,30 @@ bool readFile(const char* fp, uint8* dest) {
 }
 
 int main(int argc, char** argv) {
-    std::clog << "argc: " << argc << "\nargv[1]: " << argv[1] << std::endl;
-    std::clog << "creating chip16 system object\n";
 	// Emulation core
     Chip16::System chip16;
     
-    std::clog << "reading in file\n";
     // Read in file
 	uint8* mem = new uint8[MEMORY_SIZE]();
-	if(argc > 1)
-		readFile(argv[1],mem);
+	if(argc > 1) {
+		if(!readFile(argv[1],mem))
+            return 1;
+    }
 	else 
 		return 1;
+    std::clog << "read file: " << argv[1] << std::endl;
 	chip16.LoadRom(mem);
+    std::clog << "loaded rom\n";
     
-    std::clog << "initialize system object fully\n";
     //Initialize it now we have memory occupied
     chip16.Init();
 	
-    std::clog << "creating window/render object\n";
     // Windowing system
     Chip16::SfmlGui window;
     window.Init(title,&chip16);
+    std::clog << "using 2X scale (640x480)\n";
     window.setScale(2);
 
-    std::clog << "entering emulation loop\n";
     int cycles; 
     // Start emulation
 	while(window.IsOpen()) {
@@ -86,7 +85,6 @@ int main(int argc, char** argv) {
         chip16.ResetDt();
 	}
     
-    std::clog << "clearing up\n";
 	// Emulation is over
     chip16.Clear();
 	delete mem;

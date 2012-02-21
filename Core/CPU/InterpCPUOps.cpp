@@ -1,6 +1,6 @@
 /*
 	Mash16 - an open-source C++ Chip16 emulator
-    Copyright (C) 2011 Tim Kelsall
+    Copyright (C) 2011-12 Tim Kelsall
 
     Mash16 is free software: you can redistribute it and/or modify it under the terms 
 	of the GNU General Public License as published by the Free Software Foundation, 
@@ -20,6 +20,7 @@
 #include "InterpCPU.h"
 #include "Opcodes.h"
 
+#include <iostream>
 #include <cstdlib>
 #include <ctime>
 
@@ -149,32 +150,32 @@ void Chip16::InterpCPU::ldi_r() {
 }
 void Chip16::InterpCPU::ldi_sp() { m_state.sp = _IMM; }
 void Chip16::InterpCPU::ldm_i() { 
-	int16* rx = &_RX; *rx = m_mem[_IMM]; 
+	int16* rx = &_RX; *rx = m_mem[_IMM] | (m_mem[_IMM + 1] << 8); 
 }
 void Chip16::InterpCPU::ldm_r() { 
-	int16* rx = &_RX; *rx = m_mem[_RY];
+	int16* rx = &_RX; *rx = m_mem[_RY] | (m_mem[_RY + 1] << 8);
 }
 void Chip16::InterpCPU::mov() { 
 	int16* rx = &_RX; *rx =_RY; 
 }
 void Chip16::InterpCPU::stm_i() { 
-	uint16* _pm = (uint16*)&m_mem[_IMM];
+	int16* _pm = (int16*)&m_mem[_IMM];
 	*_pm =  _RX;
 }
 void Chip16::InterpCPU::stm_r() { 
-	uint16* _pm = (uint16*)&m_mem[_RY];
+	int16* _pm = (int16*)&m_mem[_RY];
 	*_pm =  _RX;
 }
 void Chip16::InterpCPU::flags_add(int32 rx, int32 ry) {
 	int32 res = rx + ry;
 	m_state.fl = 0;
-	if(res > MAX_VALUE16)
+	if(res > MAX_SVALUE16)
 		m_state.fl |= FLAG_C;
-	else if(res == 0)
+	if(res == 0)
 		m_state.fl |= FLAG_Z;
-	else if((rx < 0 && ry < 0 && res >= 0) || (rx > 0 && ry > 0 && res < 0))
+	if((rx < 0 && ry < 0 && res >= 0) || (rx > 0 && ry > 0 && res < 0))
 		m_state.fl |= FLAG_O;
-	else if(res < 0)
+	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::addi() {
@@ -197,11 +198,11 @@ void Chip16::InterpCPU::flags_sub(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(res < MAX_NVALUE16)
 		m_state.fl |= FLAG_C;
-	else if(!res)
+	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if((rx < 0 && ry >= 0 && res >= 0) || (rx >= 0 && ry < 0 && res < 0))
+	if((rx < 0 && ry >= 0 && res >= 0) || (rx >= 0 && ry < 0 && res < 0))
 		m_state.fl |= FLAG_O;
-	else if(res < 0)
+	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::subi() {
@@ -233,7 +234,7 @@ void Chip16::InterpCPU::flags_and(int32 rx, int32 ry) {
 	if(!res) {
 		m_state.fl |= FLAG_Z;
 	}
-	else if(res < 0) {
+	if(res < 0) {
 		m_state.fl |= FLAG_N;
 	}
 }
@@ -265,7 +266,7 @@ void Chip16::InterpCPU::flags_or(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if(res & NEG_BIT16)
+	if(res & NEG_BIT16)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::ori() {
@@ -289,7 +290,7 @@ void Chip16::InterpCPU::flags_xor(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if(res & NEG_BIT16)
+	if(res & NEG_BIT16)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::xori() {
@@ -312,9 +313,9 @@ void Chip16::InterpCPU::flags_mul(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(res > MAX_SVALUE16)
 		m_state.fl |= FLAG_C;
-	else if(!res)
+	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if(res & NEG_BIT16)
+	if(res & NEG_BIT16)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::muli() {
@@ -337,9 +338,9 @@ void Chip16::InterpCPU::flags_div(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(rem != 0)
 		m_state.fl |= FLAG_C;
-	else if(!res)
+	if(!res)
 		m_state.fl != FLAG_Z;
-	else if(res < 0)
+	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::divi() {
@@ -362,7 +363,7 @@ void Chip16::InterpCPU::flags_shl(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if(res < 0)
+	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::shl_n() {
@@ -380,7 +381,7 @@ void Chip16::InterpCPU::flags_shr(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if(res < 0)
+	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::shr_n() {
@@ -398,7 +399,7 @@ void Chip16::InterpCPU::flags_sar(int32 rx, int32 ry) {
 	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
-	else if(res < 0)
+	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::sar_n() {
@@ -449,7 +450,7 @@ void Chip16::InterpCPU::pal_i() {
     m_gpu->LoadPalette((uint8*)(m_mem + _IMM));
 }
 void Chip16::InterpCPU::pal_r() {
-    m_gpu->LoadPalette((uint8*)(m_mem + m_mem[_RX]));
+    m_gpu->LoadPalette((uint8*)(m_mem + _RX));
 }
 
 #endif
