@@ -42,9 +42,8 @@ namespace Chip16 {
 		//SPU* m_spu;
 		//Pad* m_pad;
 		Timer* m_timer;
+        uint8* m_mem;
 		
-		// System RAM
-		uint8* m_mem;
 		// Last frame counter/timestamp
 		uint32 m_lastT;
 		

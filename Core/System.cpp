@@ -15,10 +15,13 @@
 */
 
 #include "System.h"
+#include "Common.h"
 #include "CPU/InterpCPU.h"
 #include "CPU/DynarecCPU.h"
 #include "GPU/SfmlGPU.h"
 #include "Timer/SfmlTimer.h"
+
+#include <iostream>
 
 Chip16::System::System() {
 // Allocate library-dependant components
@@ -31,7 +34,7 @@ Chip16::System::System() {
 	// No other backends for now
 	m_gpu = NULL;
 #endif
-	m_mem = NULL;
+    m_mem = NULL;
 // Initialize CPU core
 #ifdef CORE_DYNAREC
 	m_cpu = new Chip16::DynarecCPU();
@@ -43,7 +46,8 @@ Chip16::System::System() {
 Chip16::System::~System() { }
 
 void Chip16::System::Init() {
-    m_cpu->Init(m_mem, this);
+    m_cpu->Init(m_mem,this);
+    m_gpu->Init();
 }
 
 uint32 Chip16::System::GetCurDt() {
@@ -56,7 +60,7 @@ void Chip16::System::ResetDt() {
 }
 
 void Chip16::System::LoadRom(uint8* mem) {
-	m_mem = mem;
+    m_mem = mem;
 }
 
 void Chip16::System::ExecuteStep() {
