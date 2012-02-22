@@ -23,7 +23,7 @@ Chip16::GPU::GPU(void)
 	m_state.bg = 0x0;
 	m_state.sz = 0x0000;
     // Initialize the color table to the default palette
-    m_colors[BLACK_TR]  = 0x00000000;
+    m_colors[BLACK_TR]  = 0xFF000000;
     m_colors[BLACK]     = 0xFF000000;
     m_colors[GRAY]      = 0xFF888888;
     m_colors[RED]       = 0xFF3239BF;//0xBF393200;
@@ -46,6 +46,7 @@ Chip16::GPU::~GPU(void)
 {
 }
 
+void Chip16::GPU::Init() { }
 void Chip16::GPU::Blit(spr_info* si) { }
 void Chip16::GPU::Draw() { }
 void Chip16::GPU::Clear() { }
