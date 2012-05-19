@@ -52,7 +52,6 @@ namespace Chip16 {
         GPU(void);
 		virtual ~GPU(void);
 
-        void Init();
 		void LoadPalette(uint8* start);
 
         virtual void Blit(spr_info* si);

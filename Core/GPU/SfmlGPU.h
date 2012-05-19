@@ -27,14 +27,13 @@ namespace Chip16 {
 	class SfmlGPU : public GPU
 	{
     private:
-        sf::Image m_screen;
+        sf::Image m_screen;        
         uint8 m_buffer[320*240*4];
-        uint8 m_idbuffer[160*120];
+        uint8 m_indbuf[160*240];
     public:
 		SfmlGPU(void);
 		~SfmlGPU(void);
-        
-        void Init();
+
 		void Blit(spr_info* si);
 		void Draw();
 		void Clear();
