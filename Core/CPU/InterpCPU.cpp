@@ -34,13 +34,11 @@ Chip16::InterpCPU::~InterpCPU(void)
 
 // Apparently switch/case is faster than function pointers... so here goes
 void Chip16::InterpCPU::Execute() {
-    std::clog << "pc: 0x" << std::hex << (uint32)_PC << std::dec << std::endl;
-    
-    // Fetch
+	// Fetch
 	m_instr = (cpu_instr*)((uint8*)(m_mem +_PC));
 	// Increment PC
 	if(_PC + 4 < _PC) {
-        std::clog << "pc overflow: 0x" << std::hex << _PC << std::hex << std::endl;
+        std::clog << "pc overflow: 0x" << std::hex << _PC << std::endl;
         exit(1);
     }
     _PC += 4;
@@ -134,17 +132,19 @@ void Chip16::InterpCPU::Execute() {
 }
 
 void Chip16::InterpCPU::Init(const uint8* mem, System* ch16) {
-    m_mem = (uint8*)mem;
+	m_mem = (uint8*)mem;
     m_system = ch16;
     m_gpu = m_system->getGPU();
 	srand((uint32)time(NULL));
 }
 
 void Chip16::InterpCPU::Clear() {
+    // Zero-ing memory is not necessary, as it is undefined behaviour
     m_state.pc = 0x0000;
     m_state.sp = ADDR_SP;
     m_state.fl = 0x0000;
-    for(int i=0; i<REGS_SIZE; ++i) 
+    for(int i=0; i<REGS_SIZE; ++i) {
         m_state.r[i] = 0;
+    }
 }
 

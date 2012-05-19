@@ -43,8 +43,7 @@ void Chip16::InterpCPU::drw_r() {
 	m_gpu->Blit(&m_sprinfo); 
 }
 void Chip16::InterpCPU::rnd() { 
-	_RX = rand() % (_IMM + 1);
-    std::clog << "rnd: " << _RX << std::endl; 
+	_RX = rand() % (_IMM + 1); 
 }
 void Chip16::InterpCPU::flip() { m_gpu->m_state.fp = (uint32) m_instr->fp; }
 void Chip16::InterpCPU::snd0() { /* SPU: TODO*/ }
@@ -59,7 +58,7 @@ void Chip16::InterpCPU::jmc() {
 		jmp_i();
 }
 void Chip16::InterpCPU::jx() {
-	switch(_N) {
+	switch(m_instr->yx & 0x0F) {
 	case C_Z:
 		if(m_state.fl & FLAG_Z) _PC = _IMM;
 		break;
@@ -99,7 +98,7 @@ void Chip16::InterpCPU::jx() {
 			m_state.pc = m_instr->hhll;
 		break;
 	case C_BE:
-		if((m_state.fl & FLAG_C) || (m_state.fl & FLAG_Z))
+		if(m_state.fl & FLAG_C & FLAG_Z)
 			m_state.pc = m_instr->hhll;
 		break;
 	case C_G:
@@ -115,7 +114,7 @@ void Chip16::InterpCPU::jx() {
 			m_state.pc = m_instr->hhll;
 		break;
 	case C_LE:
-		if((m_state.fl & FLAG_Z) || (((m_state.fl & FLAG_O) >> 6) != ((m_state.fl & FLAG_N) >> 7)))
+		if((m_state.fl & FLAG_Z) && (((m_state.fl & FLAG_O) >> 6) != ((m_state.fl & FLAG_N) >> 7)))
 			m_state.pc = m_instr->hhll;
 		break;
 	default:
@@ -126,7 +125,7 @@ void Chip16::InterpCPU::jme() {
 	if(_RX == _RY)
 		_PC = _IMM;
 }
-void Chip16::InterpCPU::jmp_r() { _PC = _RX; }
+void Chip16::InterpCPU::jmp_r() { m_state.pc = m_state.r[m_instr->yx & 0x0F]; }
 void Chip16::InterpCPU::call_i() {
 	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp =_PC;
 	m_state.sp += 2;
@@ -137,12 +136,12 @@ void Chip16::InterpCPU::ret() {
 	m_state.pc = m_mem[_SP];
 }
 void Chip16::InterpCPU::cx() { 
-	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp = _PC;
+	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp = m_state.pc;
 	m_state.sp += 2;
 	jx();
 }
 void Chip16::InterpCPU::call_r() { 
-	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp = _PC;
+	uint16* _sp = (uint16*)&m_mem[_SP]; *_sp = m_state.pc;
 	m_state.sp += 2;
 	m_state.pc = _RX;
 }
@@ -169,10 +168,8 @@ void Chip16::InterpCPU::stm_r() {
 }
 void Chip16::InterpCPU::flags_add(int32 rx, int32 ry) {
 	int32 res = rx + ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-	//if(res > MAX_SVALUE16)
-    if(rx < ry)
+	m_state.fl = 0;
+	if(res > MAX_SVALUE16)
 		m_state.fl |= FLAG_C;
 	if(res == 0)
 		m_state.fl |= FLAG_Z;
@@ -183,25 +180,23 @@ void Chip16::InterpCPU::flags_add(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::addi() {
 	int16* rx = &_RX; int16 imm = _IMM;
-	flags_add((int32)*rx,(int32)imm);
 	*rx += imm;
+	flags_add((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::add_r2() {	
 	int16* rx = &_RX; int16 ry = _RY;
-	flags_add((int32)*rx,(int32)ry);
 	*rx += ry;
+	flags_add((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::add_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = &_RZ;
-	flags_add((int32)rx,(int32)ry);
 	*rz = rx + ry;
+	flags_add((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_sub(int32 rx, int32 ry) {
 	int32 res = rx - ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-	//if(res < MAX_NVALUE16)
-    if(rx < ry)
+	m_state.fl = 0;
+	if(res < MAX_NVALUE16)
 		m_state.fl |= FLAG_C;
 	if(!res)
 		m_state.fl |= FLAG_Z;
@@ -212,18 +207,18 @@ void Chip16::InterpCPU::flags_sub(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::subi() {
 	int16* rx = &_RX; int16 imm = _IMM;
-	flags_sub((int32)*rx,(int32)imm);
 	*rx -= imm;
+	flags_sub((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::sub_r2() {
 	int16* rx = &_RX; int16 ry = _RY;
-	flags_sub((int32)*rx,(int32)ry);
 	*rx -= ry;
+	flags_sub((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::sub_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = &_RZ;
-	flags_sub((int32)rx,(int32)ry);
 	*rz = rx - ry;
+	flags_sub((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::cmpi() {
 	int16 rx = _RX; int16 imm = _IMM;
@@ -235,8 +230,7 @@ void Chip16::InterpCPU::cmp() {
 }
 void Chip16::InterpCPU::flags_and(int32 rx, int32 ry) {
 	int32 res = rx & ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(!res) {
 		m_state.fl |= FLAG_Z;
 	}
@@ -246,18 +240,18 @@ void Chip16::InterpCPU::flags_and(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::andi() {
 	int16* rx = &_RX; int16 imm = _IMM;
-	flags_and((int32)*rx,(int32)imm);
 	*rx &= imm;
+	flags_and((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::and_r2() {
 	int16* rx = &_RX; int16  ry = _RY;
-	flags_and((int32)*rx,(int32)ry);
 	*rx &= ry;
+	flags_and((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::and_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = &_RZ;
-	flags_and((int32)rx,(int32)ry);
 	*rz = rx & ry;
+	flags_and((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::tsti() {
 	int16 rx  = _RX; int16 imm = _IMM;
@@ -269,8 +263,7 @@ void Chip16::InterpCPU::tst() {
 }
 void Chip16::InterpCPU::flags_or(int32 rx, int32 ry) {
 	int32 res = rx | ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
 	if(res & NEG_BIT16)
@@ -279,23 +272,22 @@ void Chip16::InterpCPU::flags_or(int32 rx, int32 ry) {
 void Chip16::InterpCPU::ori() {
 	int16* rx = (int16*)&_RX;
 	int16 imm = _IMM;
-	flags_or((int32)*rx,(int32)imm);
 	*rx |= imm;
+	flags_or((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::or_r2() {
 	int16* rx = (int16*)&_RX; int16  ry = _RY;
-	flags_or((int32)*rx,(int32)ry);
 	*rx |= ry;
+	flags_or((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::or_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = (int16*)&_RZ;
-	flags_or((int32)rx,(int32)ry);
 	*rz = rx | ry;
+	flags_or((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_xor(int32 rx, int32 ry) {
 	int32 res = rx ^ ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
 	if(res & NEG_BIT16)
@@ -303,23 +295,22 @@ void Chip16::InterpCPU::flags_xor(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::xori() {
 	int16* rx = (int16*)&_RX; int16 imm = _IMM;
-	flags_xor((int32)*rx,(int32)imm);
 	*rx ^= imm;
+	flags_xor((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::xor_r2() {
 	int16* rx = (int16*)&_RX; int16 ry = _RY;
-	flags_xor((int32)*rx,(int32)ry);
 	*rx ^= ry;
+	flags_xor((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::xor_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = (int16*)&_RZ;
-	flags_xor((int32)rx,(int32)ry);
 	*rz = rx ^ ry;
+	flags_xor((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_mul(int32 rx, int32 ry) {
 	int32 res = rx * ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_C | FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(res > MAX_SVALUE16)
 		m_state.fl |= FLAG_C;
 	if(!res)
@@ -329,49 +320,47 @@ void Chip16::InterpCPU::flags_mul(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::muli() {
 	int16* rx = (int16*)&_RX; int16 imm = _IMM;
-	flags_mul((int32)*rx,(int32)imm);
 	*rx *= imm;
+	flags_mul((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::mul_r2() {
 	int16* rx = (int16*)&_RX; int16 ry = _RY;
-	flags_mul((int32)*rx,(int32)ry);
 	*rx *= ry;
+	flags_mul((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::mul_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = (int16*)&_RZ;
-	flags_mul((int32)rx,(int32)ry);
 	*rz = rx * ry;
+	flags_mul((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_div(int32 rx, int32 ry) {
 	int32 res = rx / ry, rem = rx % ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_C | FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(rem != 0)
 		m_state.fl |= FLAG_C;
 	if(!res)
-		m_state.fl |= FLAG_Z;
+		m_state.fl != FLAG_Z;
 	if(res < 0)
 		m_state.fl |= FLAG_N;
 }
 void Chip16::InterpCPU::divi() {
 	int16* rx = (int16*)&_RX; int16 imm = _IMM;
-	flags_div((int32)*rx,(int32)imm);
 	*rx /= imm;
+	flags_div((int32)*rx,(int32)imm);
 }
 void Chip16::InterpCPU::div_r2() {
 	int16* rx = (int16*)&_RX; int16 ry = _RY;
-	flags_div((int32)*rx,(int32)ry);
 	*rx /= ry;
+	flags_div((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::div_r3() {
 	int16 rx = _RX; int16 ry = _RY; int16* rz = (int16*)&_RZ;
-	flags_div((int32)rx,(int32)ry);
 	*rz = rx / ry;
+	flags_div((int32)rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_shl(int32 rx, int32 ry) {
 	int32 res = rx << ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
 	if(res < 0)
@@ -379,18 +368,17 @@ void Chip16::InterpCPU::flags_shl(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::shl_n() {
 	int16* rx = (int16*)&_RX; int16 n = _N;
-	flags_shl((int32)*rx,(int32)n);
 	*rx <<= n;
+	flags_shl((int32)*rx,(int32)n);
 }
 void Chip16::InterpCPU::shl_r() {
 	int16* rx = (int16*)&_RX; int16 ry = _RY;
-	flags_shl((int32)*rx,(int32)ry);
 	*rx <<= ry;
+	flags_shl((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_shr(int32 rx, int32 ry) {
-	uint32 res = (uint32)rx >> (uint32)ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_Z | FLAG_N);
+	uint32 res = rx >> ry;
+	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
 	if(res < 0)
@@ -398,18 +386,17 @@ void Chip16::InterpCPU::flags_shr(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::shr_n() {
 	uint16* rx = (uint16*)&_RX; int16 n = _N;
-	flags_shr((int32)*rx,(int32)n);
 	*rx >>= n;
+	flags_shr((int32)*rx,(int32)n);
 }
 void Chip16::InterpCPU::shr_r() {
 	uint16* rx = (uint16*)&_RX; int16 ry = _RY;
-	flags_shr((int32)*rx,(int32)ry);
 	*rx >>= ry;
+	flags_shr((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::flags_sar(int32 rx, int32 ry) {
 	int32 res = rx >> ry;
-	//m_state.fl = 0;
-    m_state.fl &= ~(FLAG_Z | FLAG_N);
+	m_state.fl = 0;
 	if(!res)
 		m_state.fl |= FLAG_Z;
 	if(res < 0)
@@ -417,13 +404,13 @@ void Chip16::InterpCPU::flags_sar(int32 rx, int32 ry) {
 }
 void Chip16::InterpCPU::sar_n() {
 	int16* rx = (int16*)&_RX; int16 n = _N;
-	flags_sar((int32)*rx,(int32)n);
 	*rx >>= n;
+	flags_sar((int32)*rx,(int32)n);
 }
 void Chip16::InterpCPU::sar_r() {
 	int16* rx = (int16*)&_RX; int16 ry = _RY;
-	flags_sar((int32)*rx,(int32)ry);
 	*rx >>= ry;
+	flags_sar((int32)*rx,(int32)ry);
 }
 void Chip16::InterpCPU::push() {
 	int16* _sp = (int16*)&m_mem[_SP]; *_sp = _RX;

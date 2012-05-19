@@ -81,9 +81,8 @@ void Chip16::SfmlGui::setScale(int scale) {
             m_scale = scale;
             break;
         case SCALE_FS:
-            // Unstable on linux, not recommended
             if(m_scale != scale)
-                m_window->Create(sf::VideoMode(640,480),m_title,
+                m_window->Create(sf::VideoMode::GetDesktopMode(),m_title,
                         sf::Style::Fullscreen);
             m_spr_screen.SetScale(2.0f,2.0f);
             m_scale = scale;

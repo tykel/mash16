@@ -18,8 +18,6 @@
 #include "Core/System.h"
 #include "Gui/SfmlGui.h"
 
-#include <SFML/System.hpp>
-
 #include <fstream>
 #include <iostream>
 
@@ -65,7 +63,7 @@ int main(int argc, char** argv) {
     Chip16::SfmlGui window;
     window.Init(title,&chip16);
     std::clog << "using 2X scale (640x480)\n";
-    window.setScale(SCALE_2X);
+    window.setScale(2);
 
     int cycles; 
     // Start emulation
@@ -76,10 +74,9 @@ int main(int argc, char** argv) {
 			if(!chip16.getCPU()->IsWaitingVblnk()) 
                 chip16.ExecuteStep();
 		}
-        // Sleep the remaining frame time
-		if(chip16.GetCurDt() < FRAME_DT)
-            // Move to Chip16::Timer and Chip16::System
-            sf::Sleep((FRAME_DT-chip16.GetCurDt())/2000000);
+        // (Busy) Wait the remaining frame time
+		while(chip16.GetCurDt() < FRAME_DT) {
+        }
         // Let the GPU push screen changes 
         chip16.getGPU()->Draw();
         // Update the window contents
@@ -87,8 +84,8 @@ int main(int argc, char** argv) {
         // Start timer for new frame
         chip16.ResetDt();
 	}
-    
-	// Emulation is over
+	
+    // Emulation is over
     chip16.Clear();
 	delete mem;
 

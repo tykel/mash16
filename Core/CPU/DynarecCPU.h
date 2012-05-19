@@ -28,7 +28,7 @@ namespace Chip16 {
 		~DynarecCPU(void);
 
 		void Execute();
-		void Init(const uint8* mem, System* sys);
+		void Init(const uint8* mem);
 		void Clear();
 	};
 

@@ -22,17 +22,12 @@ Chip16::SfmlGPU::SfmlGPU(void)
 {
     m_screen.Create(320,240);
     m_screen.SetSmooth(false);
+    Clear();
 }
 
 
 Chip16::SfmlGPU::~SfmlGPU(void)
 {
-}
-
-void Chip16::SfmlGPU::Init() {
-    m_state.bg = 0x0;
-    m_state.sz = 0;
-    Clear();
 }
 
 void Chip16::SfmlGPU::Blit(spr_info* si) {
@@ -48,22 +43,22 @@ void Chip16::SfmlGPU::Blit(spr_info* si) {
     for(int i=0; i<m_state.w*m_state.h; ++i) {
         // Get the color pair to blit
         uint8 col2 = *(si->data + i);
-        uint32 idoffs = (i/m_state.w)*160 + i%m_state.w;
-        if(base + idoffs > 0 && base + idoffs < (160*240 - 1))
-            m_idbuffer[base + idoffs] = col2;
+        uint32 indoffs = (i/m_state.w)*160 + i%m_state.w;
+        if(base + indoffs < 0 || base + indoffs > 160*240)
+            continue;
+        m_indbuf[base + indoffs] = col2;
         // Offset to this pair of pixels
         uint32 offs = (i/m_state.w)*320 + 2*(i % m_state.w);
+        if(base + offs < 0 || base + offs > 320*240)
+            continue;
         //std::clog << " [0x" << buffer32[base+offs]
         //    << " -> 0x" << m_colors[col2 >> 4];
-        // If we have a negative offset
-        if(base + offs < 0 || base + offs > (320*240 - 2))
-           continue;
-        buffer32[base + offs] = col2 >> 4 ? m_colors[col2 >> 4]
-                : m_colors[m_state.bg];
+        if(col2 >> 4 != BLACK_TR)
+            buffer32[base + offs] = m_colors[col2 >> 4];
         //std::clog << "] [0x" << buffer32[base+offs+1]
         //    << " -> 0x" << m_colors[col2 & 0x0F];
-        buffer32[base + offs + 1] = col2 & 0x0F ? m_colors[col2 & 0x0F]
-                : m_colors[m_state.bg];
+        if(col2 & 0x0F != BLACK_TR)
+            buffer32[base + offs + 1] = m_colors[col2 & 0x0F];  
     }
     //std::clog << "]" << std::dec << std::endl;
 }
@@ -80,7 +75,7 @@ void Chip16::SfmlGPU::Clear() {
     uint32* buffer32 = (uint32*)m_buffer;
     // Reset the frame buffer
     for(int i=0; i<160*240; ++i) {
-        m_idbuffer[i] = BLACK_TR;
+        m_indbuf[i] = BLACK_TR;
         buffer32[2*i] = bg;
         buffer32[2*i+1] = bg;
     }
@@ -110,9 +105,9 @@ void Chip16::SfmlGPU::UpdateBg(uint32 newcol) {
     uint32 ncol = m_colors[newcol];
     uint32* buffer32 = (uint32*)m_buffer;
     for(int i=0; i<160*240; ++i) {
-        if((m_idbuffer[i] >> 4) == BLACK_TR) 
+        if(m_indbuf[i] >> 4 == BLACK_TR)
             buffer32[2*i] = ncol;
-        if((m_idbuffer[i] & 0x0F) == BLACK_TR)
+        if(m_indbuf[i] & 0x0F == BLACK_TR)
             buffer32[2*i+1] = ncol;
     }
     m_state.bg = newcol;
@@ -127,8 +122,8 @@ void Chip16::SfmlGPU::Dump() {
     std::clog << std::hex;
     for(int j=0; j<240; ++j) {
         for(int i=0; i<160; ++i) {
-            if(m_idbuffer[i] != BLACK_TR)
-                std::clog << m_idbuffer[i];
+            if(m_indbuf[i] != BLACK_TR)
+                std::clog << m_indbuf[i];
             else
                 std::clog << ".";
         }

@@ -46,7 +46,6 @@ Chip16::GPU::~GPU(void)
 {
 }
 
-void Chip16::GPU::Init() { }
 void Chip16::GPU::Blit(spr_info* si) { }
 void Chip16::GPU::Draw() { }
 void Chip16::GPU::Clear() { }
