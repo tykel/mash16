@@ -22,3 +22,6 @@ typedef struct ch16_rom
 } ch16_rom;
 #pragma pack(pop)
 
+
+int read_header(ch16_header*, uint32_t, uint8_t*);
+
