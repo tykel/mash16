@@ -3,6 +3,28 @@
 
 #include "../consts.h"
 
+#define FLAG_C 2
+#define FLAG_Z 4
+#define FLAG_O 64
+#define FLAG_N 128
+
+#define C_Z  0x0
+#define C_NZ 0x1
+#define C_N  0x2
+#define C_NN 0x3
+#define C_P  0x4
+#define C_O  0x5
+#define C_NO 0x6
+#define C_A  0x7
+#define C_AE 0x8
+#define C_B  0x9
+#define C_BE 0xa
+#define C_L  0xb
+#define C_LE 0xc
+#define C_G  0xd
+#define C_GE 0xe
+#define C_RES 0xf
+
 /* Instruction representation. */
 typedef union
 {
@@ -143,17 +165,19 @@ void op_pushf(cpu_state*);
 void op_popf(cpu_state*);
 void op_pal_imm(cpu_state*);
 void op_pal_r(cpu_state*);
-
-void flags_add(int16_t,int16_t);
-void flags_sub(int16_t,int16_t);
-void flags_and(int16_t,int16_t);
-void flags_or(int16_t,int16_t);
-void flags_xor(int16_t,int16_t);
-void flags_mul(int16_t,int16_t);
-void flags_div(int16_t,int16_t);
-void flags_shl(int16_t,int16_t);
-void flags_shr(int16_t,int16_t);
-void flags_sar(int16_t,int16_t);
+/* Generate the flags for the arithmetic instructions. */
+void flags_add(int16_t,int16_t,cpu_state*);
+void flags_sub(int16_t,int16_t,cpu_state*);
+void flags_and(int16_t,int16_t,cpu_state*);
+void flags_or(int16_t,int16_t,cpu_state*);
+void flags_xor(int16_t,int16_t,cpu_state*);
+void flags_mul(int16_t,int16_t,cpu_state*);
+void flags_div(int16_t,int16_t,cpu_state*);
+void flags_shl(int16_t,int16_t,cpu_state*);
+void flags_shr(int16_t,int16_t,cpu_state*);
+void flags_sar(uint16_t,int16_t,cpu_state*);
+/* Test the current jump/call conditional. */
+int test_cond(cpu_state*);
 
 #endif
 
