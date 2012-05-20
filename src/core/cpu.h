@@ -2,6 +2,7 @@
 #define CPU_H
 
 #include "../consts.h"
+#include <SDL/SDL.h>
 
 #define FLAG_C 2
 #define FLAG_Z 4
@@ -94,6 +95,7 @@ cpu_op op_table[0x100];
 /* CPU functions. */
 void cpu_init(cpu_state*);
 void cpu_step(cpu_state*);
+void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
 
 void op_error(cpu_state*);
 void op_nop(cpu_state*);

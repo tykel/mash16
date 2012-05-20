@@ -89,10 +89,47 @@ void cpu_init(cpu_state* state)
 /* Execute 1 CPU cycle. */
 void cpu_step(cpu_state* state)
 {
-    state->pc += 4;
+    /* Fetch instruction, increase PC. */
     state->i = *(instr*)(&state->m[state->pc]);
+    state->pc += 4;
     /* Call function ptr table entry */
+    (*op_table[state->i.op])(state);
+    /* Update cycles. */
     ++state->meta.cycles;
+}
+
+void cpu_io_update(SDL_KeyboardEvent* key, cpu_state* state)
+{
+    switch(key->keysym.sym)
+    {
+        case SDLK_UP:
+            state->m[IO_PAD1_ADDR] |= PAD_UP;
+            break;
+        case SDLK_DOWN:
+            state->m[IO_PAD1_ADDR] |= PAD_DOWN;
+            break;
+        case SDLK_LEFT:
+            state->m[IO_PAD1_ADDR] |= PAD_LEFT;
+            break;
+        case SDLK_RIGHT:
+            state->m[IO_PAD1_ADDR] |= PAD_RIGHT;
+            break;
+        case SDLK_RSHIFT:
+            state->m[IO_PAD1_ADDR] |= PAD_SELECT;
+            break;
+        case SDLK_RETURN:
+            state->m[IO_PAD1_ADDR] |= PAD_START;
+            break;
+        case SDLK_z:
+            state->m[IO_PAD1_ADDR] |= PAD_A;
+            break;
+        case SDLK_x:
+            state->m[IO_PAD1_ADDR] |= PAD_B;
+            break;
+        default:
+            break;
+    }
+
 }
 
 void op_error(cpu_state* state)

@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -std=gnu99 -Wall
-LDFLAGS = -lm
+LDFLAGS = -lm `sdl-config --libs`
 OBJ = obj
 OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o
 

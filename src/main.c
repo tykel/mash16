@@ -5,8 +5,11 @@
  *  main.c : program entry point 
  */
 
-#include "header/header.h"
 #include "consts.h"
+#include "header/header.h"
+#include "core/cpu.h"
+
+#include <SDL/SDL.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -57,8 +60,48 @@ int main(int argc, char* argv[])
             return 1;
     }
 
-    /* Start emulation... */
-    printf("File read, valid ROM.\nExiting...\n");
+    /* Initialise SDL target. */
+    if(!SDL_Init(SDL_INIT_VIDEO))
+        return 1;
+    if(!SDL_SetVideoMode(320,240,32,SDL_SWSURFACE))
+        return 1;
 
+    /* Declare our variable. */
+    cpu_state* state;
+    cpu_init(state);
+    uint32_t t = 0, oldt = 0;
+    SDL_Event evt;
+    int exit = 0;
+
+    /* Emulation loop. */
+    while(!exit)
+    {
+        while(state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+            cpu_step(state);
+        /* Handle input. */
+        while(SDL_PollEvent(&evt))
+        {
+            switch(evt.type)
+            {
+                case SDL_KEYDOWN:
+                    cpu_io_update(&evt.key,state);
+                    break;
+                case SDL_QUIT:
+                    exit = 1;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        /* Timing for cycle times. */
+        t = SDL_GetTicks();
+        if(t - oldt < FRAME_DT)
+            continue;
+        /* Draw. */
+    }
+
+    /* Tidy up before exit. */
+    SDL_Quit();
     return 0;
 }
