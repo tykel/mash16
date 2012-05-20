@@ -689,7 +689,7 @@ void flags_shl(int16_t x, int16_t y, cpu_state* state)
         state->flags |= FLAG_N;
 }
 
-void flags_shr(int16_t x, int16_t y, cpu_state* state)
+void flags_shr(uint16_t x, int16_t y, cpu_state* state)
 {
     state->flags = 0;
     uint16_t res = (uint16_t)x >> y;
