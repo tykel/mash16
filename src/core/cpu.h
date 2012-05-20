@@ -174,8 +174,8 @@ void flags_xor(int16_t,int16_t,cpu_state*);
 void flags_mul(int16_t,int16_t,cpu_state*);
 void flags_div(int16_t,int16_t,cpu_state*);
 void flags_shl(int16_t,int16_t,cpu_state*);
-void flags_shr(int16_t,int16_t,cpu_state*);
-void flags_sar(uint16_t,int16_t,cpu_state*);
+void flags_shr(uint16_t,int16_t,cpu_state*);
+void flags_sar(int16_t,int16_t,cpu_state*);
 /* Test the current jump/call conditional. */
 int test_cond(cpu_state*);
 
