@@ -139,11 +139,11 @@ void op_drw_imm(cpu_state* state)
         return;
     uint16_t dbpx = state->i.hhll;
     /* Copy sprite data to (chip16) video memory. */
-    for(int iy=0; iy<w; ++iy)
+    for(int iy=0; iy<h; ++iy)
     {
-        for(int ix=0; ix<; ++ix)
+        for(int ix=0; ix<w; ++ix)
         {
-            vm[iy*160 + ix] = m[dbpx++];
+            state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
     /* Update SDL video memory. */
@@ -163,11 +163,11 @@ void op_drw_r(cpu_state* state)
         return;
     uint16_t dbpx = state->r[state->i.z];
     /* Copy sprite data to (chip16) video memory. */
-    for(int iy=0; iy<w; ++iy)
+    for(int iy=0; iy<h; ++iy)
     {
-        for(int ix=0; ix<; ++ix)
+        for(int ix=0; ix<w; ++ix)
         {
-            vm[iy*160 + ix] = m[dbpx++];
+            state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
     /* Update SDL video memory. */
@@ -307,7 +307,7 @@ void op_addi(cpu_state* state)
 {
     int16_t* r = &state->r[state->i.yx & 0x0f];
     int16_t imm = (int16_t)state->i.hhll;
-    flags_add(*r,imm);
+    flags_add(*r,imm,state);
     *r = imm;
 }
 
@@ -315,7 +315,7 @@ void op_add_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_add(*rx,ry);
+    flags_add(*rx,ry,state);
     *rx = ry;
 }
 
@@ -323,7 +323,7 @@ void op_add_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_add(rx,ry);
+    flags_add(rx,ry,state);
     state->r[state->i.z] = rx + ry;
 }
 
@@ -331,7 +331,7 @@ void op_subi(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_sub(*rx,imm);
+    flags_sub(*rx,imm,state);
     *rx -= imm;
 }
 
@@ -339,7 +339,7 @@ void op_sub_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(*rx,ry);
+    flags_sub(*rx,ry,state);
     *rx -= ry;
 }
 
@@ -347,7 +347,7 @@ void op_sub_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(rx,ry);
+    flags_sub(rx,ry,state);
     state->r[state->i.z] = rx - ry;
 }
 
@@ -355,21 +355,21 @@ void op_cmpi(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_sub(rx,imm);
+    flags_sub(rx,imm,state);
 }
 
 void op_cmp(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(rx,ry);
+    flags_sub(rx,ry,state);
 }
 
 void op_andi(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_and(*rx,imm);
+    flags_and(*rx,imm,state);
     *rx &= imm;
 }
 
@@ -377,7 +377,7 @@ void op_and_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_and(*rx,ry);
+    flags_and(*rx,ry,state);
     *rx &= ry;
 }
 
@@ -385,7 +385,7 @@ void op_and_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(rx,ry);
+    flags_sub(rx,ry,state);
     state->r[state->i.z] = rx & ry;
 }
 
@@ -393,21 +393,21 @@ void op_tsti(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_and(rx,imm);
+    flags_and(rx,imm,state);
 }
 
 void op_tst(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_and(rx,ry);
+    flags_and(rx,ry,state);
 }
 
 void op_ori(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_or(*rx,imm);
+    flags_or(*rx,imm,state);
     *rx |= imm;
 }
 
@@ -415,7 +415,7 @@ void op_or_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_or(*rx,ry);
+    flags_or(*rx,ry,state);
     *rx |= ry;
 }
 
@@ -423,7 +423,7 @@ void op_or_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_or(rx,ry);
+    flags_or(rx,ry,state);
     state->r[state->i.z] = rx | ry;
 }
 
@@ -431,7 +431,7 @@ void op_xori(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_xor(*rx,imm);
+    flags_xor(*rx,imm,state);
     *rx ^= imm;
 }
 
@@ -439,7 +439,7 @@ void op_xor_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(*rx,ry);
+    flags_sub(*rx,ry,state);
     *rx ^= ry;
 }
 
@@ -447,7 +447,7 @@ void op_xor_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(rx,ry);
+    flags_sub(rx,ry,state);
     state->r[state->i.z] = rx ^ ry;
 }
 
@@ -455,7 +455,7 @@ void op_muli(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_mul(*rx,imm);
+    flags_mul(*rx,imm,state);
     *rx *= imm;
 }
 
@@ -463,7 +463,7 @@ void op_mul_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->i.hhll;
-    flags_mul(*rx,ry);
+    flags_mul(*rx,ry,state);
     *rx *= ry;
 }
 
@@ -471,7 +471,7 @@ void op_mul_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_mul(rx,ry);
+    flags_mul(rx,ry,state);
     state->r[state->i.z] = rx * ry;
 }
 
@@ -479,7 +479,7 @@ void op_divi(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
-    flags_div(*rx,imm);
+    flags_div(*rx,imm,state);
     *rx /= imm;
 }
 
@@ -487,7 +487,7 @@ void op_div_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_div(*rx,ry);
+    flags_div(*rx,ry,state);
     *rx /= ry;
 }
 
@@ -495,7 +495,7 @@ void op_div_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_div(rx,ry);
+    flags_div(rx,ry,state);
     state->r[state->i.z] = rx / ry;
 }
 
@@ -503,7 +503,7 @@ void op_shl_n(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t n = state->i.n;
-    flags_shl(*rx,n);
+    flags_shl(*rx,n,state);
     *rx <<= n;
 }
 
@@ -511,7 +511,7 @@ void op_shr_n(cpu_state* state)
 {
     uint16_t* rx = (uint16_t*)&state->r[state->i.yx & 0x0f];
     int16_t n = state->i.n;
-    flags_shr(*rx,n);
+    flags_shr(*rx,n,state);
     *rx >>= n;
 }
 
@@ -519,7 +519,7 @@ void op_sar_n(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t n = state->i.n;
-    flags_shr(*rx,n);
+    flags_shr(*rx,n,state);
     *rx >>= n;
 }
 
@@ -527,7 +527,7 @@ void op_shl_r(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_shl(*rx,ry);
+    flags_shl(*rx,ry,state);
     *rx <<= ry;
 }
 
@@ -535,7 +535,7 @@ void op_shr_r(cpu_state* state)
 {
     uint16_t* rx = (uint16_t*)&state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_shr(*rx,ry);
+    flags_shr(*rx,ry,state);
     *rx >>= ry;
 }
 
@@ -543,7 +543,7 @@ void op_sar_r(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_shr(*rx,ry);
+    flags_shr(*rx,ry,state);
     *rx >>= ry;
 }
 
@@ -605,7 +605,7 @@ void flags_add(int16_t x, int16_t y, cpu_state* state)
         state->flags |= FLAG_Z;
     if(res < INT16_MIN || res > INT16_MAX)
         state->flags |= FLAG_C;
-    if((int16_t)res < 0 && x > 0 && y > 0 || res > 0 && x < 0 && y < 0)
+    if(((int16_t)res < 0 && x > 0 && y > 0) || (res > 0 && x < 0 && y < 0))
         state->flags |= FLAG_O;
     if(res < 0)
         state->flags |= FLAG_N;
@@ -619,7 +619,7 @@ void flags_sub(int16_t x, int16_t y, cpu_state* state)
         state->flags |= FLAG_Z;
     if(res < INT16_MIN || res > INT16_MAX)
         state->flags |= FLAG_C;
-    if((int16_t)res < 0 && x > 0 && y < 0 || res > 0 && x < 0 && y > 0)
+    if(((int16_t)res < 0 && x > 0 && y < 0) || (res > 0 && x < 0 && y > 0))
         state->flags |= FLAG_O;
     if(res < 0)
         state->flags |= FLAG_N;
@@ -714,63 +714,63 @@ int test_cond(cpu_state* state)
     switch(state->i.yx & 0x0f)
     {
         case C_Z:
-            if(flags & FLAG_Z)
+            if(state->flags & FLAG_Z)
                 break;
             return 0;
         case C_NZ:
-            if(!flags & FLAG_Z)
+            if(~state->flags & FLAG_Z)
                 break;
             return 0;
         case C_N:
-            if(flags & FLAG_N)
+            if(state->flags & FLAG_N)
                 break;
             return 0;
         case C_NN:
-            if(!flags & FLAG_N)
+            if(~state->flags & FLAG_N)
                 break;
             return 0;
         case C_P:
-            if(!flags & FLAG_N & FLAG_Z) 
+            if(~state->flags & (FLAG_N | FLAG_Z)) 
                 break;
             return 0;
         case C_O:
-            if(flags & FLAG_O)
+            if(state->flags & FLAG_O)
                 break;
             return 0;
         case C_NO:
-            if(!flags & FLAG_O)
+            if(~state->flags & FLAG_O)
                 break;
             return 0;
         case C_A:
-            if(!flags & FLAG_C & FLAG_Z)
+            if(~state->flags & (FLAG_C & FLAG_Z))
                 break;
             return 0;
         case C_AE:
-            if(!flags & FLAG_C)
+            if(~state->flags & FLAG_C)
                 break;
             return 0;
         case C_B:
-            if(flags & FLAG_C)
+            if(state->flags & FLAG_C)
                 break;
             return 0;
         case C_BE:
-            if(flags & (FLAG_C | FLAG_Z))
+            if(state->flags & (FLAG_C | FLAG_Z))
                 break;
             return 0;
         case C_G:
-            if(((flags & FLAG_O) == (flags & FLAG_N)) && !flags & FLAG_Z)
+            if(((state->flags & FLAG_O) == (state->flags & FLAG_N)) && ~state->flags & FLAG_Z)
                 break;
             return 0;
         case C_GE:
-            if((flags & FLAG_O) == (flags & FLAG_N))
+            if((state->flags & FLAG_O) == (state->flags & FLAG_N))
                 break;
             return 0;
         case C_L:
-            if((flags & FLAG_O) != (flags & FLAG_N))
+            if((state->flags & FLAG_O) != (state->flags & FLAG_N))
                 break;
             return 0;
         case C_LE:
-            if(((flags & FLAG_O) != (flags & FLAG_N)) || flags & FLAG_Z)
+            if(((state->flags & FLAG_O) != (state->flags & FLAG_N)) || state->flags & FLAG_Z)
                 break;
             return 0;
         case C_RES:
