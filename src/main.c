@@ -6,10 +6,12 @@
  */
 
 #include "header/header.h"
-#include <stdlib.h>
-#include <stdint.h>
+#include "consts.h"
 
-int verify_header(uint8_t* bin)
+#include <stdlib.h>
+#include <stdio.h>
+
+int verify_header(uint8_t* bin, int len)
 {
     ch16_header* header = (ch16_header*)bin;
     uint8_t* data = (uint8_t*)(bin + sizeof(ch16_header));
@@ -18,9 +20,10 @@ int verify_header(uint8_t* bin)
     return 0;
 }
 
+/* Return length of file if success; otherwise 0 */
 int read_file(char* fp, uint8_t* buf)
 {
-    FILE* romf = fopen(argv[1],"rb");
+    FILE* romf = fopen(fp,"rb");
     if(romf == NULL)
         return 0;
     
@@ -30,7 +33,7 @@ int read_file(char* fp, uint8_t* buf)
 
     fread(buf,sizeof(uint8_t),len,romf);
     fclose(romf);
-    return 1;
+    return len;
 }
 
 int main(int argc, char* argv[])
@@ -41,7 +44,8 @@ int main(int argc, char* argv[])
     
     /* Read our rom file into memory */
     uint8_t* buf = calloc(MEM_SIZE,sizeof(uint8_t));
-    if(!read_file(argv[1],buf))
+    int len = read_file(argv[1],buf);
+    if(!len)
         return 1;
     /* Check if a rom header is present; if so, verify it */
     int use_header = 0;
@@ -49,11 +53,12 @@ int main(int argc, char* argv[])
        (char)buf[2] == '1' && (char)buf[3] == '6')
     {
         use_header = 1;
-        if(!verify_header(buf))
+        if(!verify_header(buf,len))
             return 1;
     }
 
     /* Start emulation... */
+    printf("File read, valid ROM.\nExiting...\n");
 
     return 0;
 }
