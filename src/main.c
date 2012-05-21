@@ -8,6 +8,7 @@
 #include "consts.h"
 #include "header/header.h"
 #include "core/cpu.h"
+#include "core/gpu.h"
 
 #include <SDL/SDL.h>
 
@@ -44,12 +45,17 @@ int main(int argc, char* argv[])
     /* Until a non-SDL GUI is implemented, exit if no rom specified */
     if(argc < 2)
         return 1;
+
+    printf("argc >= 2\n");
     
     /* Read our rom file into memory */
-    uint8_t* buf = calloc(MEM_SIZE,sizeof(uint8_t));
+    uint8_t* buf = calloc(MEM_SIZE+sizeof(ch16_header),sizeof(uint8_t));
     int len = read_file(argv[1],buf);
     if(!len)
         return 1;
+
+    printf("Read file\n");
+
     /* Check if a rom header is present; if so, verify it */
     int use_header = 0;
     if((char)buf[0] == 'C' && (char)buf[1] == 'H' &&
@@ -60,23 +66,41 @@ int main(int argc, char* argv[])
             return 1;
     }
 
+    printf("Verified header\n");
+
+    /* Get a buffer without header. */
+    uint8_t* mem = malloc(MEM_SIZE);
+    memcpy(mem,(uint8_t*)(buf + use_header*sizeof(ch16_header)),MEM_SIZE);
+    free(buf);
+
+    printf("Copied ROM\n");
+
     /* Initialise SDL target. */
-    if(!SDL_Init(SDL_INIT_VIDEO))
+    if(SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
-    if(!SDL_SetVideoMode(320,240,32,SDL_SWSURFACE))
+    }
+    if(SDL_SetVideoMode(320,240,32,SDL_SWSURFACE) < 0)
+    {
+        fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
         return 1;
+    }
+
+    printf("SDL initialised\n");
 
     /* Declare our variable. */
-    cpu_state* state;
-    cpu_init(state);
+    cpu_state* state = NULL;
+    cpu_init(&state,mem);
+    
     uint32_t t = 0, oldt = 0;
     SDL_Event evt;
     int exit = 0;
-
+    
     /* Emulation loop. */
     while(!exit)
     {
-        while(state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+        while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
         /* Handle input. */
         while(SDL_PollEvent(&evt))
@@ -95,13 +119,14 @@ int main(int argc, char* argv[])
         }
 
         /* Timing for cycle times. */
-        t = SDL_GetTicks();
-        if(t - oldt < FRAME_DT)
+        while((t = SDL_GetTicks()) - oldt < FRAME_DT)
             continue;
         /* Draw. */
+        blit_screen(state);
     }
 
     /* Tidy up before exit. */
     SDL_Quit();
+    free(mem);
     return 0;
 }

@@ -1,8 +1,10 @@
 CC = gcc
-CFLAGS = -std=gnu99 -Wall
-LDFLAGS = -lm `sdl-config --libs`
+SDL_CFLAGS = $(shell sdl-config --cflags)
+CFLAGS = -std=gnu99 -Wall -g $(SDL_CFLAGS)
+SDL_LDFLAGS = $(shell sdl-config --libs)
+LDFLAGS = -lm $(SDL_LDFLAGS)
 OBJ = obj
-OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o
+OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o $(OBJ)/gpu.o
 
 #DIRECTORIES
 SRC = src
@@ -26,6 +28,9 @@ $(OBJ)/crc.o: $(HDR)/crc.c $(HDR)/crc.h $(SRC)/consts.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ)/cpu.o: $(CORE)/cpu.c $(CORE)/cpu.h $(SRC)/consts.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ)/gpu.o: $(CORE)/gpu.c $(CORE)/gpu.h $(CORE)/cpu.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

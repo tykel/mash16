@@ -71,7 +71,7 @@ typedef struct
     uint8_t  sh;
     uint8_t  fx;
     uint8_t  fy;
-    uint8_t* pal;
+    uint32_t* pal;
     uint8_t* vm;
 
     /* Sfx stuff. */
@@ -93,9 +93,10 @@ typedef void (*cpu_op)(cpu_state*);
 cpu_op op_table[0x100];
 
 /* CPU functions. */
-void cpu_init(cpu_state*);
+void cpu_init(cpu_state**,uint8_t*);
 void cpu_step(cpu_state*);
 void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
+void cpu_free(cpu_state*);
 
 void op_error(cpu_state*);
 void op_nop(cpu_state*);
