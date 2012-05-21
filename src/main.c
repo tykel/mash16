@@ -76,12 +76,13 @@ int main(int argc, char* argv[])
     printf("Copied ROM\n");
 
     /* Initialise SDL target. */
+    SDL_Surface* screen;
     if(SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
     }
-    if(SDL_SetVideoMode(320,240,32,SDL_SWSURFACE) < 0)
+    if((screen = SDL_SetVideoMode(320,240,32,SDL_SWSURFACE)) == NULL)
     {
         fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
         return 1;
@@ -100,8 +101,11 @@ int main(int argc, char* argv[])
     /* Emulation loop. */
     while(!exit)
     {
+        printf("Start loop... ");
+        SDL_Flip(screen);
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
+        printf("Done cycles... ");
         /* Handle input. */
         while(SDL_PollEvent(&evt))
         {
@@ -121,12 +125,17 @@ int main(int argc, char* argv[])
         /* Timing for cycle times. */
         while((t = SDL_GetTicks()) - oldt < FRAME_DT)
             continue;
+        printf("Done timer.\n");
         /* Draw. */
-        blit_screen(state);
+        blit_screen(screen,state);
+        printf("Drawn to screen.\n");
     }
 
     /* Tidy up before exit. */
-    SDL_Quit();
+    cpu_free(state);
     free(mem);
+    SDL_FreeSurface(screen);
+    SDL_Quit();
+
     return 0;
 }

@@ -10,18 +10,9 @@
 void cpu_init(cpu_state** state, uint8_t* mem)
 {
     *state = (cpu_state*)calloc(1,sizeof(cpu_state));
-    if(*state == NULL)
-    {
-        fprintf(stderr,"Could not allocate cpu_state\n");
-        exit(1);
-    }
     (*state)->m = mem;
     (*state)->vm = calloc(160*240,1);
-    if((*state)->vm == NULL)
-    {
-        fprintf(stderr,"Could not allocate vmem\n");
-        exit(1);
-    }
+    (*state)->pal = malloc(16);
     
     srand(time(NULL));
 
@@ -188,6 +179,7 @@ void op_spr(cpu_state* state)
 
 void op_drw_imm(cpu_state* state)
 {
+    printf("DRW_IMM... ");
     /* If width=0 or height=0, nothing to draw. */
     if(!state->sw || !state->sh)
         return;
@@ -212,10 +204,12 @@ void op_drw_imm(cpu_state* state)
             state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
+    printf("done\n");
 }
 
 void op_drw_r(cpu_state* state)
 {
+    printf("DRW_R... ");
     /* If width=0 or height=0, nothing to draw. */
     if(!state->sw || !state->sh)
         return;
@@ -235,6 +229,7 @@ void op_drw_r(cpu_state* state)
             state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
+    printf("done\n");
 }
 
 void op_rnd(cpu_state* state)
