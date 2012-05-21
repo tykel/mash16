@@ -237,7 +237,7 @@ void op_rnd(cpu_state* state)
 
 void op_flip(cpu_state* state)
 {
-    state->fx = state->i.hhll & 0x02;
+    state->fx = (state->i.hhll & 0x02) >> 1;
     state->fy = state->i.hhll & 0x01;
 }
 
