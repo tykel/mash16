@@ -1,3 +1,4 @@
+#include "../consts.h"
 #include "cpu.h"
 #include "gpu.h"
 
@@ -13,6 +14,7 @@ void cpu_init(cpu_state** state, uint8_t* mem)
     (*state)->m = mem;
     (*state)->vm = calloc(160*240,1);
     (*state)->pal = malloc(16);
+    (*state)->sp = STACK_ADDR;
     
     srand(time(NULL));
 
@@ -173,13 +175,12 @@ void op_bgc(cpu_state* state)
 
 void op_spr(cpu_state* state)
 {
-    state->sw = state->i.hhll & 0x0f;
-    state->sh = state->i.hhll >> 4;
+    state->sw = state->i.hhll & 0x00ff;
+    state->sh = state->i.hhll >> 8;
 }
 
 void op_drw_imm(cpu_state* state)
 {
-    printf("DRW_IMM... ");
     /* If width=0 or height=0, nothing to draw. */
     if(!state->sw || !state->sh)
         return;
@@ -204,12 +205,10 @@ void op_drw_imm(cpu_state* state)
             state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
-    printf("done\n");
 }
 
 void op_drw_r(cpu_state* state)
 {
-    printf("DRW_R... ");
     /* If width=0 or height=0, nothing to draw. */
     if(!state->sw || !state->sh)
         return;
@@ -229,7 +228,6 @@ void op_drw_r(cpu_state* state)
             state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
-    printf("done\n");
 }
 
 void op_rnd(cpu_state* state)

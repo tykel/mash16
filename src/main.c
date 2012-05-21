@@ -101,11 +101,11 @@ int main(int argc, char* argv[])
     /* Emulation loop. */
     while(!exit)
     {
-        printf("Start loop... ");
+        //printf("Start loop... ");
         SDL_Flip(screen);
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
-        printf("Done cycles... ");
+        //printf("Done cycles... ");
         /* Handle input. */
         while(SDL_PollEvent(&evt))
         {
@@ -125,11 +125,15 @@ int main(int argc, char* argv[])
         /* Timing for cycle times. */
         while((t = SDL_GetTicks()) - oldt < FRAME_DT)
             continue;
-        printf("Done timer.\n");
+        //printf("Done timer.\n");
         /* Draw. */
         blit_screen(screen,state);
-        printf("Drawn to screen.\n");
+        //printf("Drawn to screen.\n");
+        /* Reset vblank flag. */
+        state->meta.wait_vblnk = 0;
     }
+
+    printf("\n");
 
     /* Tidy up before exit. */
     cpu_free(state);
