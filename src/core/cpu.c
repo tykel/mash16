@@ -1,16 +1,28 @@
 #include "cpu.h"
+#include "gpu.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
 
 /* Initialise the CPU to safe values. */
-void cpu_init(cpu_state* state)
+void cpu_init(cpu_state** state, uint8_t* mem)
 {
-    state = (cpu_state*)calloc(sizeof(state),1);
-    state->m = calloc(sizeof(uint8_t),MEM_SIZE);
-    state->vm = calloc(sizeof(uint8_t),160*240);
-
+    *state = (cpu_state*)calloc(1,sizeof(cpu_state));
+    if(*state == NULL)
+    {
+        fprintf(stderr,"Could not allocate cpu_state\n");
+        exit(1);
+    }
+    (*state)->m = mem;
+    (*state)->vm = calloc(160*240,1);
+    if((*state)->vm == NULL)
+    {
+        fprintf(stderr,"Could not allocate vmem\n");
+        exit(1);
+    }
+    
     srand(time(NULL));
 
     /* Map instr. table entries to functions. */
@@ -84,6 +96,9 @@ void cpu_init(cpu_state* state)
     op_table[0xc5] = &op_popf;
     op_table[0xd0] = &op_pal_imm;
     op_table[0xd1] = &op_pal_r;
+
+    /* Load default palette. */
+    init_pal(*state);
 }
 
 /* Execute 1 CPU cycle. */
@@ -98,6 +113,7 @@ void cpu_step(cpu_state* state)
     ++state->meta.cycles;
 }
 
+/* Update I/O port contents with gamepad input. */
 void cpu_io_update(SDL_KeyboardEvent* key, cpu_state* state)
 {
     switch(key->keysym.sym)
@@ -129,8 +145,16 @@ void cpu_io_update(SDL_KeyboardEvent* key, cpu_state* state)
         default:
             break;
     }
-
 }
+
+/* Free resources held by the cpu state. */
+void cpu_free(cpu_state* state)
+{
+    free(state->vm);
+    free(state);
+}
+
+/* CPU instructions. */
 
 void op_error(cpu_state* state)
 {
@@ -180,10 +204,14 @@ void op_drw_imm(cpu_state* state)
     {
         for(int ix=0; ix<w; ++ix)
         {
+            if((state->m[dbpx] & 0xf0) == 0x00)
+                state->m[dbpx] = (state->m[dbpx] & 0x0f) | (state->bgc << 4);
+            if((state->m[dbpx] & 0x0f) == 0x00)
+                state->m[dbpx] = (state->m[dbpx] & 0xf0) | state->bgc;
+
             state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
-    /* Update SDL video memory. */
 }
 
 void op_drw_r(cpu_state* state)
@@ -207,7 +235,6 @@ void op_drw_r(cpu_state* state)
             state->vm[iy*160 + ix] = state->m[dbpx++];
         }
     }
-    /* Update SDL video memory. */
 }
 
 void op_rnd(cpu_state* state)
@@ -628,10 +655,12 @@ void op_popf(cpu_state* state)
 
 void op_pal_imm(cpu_state* state)
 {
+    load_pal(&state->m[state->i.hhll],0,state);
 }
 
 void op_pal_r(cpu_state* state)
 {
+    load_pal(&state->m[state->i.yx & 0x0f],0,state);
 }
 
 void flags_add(int16_t x, int16_t y, cpu_state* state)
