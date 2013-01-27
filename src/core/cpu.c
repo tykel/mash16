@@ -188,7 +188,6 @@ void op_drw_imm(cpu_state* state)
     int16_t y = state->r[state->i.yx >> 4];
     int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
     int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
-    //printf("Draw at (%d,%d)\n",x,y);
     /* Check we actually need to draw something. */
     if(!w || !h || x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
         return;
@@ -204,20 +203,6 @@ void op_drw_imm(cpu_state* state)
             *vmp = (hp << 4) | lp;
         }
     }
-    /* DEBUG: Dump the screen to the console. 
-    printf("\nDrawing (%d,%d) at (%d,%d)\n",w,h,x,y);
-    for(int i=0; i<240; ++i)
-    {
-        printf("%3d|",i);
-        for(int j=0; j<160; ++j)
-        {
-            printf("%c",state->vm[i*160+j]==0?' ':'#');
-        }
-        printf("|\n");
-    }
-    printf("\n");
-    exit(0);
-    */
 }
 
 void op_drw_r(cpu_state* state)
@@ -227,11 +212,10 @@ void op_drw_r(cpu_state* state)
         return;
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    int w = state->sw - (state->sw % 160);
-    int h = state->sh - (state->sh % 240);
-    //printf("Draw at (%d,%d)\n",x,y);
+    int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
+    int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
     /* If off-screen, nothing to draw. */
-    if(x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
+    if(w || !h || x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
         return;
     uint16_t dbpx = state->r[state->i.z];
     /* Copy sprite data to (chip16) video memory. */
@@ -309,7 +293,8 @@ void op_jme(cpu_state* state)
 
 void op_call_imm(cpu_state* state)
 {
-    state->m[state->sp] = state->pc;
+    state->m[state->sp] = state->pc & 0x00ff;
+    state->m[state->sp+1] = state->pc >> 8;
     state->sp += 2;
     state->pc = state->i.hhll;
 }
@@ -329,7 +314,8 @@ void op_cx(cpu_state* state)
 {
     if(test_cond(state))
     {
-        state->m[state->sp] = state->pc;
+        state->m[state->sp] = state->pc & 0x00ff;
+        state->m[state->sp+1] = state->pc >> 8;
         state->sp += 2;
         state->pc = state->i.hhll;
     }
@@ -337,7 +323,8 @@ void op_cx(cpu_state* state)
 
 void op_call_r(cpu_state* state)
 {
-    state->m[state->sp] = state->pc;
+    state->m[state->sp] = state->pc & 0x00ff;
+    state->m[state->sp+1] = state->pc >> 8;
     state->sp += 2;
     state->pc = state->r[state->i.yx & 0x0f];
 }
