@@ -12,6 +12,7 @@
 
 #include <SDL/SDL.h>
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -70,7 +71,8 @@ int main(int argc, char* argv[])
 
     /* Get a buffer without header. */
     uint8_t* mem = malloc(MEM_SIZE);
-    memcpy(mem,(uint8_t*)(buf + use_header*sizeof(ch16_header)),MEM_SIZE);
+    memcpy(mem,(uint8_t*)(buf + use_header*sizeof(ch16_header)),
+           len - use_header*sizeof(ch16_header));
     free(buf);
 
     printf("Copied ROM\n");
@@ -82,31 +84,33 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
     }
-    if((screen = SDL_SetVideoMode(320,240,32,SDL_SWSURFACE)) == NULL)
+    if((screen = SDL_SetVideoMode(320,240,32,SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
     {
         fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
         return 1;
     }
 
-    printf("SDL initialised\n");
+    printf("SDL initialised\nScreen surface format: %dbpp w=%d h=%d",
+            screen->format->BitsPerPixel,screen->w,screen->h);
+    
+    SDL_WM_SetCaption("mash16","mash16");
 
-    /* Declare our variable. */
+    /* Initialise the Chip16 processor state. */
     cpu_state* state = NULL;
     cpu_init(&state,mem);
+    init_pal(state);
     
     uint32_t t = 0, oldt = 0;
-    SDL_Event evt;
     int exit = 0;
     
     /* Emulation loop. */
     while(!exit)
     {
-        //printf("Start loop... ");
-        SDL_Flip(screen);
+        assert(screen != NULL);
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
-        //printf("Done cycles... ");
         /* Handle input. */
+        SDL_Event evt;
         while(SDL_PollEvent(&evt))
         {
             switch(evt.type)
@@ -123,12 +127,10 @@ int main(int argc, char* argv[])
         }
 
         /* Timing for cycle times. */
-        while((t = SDL_GetTicks()) - oldt < FRAME_DT)
-            continue;
-        //printf("Done timer.\n");
+        while(SDL_GetTicks() - oldt < FRAME_DT)
+            SDL_Delay(0);
         /* Draw. */
         blit_screen(screen,state);
-        //printf("Drawn to screen.\n");
         /* Reset vblank flag. */
         state->meta.wait_vblnk = 0;
     }
