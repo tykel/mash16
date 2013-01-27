@@ -13,7 +13,7 @@ void cpu_init(cpu_state** state, uint8_t* mem)
     *state = (cpu_state*)calloc(1,sizeof(cpu_state));
     (*state)->m = mem;
     (*state)->vm = calloc(160*240,1);
-    (*state)->pal = malloc(16);
+    (*state)->pal = malloc(16*sizeof(uint32_t));
     (*state)->sp = STACK_ADDR;
     
     srand(time(NULL));
@@ -160,7 +160,7 @@ void op_nop(cpu_state* state)
 
 void op_cls(cpu_state* state)
 {
-    memset(state->vm,(state->bgc << 4) & state->bgc,160*240);
+    memset(state->vm,0,160*240);
 }
 
 void op_vblnk(cpu_state* state)
@@ -186,25 +186,38 @@ void op_drw_imm(cpu_state* state)
         return;
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    int w = state->sw - (state->sw % 160);
-    int h = state->sh - (state->sh % 240);
-    /* If off-screen, nothing to draw. */
-    if(x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
+    int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
+    int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
+    //printf("Draw at (%d,%d)\n",x,y);
+    /* Check we actually need to draw something. */
+    if(!w || !h || x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
         return;
-    uint16_t dbpx = state->i.hhll;
+    uint8_t* dbpx = &state->m[state->i.hhll];
     /* Copy sprite data to (chip16) video memory. */
     for(int iy=0; iy<h; ++iy)
     {
-        for(int ix=0; ix<w; ++ix)
+        for(int ix=0; ix<w; ++ix, ++dbpx)
         {
-            if((state->m[dbpx] & 0xf0) == 0x00)
-                state->m[dbpx] = (state->m[dbpx] & 0x0f) | (state->bgc << 4);
-            if((state->m[dbpx] & 0x0f) == 0x00)
-                state->m[dbpx] = (state->m[dbpx] & 0xf0) | state->bgc;
-
-            state->vm[iy*160 + ix] = state->m[dbpx++];
+            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x+ix)]);
+            uint8_t lp = ((*dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (*dbpx & 0x0f);
+            uint8_t hp = ((*dbpx >>   4) == 0) ? (*vmp >>   4) : (*dbpx >>   4);
+            *vmp = (hp << 4) | lp;
         }
     }
+    /* DEBUG: Dump the screen to the console. 
+    printf("\nDrawing (%d,%d) at (%d,%d)\n",w,h,x,y);
+    for(int i=0; i<240; ++i)
+    {
+        printf("%3d|",i);
+        for(int j=0; j<160; ++j)
+        {
+            printf("%c",state->vm[i*160+j]==0?' ':'#');
+        }
+        printf("|\n");
+    }
+    printf("\n");
+    exit(0);
+    */
 }
 
 void op_drw_r(cpu_state* state)
@@ -216,6 +229,7 @@ void op_drw_r(cpu_state* state)
     int16_t y = state->r[state->i.yx >> 4];
     int w = state->sw - (state->sw % 160);
     int h = state->sh - (state->sh % 240);
+    //printf("Draw at (%d,%d)\n",x,y);
     /* If off-screen, nothing to draw. */
     if(x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
         return;
@@ -225,7 +239,10 @@ void op_drw_r(cpu_state* state)
     {
         for(int ix=0; ix<w; ++ix)
         {
-            state->vm[iy*160 + ix] = state->m[dbpx++];
+            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x+ix)]);
+            uint8_t lp = ((dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (dbpx & 0x0f);
+            uint8_t hp = ((dbpx >>   4) == 0) ? (*vmp >>   4) : (dbpx >>   4);
+            *vmp = (hp << 4) | lp;
         }
     }
 }
@@ -365,7 +382,7 @@ void op_addi(cpu_state* state)
     int16_t* r = &state->r[state->i.yx & 0x0f];
     int16_t imm = (int16_t)state->i.hhll;
     flags_add(*r,imm,state);
-    *r = imm;
+    *r += imm;
 }
 
 void op_add_r2(cpu_state* state)
@@ -373,7 +390,7 @@ void op_add_r2(cpu_state* state)
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
     flags_add(*rx,ry,state);
-    *rx = ry;
+    *rx += ry;
 }
 
 void op_add_r3(cpu_state* state)
@@ -656,6 +673,8 @@ void op_pal_r(cpu_state* state)
     load_pal(&state->m[state->i.yx & 0x0f],0,state);
 }
 
+/* Flag computing functions. */
+
 void flags_add(int16_t x, int16_t y, cpu_state* state)
 {
     state->flags = 0;
@@ -777,7 +796,7 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_NZ:
-            if(~state->flags & FLAG_Z)
+            if(state->flags & ~FLAG_Z)
                 break;
             return 0;
         case C_N:
@@ -785,11 +804,11 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_NN:
-            if(~state->flags & FLAG_N)
+            if(state->flags & ~FLAG_N)
                 break;
             return 0;
         case C_P:
-            if(~state->flags & (FLAG_N | FLAG_Z)) 
+            if(state->flags & ~(FLAG_N | FLAG_Z)) 
                 break;
             return 0;
         case C_O:
@@ -797,15 +816,15 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_NO:
-            if(~state->flags & FLAG_O)
+            if(state->flags & ~FLAG_O)
                 break;
             return 0;
         case C_A:
-            if(~state->flags & (FLAG_C & FLAG_Z))
+            if(state->flags & ~(FLAG_C & FLAG_Z))
                 break;
             return 0;
         case C_AE:
-            if(~state->flags & FLAG_C)
+            if(state->flags & ~FLAG_C)
                 break;
             return 0;
         case C_B:
@@ -817,7 +836,7 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_G:
-            if(((state->flags & FLAG_O) == (state->flags & FLAG_N)) && ~state->flags & FLAG_Z)
+            if(((state->flags & FLAG_O) == (state->flags & FLAG_N)) && (state->flags & ~FLAG_Z))
                 break;
             return 0;
         case C_GE:

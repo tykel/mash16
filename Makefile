@@ -1,6 +1,6 @@
 CC = gcc
 SDL_CFLAGS = $(shell sdl-config --cflags)
-CFLAGS = -std=gnu99 -Wall -g $(SDL_CFLAGS)
+CFLAGS = -O2 -std=gnu99 -Wall -g $(SDL_CFLAGS)
 SDL_LDFLAGS = $(shell sdl-config --libs)
 LDFLAGS = -lm $(SDL_LDFLAGS)
 OBJ = obj
