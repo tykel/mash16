@@ -127,8 +127,9 @@ int main(int argc, char* argv[])
         }
 
         /* Timing for cycle times. */
-        while(SDL_GetTicks() - oldt < FRAME_DT)
+        while((t = SDL_GetTicks()) - oldt < FRAME_DT)
             SDL_Delay(0);
+        oldt = t;
         /* Draw. */
         blit_screen(screen,state);
         /* Reset vblank flag. */
