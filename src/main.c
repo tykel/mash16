@@ -43,9 +43,6 @@ int read_file(char* fp, uint8_t* buf)
 
 int main(int argc, char* argv[])
 {
-    /* TEST */
-    int16_t x = 0;
-
     /* Until a non-SDL GUI is implemented, exit if no rom specified */
     if(argc < 2)
         return 1;
@@ -93,7 +90,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    printf("SDL initialised\nScreen surface format: %dbpp w=%d h=%d",
+    printf("SDL initialised\nScreen surface format: %dbpp w=%d h=%d\n",
             screen->format->BitsPerPixel,screen->w,screen->h);
     
     SDL_WM_SetCaption("mash16","mash16");
@@ -111,6 +108,7 @@ int main(int argc, char* argv[])
     {
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
+
         /* Handle input. */
         SDL_Event evt;
         while(SDL_PollEvent(&evt))

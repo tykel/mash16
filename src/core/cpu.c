@@ -291,7 +291,9 @@ void op_jme(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
     if(rx == ry)
+    {
         state->pc = state->i.hhll;
+    }
 }
 
 void op_call_imm(cpu_state* state)
@@ -629,7 +631,7 @@ void op_pushall(cpu_state* state)
 {
     for(int i=0; i<0x10; ++i)
     {
-        state->m[state->sp] = state->r[i] & 0x0f;
+        state->m[state->sp] = state->r[i] & 0x00ff;
         state->m[state->sp + 1] = state->r[i] >> 8;
         state->sp += 2;
     }
@@ -646,15 +648,19 @@ void op_popall(cpu_state* state)
 
 void op_pushf(cpu_state* state)
 {
-    state->m[state->sp] = state->flags & 0x0f;
-    state->m[state->sp + 1] = state->flags >> 8;
+    state->m[state->sp] = state->f.c << 1 | state->f.z << 2 |
+                          state->f.o << 6 | state->f.n << 7;
+    state->m[state->sp + 1] = 0;
     state->sp += 2;
 }
 
 void op_popf(cpu_state* state)
 {
     state->sp -= 2;
-    state->flags = state->m[state->sp] | (state->m[state->sp + 1] << 8);
+    state->f.c = (state->m[state->sp] >> 1) & 1;
+    state->f.z = (state->m[state->sp] >> 2) & 1;
+    state->f.o = (state->m[state->sp] >> 6) & 1;
+    state->f.n = (state->m[state->sp] >> 7) & 1;
 }
 
 void op_pal_imm(cpu_state* state)
@@ -667,121 +673,123 @@ void op_pal_r(cpu_state* state)
     load_pal(&state->m[state->r[state->i.yx & 0x0f]],0,state);
 }
 
-/* Flag computing functions. */
+/* 
+    Flag computing functions.
+*/
 
 void flags_add(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int32_t res = (int32_t)x + (int32_t)y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < INT16_MIN || res > INT16_MAX)
-        state->flags |= FLAG_C;
+        state->f.c = 1;
     if(((int16_t)res < 0 && (int16_t)x > 0 && (int16_t)y > 0) ||
         ((int16_t)res > 0 && (int16_t)x < 0 && (int16_t)y < 0))
-        state->flags |= FLAG_O;
+        state->f.o = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_sub(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int32_t res = (int32_t)x - (int32_t)y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < INT16_MIN || res > INT16_MAX)
-        state->flags |= FLAG_C;
+        state->f.c = 1;
     if(((int16_t)res < 0 && (int16_t)x > 0 && (int16_t)y < 0) || 
         ((int16_t)res > 0 && x < 0 && y > 0))
-        state->flags |= FLAG_O;
+        state->f.o = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_and(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int16_t res = x & y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_or(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int16_t res = x | y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_xor(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int16_t res = x ^ y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_mul(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int32_t res = (int32_t)x * (int32_t)y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res > INT16_MAX || res < INT16_MIN)
-        state->flags |= FLAG_C;
+        state->f.c = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_div(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int32_t res = (int32_t)x / (int32_t)y;
     int32_t rem = (int32_t)x % (int32_t)y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(rem)
-        state->flags |= FLAG_C;
+        state->f.c = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_shl(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int16_t res = x << y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_shr(uint16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     uint16_t res = (uint16_t)x >> y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if((int16_t)res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 void flags_sar(int16_t x, int16_t y, cpu_state* state)
 {
-    state->flags = 0;
+    state->f = (flags){0};
     int16_t res = x >> y;
     if(!res)
-        state->flags |= FLAG_Z;
+        state->f.z = 1;
     if(res < 0)
-        state->flags |= FLAG_N;
+        state->f.n = 1;
 }
 
 int test_cond(cpu_state* state)
@@ -807,63 +815,63 @@ int test_cond(cpu_state* state)
     switch(state->i.yx & 0x0f)
     {
         case C_Z:
-            if(state->flags & FLAG_Z)
+            if(state->f.z)
                 break;
             return 0;
         case C_NZ:
-            if(!(state->flags & FLAG_Z))
+            if(!state->f.z)
                 break;
             return 0;
         case C_N:
-            if(state->flags & FLAG_N)
+            if(state->f.n)
                 break;
             return 0;
         case C_NN:
-            if(!(state->flags & FLAG_N))
+            if(!state->f.n)
                 break;
             return 0;
         case C_P:
-            if(!(state->flags & (FLAG_N | FLAG_Z)))
+            if(!state->f.n && !state->f.z)
                 break;
             return 0;
         case C_O:
-            if(state->flags & FLAG_O)
+            if(state->f.o)
                 break;
             return 0;
         case C_NO:
-            if(!(state->flags & FLAG_O))
+            if(!state->f.o)
                 break;
             return 0;
         case C_A:
-            if(!(state->flags & (FLAG_C | FLAG_Z)))
+            if(!state->f.c && !state->f.z)
                 break;
             return 0;
         case C_AE:
-            if(!(state->flags & FLAG_C))
+            if(!state->f.c)
                 break;
             return 0;
         case C_B:
-            if(state->flags & FLAG_C)
+            if(state->f.c)
                 break;
             return 0;
         case C_BE:
-            if((state->flags & FLAG_C) || (state->flags & FLAG_Z))
+            if(state->f.c || state->f.z)
                 break;
             return 0;
         case C_G:
-            if(((state->flags & FLAG_O) >> 5 == (state->flags & FLAG_N) >> 6) && !(state->flags & FLAG_Z))
+            if(state->f.o == state->f.n && !state->f.z)
                 break;
             return 0;
         case C_GE:
-            if((state->flags & FLAG_O) >> 5 == (state->flags & FLAG_N) >> 6)
+            if(state->f.o == state->f.n)
                 break;
             return 0;
         case C_L:
-            if((state->flags & FLAG_O) >> 5 != (state->flags & FLAG_N) >> 6)
+            if(state->f.o != state->f.n)
                 break;
             return 0;
         case C_LE:
-            if(((state->flags & FLAG_O) >> 5 != (state->flags & FLAG_N) >> 6) || state->flags & FLAG_Z)
+            if(state->f.o != state->f.n || state->f.z)
                 break;
             return 0;
         case C_RES:
