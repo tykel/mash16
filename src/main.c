@@ -43,6 +43,9 @@ int read_file(char* fp, uint8_t* buf)
 
 int main(int argc, char* argv[])
 {
+    /* TEST */
+    int16_t x = 0;
+
     /* Until a non-SDL GUI is implemented, exit if no rom specified */
     if(argc < 2)
         return 1;
@@ -106,7 +109,6 @@ int main(int argc, char* argv[])
     /* Emulation loop. */
     while(!exit)
     {
-        assert(screen != NULL);
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
         /* Handle input. */
@@ -127,8 +129,8 @@ int main(int argc, char* argv[])
         }
 
         /* Timing for cycle times. */
-        while((t = SDL_GetTicks()) - oldt < FRAME_DT)
-            SDL_Delay(0);
+        while((t = SDL_GetTicks()) - oldt < FRAME_DT) ;
+            //SDL_Delay(0);
         oldt = t;
         /* Draw. */
         blit_screen(screen,state);
