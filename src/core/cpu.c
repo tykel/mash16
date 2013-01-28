@@ -19,7 +19,8 @@ void cpu_init(cpu_state** state, uint8_t* mem)
     srand(time(NULL));
 
     /* Map instr. table entries to functions. */
-    memset(op_table,(size_t)(&op_error),0x100);
+    for(int i=0; i<0x100; ++i)
+        op_table[i] = &op_error;
     op_table[0x00] = &op_nop;
     op_table[0x01] = &op_cls;
     op_table[0x02] = &op_vblnk;
@@ -189,7 +190,7 @@ void op_drw_imm(cpu_state* state)
     int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
     int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
     /* Check we actually need to draw something. */
-    if(!w || !h || x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
+    if(!w || !h || x > 319 || y > 239 || x + w*2 < 0 || y + h < 0)
         return;
     uint8_t* dbpx = &state->m[state->i.hhll];
     /* Copy sprite data to (chip16) video memory. */
@@ -215,17 +216,17 @@ void op_drw_r(cpu_state* state)
     int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
     int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
     /* If off-screen, nothing to draw. */
-    if(w || !h || x > 320 || y > 240 || x + w*2 < 0 || y + h < 0)
+    if(w || !h || x > 319 || y > 239 || x + w*2 < 0 || y + h < 0)
         return;
-    uint16_t dbpx = state->r[state->i.z];
+    uint8_t* dbpx = &state->m[state->r[state->i.z]];
     /* Copy sprite data to (chip16) video memory. */
     for(int iy=0; iy<h; ++iy)
     {
-        for(int ix=0; ix<w; ++ix)
+        for(int ix=0; ix<w; ++ix, ++dbpx)
         {
             uint8_t* vmp = &(state->vm[(y+iy)*160 + (x+ix)]);
-            uint8_t lp = ((dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (dbpx & 0x0f);
-            uint8_t hp = ((dbpx >>   4) == 0) ? (*vmp >>   4) : (dbpx >>   4);
+            uint8_t lp = ((*dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (*dbpx & 0x0f);
+            uint8_t hp = ((*dbpx >>   4) == 0) ? (*vmp >>   4) : (*dbpx >>   4);
             *vmp = (hp << 4) | lp;
         }
     }
@@ -610,21 +611,24 @@ void op_sar_r(cpu_state* state)
 
 void op_push(cpu_state* state)
 {
-    state->m[state->sp] = state->r[state->i.yx & 0x0f];
+    int16_t rx = state->r[state->i.yx & 0x0f];
+    state->m[state->sp] = rx & 0x00ff;
+    state->m[state->sp + 1] = rx >> 8;
     state->sp += 2;
 }
 
 void op_pop(cpu_state* state)
 {
     state->sp -= 2;
-    state->r[state->i.yx & 0x0f] = state->m[state->sp];
+    state->r[state->i.yx & 0x0f] = state->m[state->sp] | (state->m[state->sp + 1] << 8);
 }
 
 void op_pushall(cpu_state* state)
 {
     for(int i=0; i<0x10; ++i)
     {
-        state->m[state->sp] = state->r[i];
+        state->m[state->sp] = state->r[i] & 0x0f;
+        state->m[state->sp + 1] = state->r[i] >> 8;
         state->sp += 2;
     }
 }
@@ -634,20 +638,21 @@ void op_popall(cpu_state* state)
     for(int i=0xf; i<=0; --i)
     {
         state->sp -= 2;
-        state->r[i] = state->m[state->sp];
+        state->r[i] = state->m[state->sp] | (state->m[state->sp + 1] << 8);
     }
 }
 
 void op_pushf(cpu_state* state)
 {
-    state->m[state->sp] = state->flags;
+    state->m[state->sp] = state->flags & 0x0f;
+    state->m[state->sp + 1] = state->flags >> 8;
     state->sp += 2;
 }
 
 void op_popf(cpu_state* state)
 {
     state->sp -= 2;
-    state->flags = state->m[state->sp];
+    state->flags = state->m[state->sp] | (state->m[state->sp + 1] << 8);
 }
 
 void op_pal_imm(cpu_state* state)
@@ -842,5 +847,6 @@ int test_cond(cpu_state* state)
         default:
             return 0;
     }
+    /* The test has succeeded as the switch has transferred here. */
     return 1;
 }
