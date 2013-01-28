@@ -46,6 +46,15 @@ typedef union
     };
 } instr;
 
+/* Stores CPU flags. */
+typedef struct 
+{
+    uint32_t c;
+    uint32_t z;
+    uint32_t o;
+    uint32_t n;
+} flags;
+
 /* Holds information about the CPU. */
 typedef struct
 {
@@ -62,7 +71,7 @@ typedef struct
     uint16_t pc;
     uint16_t sp;
     instr    i;
-    uint16_t flags;
+    flags    f;
     uint8_t* m;
     
     /* Gfx stuff. */

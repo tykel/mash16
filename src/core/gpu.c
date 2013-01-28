@@ -27,6 +27,7 @@ void blit_screen(SDL_Surface* sfc, cpu_state* state)
 {
     SDL_LockSurface(sfc);
 	uint32_t* dst = (uint32_t*)sfc->pixels;
+    /* Clear the screen before drawing. */
     memset(dst,0,320*240*4);
     
     for(int y=0; y<240; ++y)
@@ -44,7 +45,7 @@ void blit_screen(SDL_Surface* sfc, cpu_state* state)
             }
         }
     }
-
     SDL_UnlockSurface(sfc);
+    /* Force screen update. */
     SDL_UpdateRect(sfc,0,0,0,0);
 }
