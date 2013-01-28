@@ -152,7 +152,7 @@ void cpu_free(cpu_state* state)
 
 void op_error(cpu_state* state)
 {
-    fprintf(stderr,"Unknown opcode encountered! (0x%x)\n",state->i.op);
+    fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",state->i.op);
 }
 
 void op_nop(cpu_state* state)
@@ -281,7 +281,9 @@ void op_jmp_imm(cpu_state* state)
 void op_jx(cpu_state* state)
 {
     if(test_cond(state))
+    {
         state->pc = state->i.hhll;
+    }
 }
 
 void op_jme(cpu_state* state)
@@ -295,7 +297,7 @@ void op_jme(cpu_state* state)
 void op_call_imm(cpu_state* state)
 {
     state->m[state->sp] = state->pc & 0x00ff;
-    state->m[state->sp+1] = state->pc >> 8;
+    state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
     state->pc = state->i.hhll;
 }
@@ -303,7 +305,7 @@ void op_call_imm(cpu_state* state)
 void op_ret(cpu_state* state)
 {
     state->sp -= 2;
-    state->pc = state->m[state->sp];
+    state->pc = state->m[state->sp] | (state->m[state->sp + 1] << 8);
 }
 
 void op_jmp_r(cpu_state* state)
@@ -352,7 +354,7 @@ void op_ldm_r(cpu_state* state)
 
 void op_mov(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->r[state->i.yx >>4];
+    state->r[state->i.yx & 0x0f] = state->r[state->i.yx >> 4];
 }
 
 void op_stm_imm(cpu_state* state)
@@ -662,7 +664,7 @@ void op_pal_imm(cpu_state* state)
 
 void op_pal_r(cpu_state* state)
 {
-    load_pal(&state->m[state->i.yx & 0x0f],0,state);
+    load_pal(&state->m[state->r[state->i.yx & 0x0f]],0,state);
 }
 
 /* Flag computing functions. */
@@ -670,12 +672,13 @@ void op_pal_r(cpu_state* state)
 void flags_add(int16_t x, int16_t y, cpu_state* state)
 {
     state->flags = 0;
-    int32_t res = x + y;
+    int32_t res = (int32_t)x + (int32_t)y;
     if(!res)
         state->flags |= FLAG_Z;
     if(res < INT16_MIN || res > INT16_MAX)
         state->flags |= FLAG_C;
-    if(((int16_t)res < 0 && x > 0 && y > 0) || (res > 0 && x < 0 && y < 0))
+    if(((int16_t)res < 0 && (int16_t)x > 0 && (int16_t)y > 0) ||
+        ((int16_t)res > 0 && (int16_t)x < 0 && (int16_t)y < 0))
         state->flags |= FLAG_O;
     if(res < 0)
         state->flags |= FLAG_N;
@@ -684,12 +687,13 @@ void flags_add(int16_t x, int16_t y, cpu_state* state)
 void flags_sub(int16_t x, int16_t y, cpu_state* state)
 {
     state->flags = 0;
-    int32_t res = x - y;
+    int32_t res = (int32_t)x - (int32_t)y;
     if(!res)
         state->flags |= FLAG_Z;
     if(res < INT16_MIN || res > INT16_MAX)
         state->flags |= FLAG_C;
-    if(((int16_t)res < 0 && x > 0 && y < 0) || (res > 0 && x < 0 && y > 0))
+    if(((int16_t)res < 0 && (int16_t)x > 0 && (int16_t)y < 0) || 
+        ((int16_t)res > 0 && x < 0 && y > 0))
         state->flags |= FLAG_O;
     if(res < 0)
         state->flags |= FLAG_N;
@@ -728,7 +732,7 @@ void flags_xor(int16_t x, int16_t y, cpu_state* state)
 void flags_mul(int16_t x, int16_t y, cpu_state* state)
 {
     state->flags = 0;
-    int32_t res = x * y;
+    int32_t res = (int32_t)x * (int32_t)y;
     if(!res)
         state->flags |= FLAG_Z;
     if(res > INT16_MAX || res < INT16_MIN)
@@ -740,7 +744,8 @@ void flags_mul(int16_t x, int16_t y, cpu_state* state)
 void flags_div(int16_t x, int16_t y, cpu_state* state)
 {
     state->flags = 0;
-    int32_t res = x / y, rem = x % y;
+    int32_t res = (int32_t)x / (int32_t)y;
+    int32_t rem = (int32_t)x % (int32_t)y;
     if(!res)
         state->flags |= FLAG_Z;
     if(rem)
@@ -781,6 +786,24 @@ void flags_sar(int16_t x, int16_t y, cpu_state* state)
 
 int test_cond(cpu_state* state)
 {
+    /*
+        Z   = 0x0 // [z==1]         Equal (Zero)
+        NZ  = 0x1 // [z==0]         Not Equal (Non-Zero)
+        N   = 0x2 // [n==1]         Negative
+        NN  = 0x3 // [n==0]         Not-Negative (Positive or Zero)
+        P   = 0x4 // [n==0 && z==0] Positive
+        O   = 0x5 // [o==1]         Overflow
+        NO  = 0x6 // [o==0]         No Overflow
+        A   = 0x7 // [c==0 && z==0] Above       (Unsigned Greater Than)
+        AE  = 0x8 // [c==0]         Above Equal (Unsigned Greater Than or Equal)
+        B   = 0x9 // [c==1]         Below       (Unsigned Less Than)
+        BE  = 0xA // [c==1 || z==1] Below Equal (Unsigned Less Than or Equal)
+        G   = 0xB // [o==n && z==0] Signed Greater Than
+        GE  = 0xC // [o==n]         Signed Greater Than or Equal
+        L   = 0xD // [o!=n]         Signed Less Than
+        LE  = 0xE // [o!=n || z==1] Signed Less Than or Equal
+        RES = 0xF // Reserved for future use
+    */
     switch(state->i.yx & 0x0f)
     {
         case C_Z:
@@ -788,7 +811,7 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_NZ:
-            if(state->flags & ~FLAG_Z)
+            if(!(state->flags & FLAG_Z))
                 break;
             return 0;
         case C_N:
@@ -796,11 +819,11 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_NN:
-            if(state->flags & ~FLAG_N)
+            if(!(state->flags & FLAG_N))
                 break;
             return 0;
         case C_P:
-            if(state->flags & ~(FLAG_N | FLAG_Z)) 
+            if(!(state->flags & (FLAG_N | FLAG_Z)))
                 break;
             return 0;
         case C_O:
@@ -808,15 +831,15 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_NO:
-            if(state->flags & ~FLAG_O)
+            if(!(state->flags & FLAG_O))
                 break;
             return 0;
         case C_A:
-            if(state->flags & ~(FLAG_C & FLAG_Z))
+            if(!(state->flags & (FLAG_C | FLAG_Z)))
                 break;
             return 0;
         case C_AE:
-            if(state->flags & ~FLAG_C)
+            if(!(state->flags & FLAG_C))
                 break;
             return 0;
         case C_B:
@@ -824,23 +847,23 @@ int test_cond(cpu_state* state)
                 break;
             return 0;
         case C_BE:
-            if(state->flags & (FLAG_C | FLAG_Z))
+            if((state->flags & FLAG_C) || (state->flags & FLAG_Z))
                 break;
             return 0;
         case C_G:
-            if(((state->flags & FLAG_O) == (state->flags & FLAG_N)) && (state->flags & ~FLAG_Z))
+            if(((state->flags & FLAG_O) >> 5 == (state->flags & FLAG_N) >> 6) && !(state->flags & FLAG_Z))
                 break;
             return 0;
         case C_GE:
-            if((state->flags & FLAG_O) == (state->flags & FLAG_N))
+            if((state->flags & FLAG_O) >> 5 == (state->flags & FLAG_N) >> 6)
                 break;
             return 0;
         case C_L:
-            if((state->flags & FLAG_O) != (state->flags & FLAG_N))
+            if((state->flags & FLAG_O) >> 5 != (state->flags & FLAG_N) >> 6)
                 break;
             return 0;
         case C_LE:
-            if(((state->flags & FLAG_O) != (state->flags & FLAG_N)) || state->flags & FLAG_Z)
+            if(((state->flags & FLAG_O) >> 5 != (state->flags & FLAG_N) >> 6) || state->flags & FLAG_Z)
                 break;
             return 0;
         case C_RES:
