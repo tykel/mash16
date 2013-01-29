@@ -26,7 +26,7 @@ void print_state(cpu_state* state)
         printf("r%d: %d\t\tr%d: %d\t\tr%d: %d\t\tr%d: %d\n",
             i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
     if(getchar() == 'q')
-        return;
+        exit(1);
 }
 
 int verify_header(uint8_t* bin, int len)
@@ -121,6 +121,7 @@ int main(int argc, char* argv[])
     {
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
+        //print_state(state);
         /* Handle input. */
         //cpu_io_reset(state);
         SDL_Event evt;

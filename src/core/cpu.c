@@ -18,9 +18,12 @@ void cpu_init(cpu_state** state, uint8_t* mem)
     
     srand(time(NULL));
 
-    /* Map instr. table entries to functions. */
+    /* Ensure unused instructions return errors. */
     for(int i=0; i<0x100; ++i)
+    {
         op_table[i] = &op_error;
+    }
+    /* Map instr. table entries to functions. */
     op_table[0x00] = &op_nop;
     op_table[0x01] = &op_cls;
     op_table[0x02] = &op_vblnk;
@@ -262,15 +265,24 @@ void op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h)
             /* .. .. .@ @@ @. .. */
             if(x % 2)
             {
-                vm[160*(y+iy) + (x/2 + 1) + ix] &= 0xf0;
-                vm[160*(y+iy) + (x/2 + 1) + ix] |= hp;
-                vm[160*(y+iy) + (x/2 + 2) + ix] &= 0x0f;
-                vm[160*(y+iy) + (x/2 + 2) + ix] |= lp << 4;
+                if(hp)
+                {
+                    vm[160*(y+iy) + (x/2 + 1) + ix] &= 0xf0;
+                    vm[160*(y+iy) + (x/2 + 1) + ix] |= hp;
+                }
+                if(lp)
+                {
+                    vm[160*(y+iy) + (x/2 + 2) + ix] &= 0x0f;
+                    vm[160*(y+iy) + (x/2 + 2) + ix] |= lp << 4;
+                }
             }
             /* .. .. .. @@ @@ .. */
             else
             {
-                vm[160*(y+iy) + (x/2 + 1) + ix] = (hp << 4) | lp;
+                if(hp)
+                    vm[160*(y+iy) + (x/2 + 1) + ix] = hp << 4;
+                if(lp)
+                    vm[160*(y+iy) + (x/2 + 1) + ix] |= lp;
             }
         }
     }
@@ -364,7 +376,7 @@ void op_cx(cpu_state* state)
     if(test_cond(state))
     {
         state->m[state->sp] = state->pc & 0x00ff;
-        state->m[state->sp+1] = state->pc >> 8;
+        state->m[state->sp + 1] = state->pc >> 8;
         state->sp += 2;
         state->pc = state->i.hhll;
     }
@@ -373,7 +385,7 @@ void op_cx(cpu_state* state)
 void op_call_r(cpu_state* state)
 {
     state->m[state->sp] = state->pc & 0x00ff;
-    state->m[state->sp+1] = state->pc >> 8;
+    state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
     state->pc = state->r[state->i.yx & 0x0f];
 }
@@ -391,13 +403,13 @@ void op_ldi_sp(cpu_state* state)
 void op_ldm_imm(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = state->m[state->i.hhll] |
-                                    (state->m[state->i.hhll + 1] << 8);
+                                  (state->m[state->i.hhll + 1] << 8);
 }
 
 void op_ldm_r(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = state->m[state->r[state->i.yx >> 4]] |
-                                    (state->m[state->r[state->i.yx >> 4] + 1] << 8);
+                                  (state->m[state->r[state->i.yx >> 4] + 1] << 8);
 }
 
 void op_mov(cpu_state* state)
@@ -408,13 +420,13 @@ void op_mov(cpu_state* state)
 void op_stm_imm(cpu_state* state)
 {
     state->m[state->i.hhll] = state->r[state->i.yx & 0x0f] & 0x00ff;
-    state->m[state->i.hhll+1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->m[state->i.hhll + 1] = state->r[state->i.yx & 0x0f] >> 8;
 }
 
 void op_stm_r(cpu_state* state)
 {
     state->m[state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f] & 0x00ff;
-    state->m[state->r[state->i.yx >> 4]+1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->m[state->r[state->i.yx >> 4] + 1] = state->r[state->i.yx & 0x0f] >> 8;
 }
 
 void op_addi(cpu_state* state)
@@ -499,7 +511,7 @@ void op_and_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(rx,ry,state);
+    flags_and(rx,ry,state);
     state->r[state->i.z] = rx & ry;
 }
 
@@ -553,7 +565,7 @@ void op_xor_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(*rx,ry,state);
+    flags_xor(*rx,ry,state);
     *rx ^= ry;
 }
 
@@ -561,7 +573,7 @@ void op_xor_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_sub(rx,ry,state);
+    flags_xor(rx,ry,state);
     state->r[state->i.z] = rx ^ ry;
 }
 
@@ -576,7 +588,7 @@ void op_muli(cpu_state* state)
 void op_mul_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->i.hhll;
+    int16_t ry = state->r[state->i.yx >> 4];
     flags_mul(*rx,ry,state);
     *rx *= ry;
 }
@@ -633,7 +645,7 @@ void op_sar_n(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t n = state->i.n;
-    flags_shr(*rx,n,state);
+    flags_sar(*rx,n,state);
     *rx >>= n;
 }
 
@@ -657,7 +669,7 @@ void op_sar_r(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
-    flags_shr(*rx,ry,state);
+    flags_sar(*rx,ry,state);
     *rx >>= ry;
 }
 
@@ -677,7 +689,7 @@ void op_pop(cpu_state* state)
 
 void op_pushall(cpu_state* state)
 {
-    for(int i=0; i<0x10; ++i)
+    for(int i=0; i<16; ++i)
     {
         state->m[state->sp] = state->r[i] & 0x00ff;
         state->m[state->sp + 1] = state->r[i] >> 8;
@@ -687,7 +699,7 @@ void op_pushall(cpu_state* state)
 
 void op_popall(cpu_state* state)
 {
-    for(int i=0xf; i<=0; --i)
+    for(int i=15; i>=0; --i)
     {
         state->sp -= 2;
         state->r[i] = state->m[state->sp] | (state->m[state->sp + 1] << 8);
@@ -728,95 +740,95 @@ void op_pal_r(cpu_state* state)
 void flags_add(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int32_t res = (int32_t)x + (int32_t)y;
+    uint32_t res = (uint16_t)x + (uint16_t)y;
     if(!res)
         state->f.z = 1;
-    if(res < INT16_MIN || res > INT16_MAX)
+    if(res > UINT16_MAX)
         state->f.c = 1;
     if(((int16_t)res < 0 && (int16_t)x > 0 && (int16_t)y > 0) ||
         ((int16_t)res > 0 && (int16_t)x < 0 && (int16_t)y < 0))
         state->f.o = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_sub(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int32_t res = (int32_t)x - (int32_t)y;
+    uint32_t res = (uint16_t)x - (uint16_t)y;
     if(!res)
         state->f.z = 1;
-    if(res < INT16_MIN || res > INT16_MAX)
+    if(res > UINT16_MAX)
         state->f.c = 1;
     if(((int16_t)res < 0 && (int16_t)x > 0 && (int16_t)y < 0) || 
-        ((int16_t)res > 0 && x < 0 && y > 0))
+        ((int16_t)res > 0 && (int16_t)x < 0 && y > 0))
         state->f.o = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_and(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int16_t res = x & y;
+    uint16_t res = (uint16_t)x & (uint16_t)y;
     if(!res)
         state->f.z = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_or(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int16_t res = x | y;
+    uint16_t res = (uint16_t)x | (uint16_t)y;
     if(!res)
         state->f.z = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_xor(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int16_t res = x ^ y;
+    uint16_t res = (uint16_t)x ^ (uint16_t)y;
     if(!res)
         state->f.z = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_mul(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int32_t res = (int32_t)x * (int32_t)y;
+    uint32_t res = (uint16_t)x * (uint16_t)y;
     if(!res)
         state->f.z = 1;
-    if(res > INT16_MAX || res < INT16_MIN)
+    if(res > UINT16_MAX)
         state->f.c = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_div(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int32_t res = (int32_t)x / (int32_t)y;
-    int32_t rem = (int32_t)x % (int32_t)y;
+    uint16_t res = (uint16_t)x / (uint16_t)y;
+    uint16_t rem = (uint16_t)x % (uint16_t)y;
     if(!res)
         state->f.z = 1;
     if(rem)
         state->f.c = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 
 void flags_shl(int16_t x, int16_t y, cpu_state* state)
 {
     state->f = (flags){0};
-    int16_t res = x << y;
+    uint16_t res = (uint16_t)x << y;
     if(!res)
         state->f.z = 1;
-    if(res < 0)
+    if((int16_t)res < 0)
         state->f.n = 1;
 }
 

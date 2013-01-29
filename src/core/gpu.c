@@ -5,10 +5,10 @@ void init_pal(cpu_state* state)
 {
     uint32_t pal[] =
     {
-        PAL_TRANS, PAL_BLACK, PAL_GRAY, PAL_RED,
-        PAL_PINK, PAL_DKBROWN, PAL_BROWN, PAL_ORANGE,
-        PAL_YELLOW, PAL_GREEN, PAL_LTGREEN, PAL_DKBLUE,
-        PAL_BLUE, PAL_LTBLUE, PAL_SKYBLUE, PAL_WHITE
+        PAL_TRANS,  PAL_BLACK,   PAL_GRAY,    PAL_RED,
+        PAL_PINK,   PAL_DKBROWN, PAL_BROWN,   PAL_ORANGE,
+        PAL_YELLOW, PAL_GREEN,   PAL_LTGREEN, PAL_DKBLUE,
+        PAL_BLUE,   PAL_LTBLUE,  PAL_SKYBLUE, PAL_WHITE
     };
     load_pal((uint8_t*)&pal[0],1,state);
 }
@@ -18,7 +18,7 @@ void load_pal(uint8_t* pal, int alpha, cpu_state* state)
     int b = 3 + alpha;
     for(int i=0; i<16; ++i)
     {
-        uint32_t col = (pal[i*b + 2] << 16) | (pal[i*b + 1] << 8) | (pal[i*b]);
+        uint32_t col = (pal[i*b] << 16) | (pal[i*b + 1] << 8) | (pal[i*b + 2]);
         *((uint32_t*)&state->pal[i]) = col;
     }
 }
