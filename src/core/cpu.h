@@ -20,10 +20,10 @@
 #define C_AE 0x8
 #define C_B  0x9
 #define C_BE 0xa
-#define C_L  0xb
-#define C_LE 0xc
-#define C_G  0xd
-#define C_GE 0xe
+#define C_G  0xb
+#define C_GE 0xc
+#define C_L  0xd
+#define C_LE 0xe
 #define C_RES 0xf
 
 /* Instruction representation. */
