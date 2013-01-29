@@ -153,6 +153,8 @@ void cpu_free(cpu_state* state)
 void op_error(cpu_state* state)
 {
     fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",state->i.op);
+    fprintf(stderr,"state: pc=%x\n",state->pc);
+    exit(1);
 }
 
 void op_nop(cpu_state* state)
@@ -198,7 +200,10 @@ void op_drw_imm(cpu_state* state)
     {
         for(int ix=0; ix<w; ++ix, ++dbpx)
         {
-            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x+ix)]);
+            /* Ensure the pointer will be valid... */
+            if(y+iy < 0 || (!(y+iy) && x < 0))
+                continue;
+            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x/2+ix)]);
             uint8_t lp = ((*dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (*dbpx & 0x0f);
             uint8_t hp = ((*dbpx >>   4) == 0) ? (*vmp >>   4) : (*dbpx >>   4);
             *vmp = (hp << 4) | lp;
@@ -224,7 +229,7 @@ void op_drw_r(cpu_state* state)
     {
         for(int ix=0; ix<w; ++ix, ++dbpx)
         {
-            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x+ix)]);
+            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x/2+ix)]);
             uint8_t lp = ((*dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (*dbpx & 0x0f);
             uint8_t hp = ((*dbpx >>   4) == 0) ? (*vmp >>   4) : (*dbpx >>   4);
             *vmp = (hp << 4) | lp;
@@ -283,6 +288,11 @@ void op_jx(cpu_state* state)
     if(test_cond(state))
     {
         state->pc = state->i.hhll;
+        printf("jx successful");
+    }
+    else
+    {
+        printf("jx failed");
     }
 }
 
@@ -346,12 +356,14 @@ void op_ldi_sp(cpu_state* state)
 
 void op_ldm_imm(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->m[state->i.hhll];  
+    state->r[state->i.yx & 0x0f] = state->m[state->i.hhll] |
+                                    (state->m[state->i.hhll + 1] << 8);
 }
 
 void op_ldm_r(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->m[state->r[state->i.yx >> 4]];
+    state->r[state->i.yx & 0x0f] = state->m[state->r[state->i.yx >> 4]] |
+                                    (state->m[state->r[state->i.yx >> 4] + 1] << 8);
 }
 
 void op_mov(cpu_state* state)
@@ -422,7 +434,8 @@ void op_cmpi(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
     flags_sub(rx,imm,state);
-}
+    printf("compared %d-%d=%d",rx,imm,(int32_t)rx-(int32_t)imm);
+ }
 
 void op_cmp(cpu_state* state)
 {
@@ -816,68 +829,68 @@ int test_cond(cpu_state* state)
     {
         case C_Z:
             if(state->f.z)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_NZ:
             if(!state->f.z)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_N:
             if(state->f.n)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_NN:
             if(!state->f.n)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_P:
             if(!state->f.n && !state->f.z)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_O:
             if(state->f.o)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_NO:
             if(!state->f.o)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_A:
             if(!state->f.c && !state->f.z)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_AE:
             if(!state->f.c)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_B:
             if(state->f.c)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_BE:
             if(state->f.c || state->f.z)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_G:
-            if(state->f.o == state->f.n && !state->f.z)
-                break;
-            return 0;
+            if((state->f.o == state->f.n) && !state->f.z)
+                return 1;
+            break;
         case C_GE:
             if(state->f.o == state->f.n)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_L:
             if(state->f.o != state->f.n)
-                break;
-            return 0;
+                return 1;
+            break;
         case C_LE:
-            if(state->f.o != state->f.n || state->f.z)
-                break;
-            return 0;
+            if((state->f.o != state->f.n) || state->f.z)
+                return 1;
+            break;
         case C_RES:
         default:
-            return 0;
+            break;
     }
-    /* The test has succeeded as the switch has transferred here. */
-    return 1;
+    /* The test has failed. */
+    return 0;
 }
