@@ -105,6 +105,7 @@ cpu_op op_table[0x100];
 void cpu_init(cpu_state**,uint8_t*);
 void cpu_step(cpu_state*);
 void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
+void cpu_io_reset(cpu_state*);
 void cpu_free(cpu_state*);
 
 void op_error(cpu_state*);

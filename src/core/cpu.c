@@ -113,32 +113,79 @@ void cpu_io_update(SDL_KeyboardEvent* key, cpu_state* state)
     switch(key->keysym.sym)
     {
         case SDLK_UP:
-            state->m[IO_PAD1_ADDR] |= PAD_UP;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_UP;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_UP;
             break;
+        }
         case SDLK_DOWN:
-            state->m[IO_PAD1_ADDR] |= PAD_DOWN;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_DOWN;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_DOWN;
             break;
+        }
         case SDLK_LEFT:
-            state->m[IO_PAD1_ADDR] |= PAD_LEFT;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_LEFT;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_LEFT;
             break;
+        }
         case SDLK_RIGHT:
-            state->m[IO_PAD1_ADDR] |= PAD_RIGHT;
+        {    
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_RIGHT;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_RIGHT;
             break;
+        }
         case SDLK_RSHIFT:
-            state->m[IO_PAD1_ADDR] |= PAD_SELECT;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_SELECT;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_SELECT;
             break;
+        }
         case SDLK_RETURN:
-            state->m[IO_PAD1_ADDR] |= PAD_START;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_START;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_START;
             break;
+        }
         case SDLK_z:
-            state->m[IO_PAD1_ADDR] |= PAD_A;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_A;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_A;
             break;
+        }
         case SDLK_x:
-            state->m[IO_PAD1_ADDR] |= PAD_B;
+        {
+            if(key->type == SDL_KEYDOWN)
+                state->m[IO_PAD1_ADDR] |= PAD_B;
+            else
+                state->m[IO_PAD1_ADDR] &= ~PAD_B;
             break;
+        }
         default:
             break;
     }
+}
+
+/* Reset I/O updates between frames. */
+void cpu_io_reset(cpu_state* state)
+{
+    state->m[IO_PAD1_ADDR] = 0;
+    state->m[IO_PAD2_ADDR] = 0;
 }
 
 /* Free resources held by the cpu state. */
@@ -163,7 +210,7 @@ void op_nop(cpu_state* state)
 
 void op_cls(cpu_state* state)
 {
-    memset(state->vm,0,160*240);
+    memset(state->vm,state->bgc,160*240);
 }
 
 void op_vblnk(cpu_state* state)

@@ -26,7 +26,7 @@ void print_state(cpu_state* state)
         printf("r%d: %d\t\tr%d: %d\t\tr%d: %d\t\tr%d: %d\n",
             i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
     if(getchar() == 'q')
-        return 0;
+        return;
 }
 
 int verify_header(uint8_t* bin, int len)
@@ -122,12 +122,14 @@ int main(int argc, char* argv[])
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
         /* Handle input. */
+        //cpu_io_reset(state);
         SDL_Event evt;
         while(SDL_PollEvent(&evt))
         {
             switch(evt.type)
             {
                 case SDL_KEYDOWN:
+                case SDL_KEYUP:
                     cpu_io_update(&evt.key,state);
                     break;
                 case SDL_QUIT:
@@ -137,7 +139,6 @@ int main(int argc, char* argv[])
                     break;
             }
         }
-
         /* Timing for cycle times. */
         while((t = SDL_GetTicks()) - oldt < FRAME_DT) ;
             //SDL_Delay(0);
