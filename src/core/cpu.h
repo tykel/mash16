@@ -116,6 +116,7 @@ void op_bgc(cpu_state*);
 void op_spr(cpu_state*);
 void op_drw_imm(cpu_state*);
 void op_drw_r(cpu_state*);
+void op_drw(uint8_t*,uint8_t*,int,int,int,int);
 void op_rnd(cpu_state*);
 void op_flip(cpu_state*);
 void op_snd0(cpu_state*);
