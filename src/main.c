@@ -16,6 +16,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+void print_state(cpu_state* state)
+{
+    printf("---------------------------------------\n");
+    printf("pc: %x\t\tsp: %x\t\tflags: %d%d%d%d\n",
+        state->pc,state->sp,state->f.c,state->f.z,state->f.o,state->f.n);
+    printf("spr: %dx%d\t\tbgc: %d\t\tinstr: %08x\n",state->sw,state->sh,state->bgc,state->i.dword);
+    for(int i=0; i<4; ++i)
+        printf("r%d: %d\t\tr%d: %d\t\tr%d: %d\t\tr%d: %d\n",
+            i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
+    if(getchar() == 'q')
+        return 0;
+}
+
 int verify_header(uint8_t* bin, int len)
 {
     ch16_header* header = (ch16_header*)bin;
@@ -106,19 +119,10 @@ int main(int argc, char* argv[])
     /* Emulation loop. */
     while(!exit)
     {
-        //while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+        while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
-        printf("---------------------------------------\n");
-        printf("pc: %x\t\tsp: %x\t\tflags: %d%d%d%d\n",
-            state->pc,state->sp,state->f.c,state->f.z,state->f.o,state->f.n);
-        printf("spr: %dx%d\t\tbgc: %d\t\tinstr: %08x\n",state->sw,state->sh,state->bgc,state->i.dword);
-        for(int i=0; i<4; ++i)
-            printf("r%d: %d\t\tr%d: %d\t\tr%d: %d\t\tr%d: %d\n",
-                i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
-        if(getchar() == 'q')
-            return 0;
         /* Handle input. */
-        /*SDL_Event evt;
+        SDL_Event evt;
         while(SDL_PollEvent(&evt))
         {
             switch(evt.type)
@@ -135,14 +139,14 @@ int main(int argc, char* argv[])
         }
 
         /* Timing for cycle times. */
-        /*while((t = SDL_GetTicks()) - oldt < FRAME_DT) ;
+        while((t = SDL_GetTicks()) - oldt < FRAME_DT) ;
             //SDL_Delay(0);
         oldt = t;
         /* Draw. */
         blit_screen(screen,state);
         /* Reset vblank flag. */
-        /*state->meta.wait_vblnk = 0;
-        state->meta.cycles = 0;*/
+        state->meta.wait_vblnk = 0;
+        state->meta.cycles = 0;
     }
 
     printf("\n");

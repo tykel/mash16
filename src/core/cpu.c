@@ -288,11 +288,6 @@ void op_jx(cpu_state* state)
     if(test_cond(state))
     {
         state->pc = state->i.hhll;
-        printf("jx successful");
-    }
-    else
-    {
-        printf("jx failed");
     }
 }
 
@@ -434,7 +429,6 @@ void op_cmpi(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
     flags_sub(rx,imm,state);
-    printf("compared %d-%d=%d",rx,imm,(int32_t)rx-(int32_t)imm);
  }
 
 void op_cmp(cpu_state* state)
