@@ -30,13 +30,10 @@ void blit_screen(SDL_Surface* sfc, cpu_state* state)
     
     for(int y=0; y<240; ++y)
     {
-        for(int x=0; x<160; ++x)
+        for(int x=0; x<320; ++x)
         {
-            uint8_t rgb = state->vm[y*160 + x];
-            dst[y*320 + x*2] = !(rgb >> 4) ? state->pal[state->bgc]
-                                           : state->pal[rgb >> 4];
-            dst[y*320 + x*2 + 1] = !(rgb & 0x0f) ? state->pal[state->bgc]
-                                                 : state->pal[rgb & 0x0f];
+            uint8_t rgb = state->vm[y*320 + x];
+            dst[y*320 + x] = !rgb ? state->pal[state->bgc] : state->pal[rgb];
         }
     }
     SDL_UnlockSurface(sfc);
