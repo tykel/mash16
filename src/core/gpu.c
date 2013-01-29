@@ -23,7 +23,7 @@ void load_pal(uint8_t* pal, int alpha, cpu_state* state)
     }
 }
 
-void blit_screen(SDL_Surface* sfc, cpu_state* state)
+void blit_screen1x(SDL_Surface* sfc, cpu_state* state)
 {
     SDL_LockSurface(sfc);
 	uint32_t* dst = (uint32_t*)sfc->pixels;
@@ -34,6 +34,33 @@ void blit_screen(SDL_Surface* sfc, cpu_state* state)
         {
             uint8_t rgb = state->vm[y*320 + x];
             dst[y*320 + x] = !rgb ? state->pal[state->bgc] : state->pal[rgb];
+        }
+    }
+    SDL_UnlockSurface(sfc);
+    /* Force screen update. */
+    SDL_UpdateRect(sfc,0,0,0,0);
+}
+
+void blit_screen2x(SDL_Surface* sfc, cpu_state* state)
+{
+    SDL_LockSurface(sfc);
+    uint32_t* dst = (uint32_t*)sfc->pixels;
+    
+    for(int y=0; y<240; ++y)
+    {
+        for(int x=0; x<320; ++x)
+        {
+            uint8_t rgb = state->vm[y*320 + x];
+            uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];
+            dst[y*2*640 + x*2] = p;
+            dst[y*2*640 + x*2+1] = p;
+        }
+        for(int x=0; x<320; ++x)
+        {
+            uint8_t rgb = state->vm[y*320 + x];
+            uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];
+            dst[(y*2+1)*640 + x*2] = p;
+            dst[(y*2+1)*640 + x*2+1] = p;
         }
     }
     SDL_UnlockSurface(sfc);
