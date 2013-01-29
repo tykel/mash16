@@ -2,7 +2,6 @@
 #define GPU_H
 
 /* Default palette colours. */
-/*
 #define PAL_TRANS   0x00000000
 #define PAL_BLACK   0x00000000
 #define PAL_GRAY    0x00888888
@@ -19,7 +18,7 @@
 #define PAL_LTBLUE  0x00ccab68
 #define PAL_SKYBLUE 0x00e4debc
 #define PAL_WHITE   0x00ffffff
-*/
+/*
 #define PAL_TRANS   0x00000000
 #define PAL_BLACK   0x00000000
 #define PAL_GRAY    0x00888888
@@ -36,6 +35,7 @@
 #define PAL_LTBLUE  0x0068abcc
 #define PAL_SKYBLUE 0x00bcdee4
 #define PAL_WHITE   0x00ffffff
+*/
 
 #include "cpu.h"
 
