@@ -12,7 +12,7 @@ void cpu_init(cpu_state** state, uint8_t* mem)
 {
     *state = (cpu_state*)calloc(1,sizeof(cpu_state));
     (*state)->m = mem;
-    (*state)->vm = calloc(160*240,1);
+    (*state)->vm = calloc(320*240,1);
     (*state)->pal = malloc(16*sizeof(uint32_t));
     (*state)->sp = STACK_ADDR;
     
@@ -213,7 +213,7 @@ void op_nop(cpu_state* state)
 
 void op_cls(cpu_state* state)
 {
-    memset(state->vm,0,160*240);
+    memset(state->vm,0,320*240);
 }
 
 void op_vblnk(cpu_state* state)
@@ -236,67 +236,84 @@ void op_drw_imm(cpu_state* state)
 {
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    op_drw(&state->m[state->i.hhll],
-        state->vm,x,y,state->sw,state->sh);
+    state->f.c = op_drw(&state->m[state->i.hhll],
+        state->vm, x, y, state->sw, state->sh,
+        state->fx, state->fy);
 }
 
 void op_drw_r(cpu_state* state)
 {
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    op_drw(&state->m[state->r[state->i.z]],
-        state->vm,x,y,state->sw,state->sh);
+    state->f.c = op_drw(&state->m[state->r[state->i.z]],
+        state->vm, x, y, state->sw, state->sh,
+        state->fx, state->fy);
 }
 
-void op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h)
+int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 {
     /* If nothing will be on-screen, may as well exit. */
     if(x > 319 || y > 239 || !w || !h || y+h < 0 || x+w*2 < 0)
-        return;
-    for(int iy=0; iy<h; ++iy)
+        return 0;
+    int hit = 0;
+    /* Sort out what direction the sprite will be drawn in. */
+    int ix_st = 0, ix_end = w*2, ix_inc = 2;
+    if(fx)
     {
-        for(int ix=0; ix<w; ++ix, ++m)
+        ix_st = w*2 - 2;
+        ix_end = -2;
+        ix_inc = -2;
+    }
+    int iy_st = 0, iy_end = h, iy_inc = 1;
+    if(fy)
+    {
+        iy_st = h - 1;
+        iy_end = -1;
+        iy_inc = -1;
+    }
+    /* Start drawing... */
+    for(int iy=iy_st, j=0; iy!=iy_end; iy+=iy_inc, ++j)
+    {
+        for(int ix=ix_st, i=0; ix!=ix_end; ix+=ix_inc, i+=2)
         {
             /* Bounds checking for memory accesses. */
-            if((2*ix)+x < 0 || (2*ix)+x > (317 + x%2) || iy+y < 0 || iy+y > 239)
+            if(ix+x < 0 || ix+x > 319 || iy+y < 0 || iy+y > 239)
                 continue;
-            uint8_t lp = *m & 0x0f;
-            uint8_t hp = *m >> 4;
-            /* .. .. .@ @@ @. .. */
-            if(x % 2)
+            uint8_t p  = m[w*iy + ix/2];
+            uint8_t hp = p >> 4;
+            uint8_t lp = p & 0x0f;
+            /* Flip the pixel couple if necessary. */
+            if(fx)
             {
-                if(hp)
-                {
-                    vm[160*(y+iy) + (x/2 + 1) + ix] &= 0xf0;
-                    vm[160*(y+iy) + (x/2 + 1) + ix] |= hp;
-                }
-                if(lp)
-                {
-                    vm[160*(y+iy) + (x/2 + 2) + ix] &= 0x0f;
-                    vm[160*(y+iy) + (x/2 + 2) + ix] |= lp << 4;
-                }
+                int t = lp;
+                lp = hp;
+                hp = t;
             }
-            /* .. .. .. @@ @@ .. */
-            else
+            /* Draw the pixels if not transparent. */
+            if(hp)
             {
-                if(hp)
-                    vm[160*(y+iy) + (x/2 + 1) + ix] = hp << 4;
-                if(lp)
-                    vm[160*(y+iy) + (x/2 + 1) + ix] |= lp;
+                hit += vm[320*(y+j) + x+i];
+                vm[320*(y+j) + x+i] = hp;
+            }
+            if(lp)
+            {
+                hit += vm[320*(y+j) + x+i+1]; 
+                vm[320*(y+j) + x+i+1] = lp;
             }
         }
     }
+    return (hit > 0);
 }
 
 void op_rnd(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = rand() & state->i.hhll;
+    state->r[state->i.yx & 0x0f] = rand() % (state->i.hhll + 1);
 }
 
 void op_flip(cpu_state* state)
 {
-    state->fx = (state->i.hhll & 0x02) >> 1;
-    state->fy = state->i.hhll & 0x01;
+    state->fx = state->i.hhll >> 9;
+    state->fy = (state->i.hhll >> 8) & 0x01;
 }
 
 void op_snd0(cpu_state* state)
