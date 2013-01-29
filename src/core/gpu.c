@@ -27,22 +27,16 @@ void blit_screen(SDL_Surface* sfc, cpu_state* state)
 {
     SDL_LockSurface(sfc);
 	uint32_t* dst = (uint32_t*)sfc->pixels;
-    /* Clear the screen before drawing. */
-    memset(dst,0,320*240*4);
     
     for(int y=0; y<240; ++y)
     {
         for(int x=0; x<160; ++x)
         {
             uint8_t rgb = state->vm[y*160 + x];
-            if((rgb >> 4) != 0x0)
-            {
-                dst[y*320 + x*2] = state->pal[rgb >> 4];
-            }
-            if((rgb & 0x0f) != 0x0)
-            {
-                dst[y*320 + x*2 + 1] = state->pal[rgb & 0x0f];
-            }
+            dst[y*320 + x*2] = !(rgb >> 4) ? state->pal[state->bgc]
+                                           : state->pal[rgb >> 4];
+            dst[y*320 + x*2 + 1] = !(rgb & 0x0f) ? state->pal[state->bgc]
+                                                 : state->pal[rgb & 0x0f];
         }
     }
     SDL_UnlockSurface(sfc);

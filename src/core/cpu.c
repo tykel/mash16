@@ -181,7 +181,7 @@ void cpu_io_update(SDL_KeyboardEvent* key, cpu_state* state)
     }
 }
 
-/* Reset I/O updates between frames. */
+/* Reset I/O ports. */
 void cpu_io_reset(cpu_state* state)
 {
     state->m[IO_PAD1_ADDR] = 0;
@@ -210,7 +210,7 @@ void op_nop(cpu_state* state)
 
 void op_cls(cpu_state* state)
 {
-    memset(state->vm,state->bgc,160*240);
+    memset(state->vm,0,160*240);
 }
 
 void op_vblnk(cpu_state* state)
@@ -231,55 +231,47 @@ void op_spr(cpu_state* state)
 
 void op_drw_imm(cpu_state* state)
 {
-    /* If width=0 or height=0, nothing to draw. */
-    if(!state->sw || !state->sh)
-        return;
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
-    int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
-    /* Check we actually need to draw something. */
-    if(!w || !h || x > 319 || y > 239 || x + w*2 < 0 || y + h < 0)
-        return;
-    uint8_t* dbpx = &state->m[state->i.hhll];
-    /* Copy sprite data to (chip16) video memory. */
-    for(int iy=0; iy<h; ++iy)
-    {
-        for(int ix=0; ix<w; ++ix, ++dbpx)
-        {
-            /* Ensure the pointer will be valid... */
-            if(y+iy < 0 || (!(y+iy) && x < 0))
-                continue;
-            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x/2+ix)]);
-            uint8_t lp = ((*dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (*dbpx & 0x0f);
-            uint8_t hp = ((*dbpx >>   4) == 0) ? (*vmp >>   4) : (*dbpx >>   4);
-            *vmp = (hp << 4) | lp;
-        }
-    }
+    op_drw(&state->m[state->i.hhll],
+        state->vm,x,y,state->sw,state->sh);
 }
 
 void op_drw_r(cpu_state* state)
 {
-    /* If width=0 or height=0, nothing to draw. */
-    if(!state->sw || !state->sh)
-        return;
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    int w = state->sw > 160 ? state->sw - (state->sw % 160) : state->sw;
-    int h = state->sh > 240 ? state->sh - (state->sh % 240) : state->sh;
-    /* If off-screen, nothing to draw. */
-    if(w || !h || x > 319 || y > 239 || x + w*2 < 0 || y + h < 0)
+    op_drw(&state->m[state->r[state->i.z]],
+        state->vm,x,y,state->sw,state->sh);
+}
+
+void op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h)
+{
+    /* If nothing will be on-screen, may as well exit. */
+    if(x > 319 || y > 239 || !w || !h || y+h < 0 || x+w*2 < 0)
         return;
-    uint8_t* dbpx = &state->m[state->r[state->i.z]];
-    /* Copy sprite data to (chip16) video memory. */
     for(int iy=0; iy<h; ++iy)
     {
-        for(int ix=0; ix<w; ++ix, ++dbpx)
+        for(int ix=0; ix<w; ++ix, ++m)
         {
-            uint8_t* vmp = &(state->vm[(y+iy)*160 + (x/2+ix)]);
-            uint8_t lp = ((*dbpx & 0x0f) == 0) ? (*vmp & 0x0f) : (*dbpx & 0x0f);
-            uint8_t hp = ((*dbpx >>   4) == 0) ? (*vmp >>   4) : (*dbpx >>   4);
-            *vmp = (hp << 4) | lp;
+            /* Bounds checking for memory accesses. */
+            if((2*ix)+x < 0 || (2*ix)+x > (317 + x%2) || iy+y < 0 || iy+y > 239)
+                continue;
+            uint8_t lp = *m & 0x0f;
+            uint8_t hp = *m >> 4;
+            /* .. .. .@ @@ @. .. */
+            if(x % 2)
+            {
+                vm[160*(y+iy) + (x/2 + 1) + ix] &= 0xf0;
+                vm[160*(y+iy) + (x/2 + 1) + ix] |= hp;
+                vm[160*(y+iy) + (x/2 + 2) + ix] &= 0x0f;
+                vm[160*(y+iy) + (x/2 + 2) + ix] |= lp << 4;
+            }
+            /* .. .. .. @@ @@ .. */
+            else
+            {
+                vm[160*(y+iy) + (x/2 + 1) + ix] = (hp << 4) | lp;
+            }
         }
     }
 }
@@ -415,12 +407,14 @@ void op_mov(cpu_state* state)
 
 void op_stm_imm(cpu_state* state)
 {
-    state->m[state->i.hhll] = state->r[state->i.yx & 0x0f];
+    state->m[state->i.hhll] = state->r[state->i.yx & 0x0f] & 0x00ff;
+    state->m[state->i.hhll+1] = state->r[state->i.yx & 0x0f] >> 8;
 }
 
 void op_stm_r(cpu_state* state)
 {
-    state->m[state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f];
+    state->m[state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f] & 0x00ff;
+    state->m[state->r[state->i.yx >> 4]+1] = state->r[state->i.yx & 0x0f] >> 8;
 }
 
 void op_addi(cpu_state* state)
