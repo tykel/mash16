@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
     }
-    if((screen = SDL_SetVideoMode(320,240,32,SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
+    if((screen = SDL_SetVideoMode(640,480,32,SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
     {
         fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
         return 1;
@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
             //SDL_Delay(0);
         oldt = t;
         /* Draw. */
-        blit_screen(screen,state);
+        blit_screen2x(screen,state);
         /* Reset vblank flag. */
         state->meta.wait_vblnk = 0;
         state->meta.cycles = 0;
