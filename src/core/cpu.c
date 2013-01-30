@@ -15,6 +15,7 @@ void cpu_init(cpu_state** state, uint8_t* mem)
     (*state)->vm = calloc(320*240,1);
     (*state)->pal = malloc(16*sizeof(uint32_t));
     (*state)->sp = STACK_ADDR;
+    (*state)->f = (flags){0};
     
     srand(time(NULL));
 

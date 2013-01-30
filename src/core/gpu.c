@@ -66,5 +66,5 @@ void blit_screen2x(SDL_Surface* sfc, cpu_state* state)
     }
     SDL_UnlockSurface(sfc);
     /* Force screen update. */
-    SDL_UpdateRect(sfc,0,0,0,0);
+    SDL_Flip(sfc);
 }
