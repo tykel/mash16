@@ -245,7 +245,7 @@ void op_drw_r(cpu_state* state)
 {
     int16_t x = state->r[state->i.yx & 0x0f];
     int16_t y = state->r[state->i.yx >> 4];
-    state->f.c = op_drw(&state->m[state->r[state->i.z]],
+    state->f.c = op_drw(&state->m[(uint16_t)state->r[state->i.z]],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
 }

@@ -48,6 +48,7 @@ void blit_screen2x(SDL_Surface* sfc, cpu_state* state)
     
     for(int y=0; y<240; ++y)
     {
+        /* Access memory in rows for better cache usage. */
         for(int x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
