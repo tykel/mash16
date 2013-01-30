@@ -425,8 +425,8 @@ void op_ldm_imm(cpu_state* state)
 
 void op_ldm_r(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->m[state->r[state->i.yx >> 4]] |
-                                  (state->m[state->r[state->i.yx >> 4] + 1] << 8);
+    state->r[state->i.yx & 0x0f] = state->m[(uint16_t)state->r[state->i.yx >> 4]] |
+                                  (state->m[(uint16_t)state->r[state->i.yx >> 4] + 1] << 8);
 }
 
 void op_mov(cpu_state* state)
@@ -747,7 +747,7 @@ void op_pal_imm(cpu_state* state)
 
 void op_pal_r(cpu_state* state)
 {
-    load_pal(&state->m[state->r[state->i.yx & 0x0f]],0,state);
+    load_pal(&state->m[(uint16_t)state->r[state->i.yx & 0x0f]],0,state);
 }
 
 /* 
