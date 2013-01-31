@@ -386,7 +386,7 @@ void op_ret(cpu_state* state)
 
 void op_jmp_r(cpu_state* state)
 {
-    state->pc = state->r[state->i.yx & 0x0f];
+    state->pc = (uint16_t)state->r[state->i.yx & 0x0f];
 }
 
 void op_cx(cpu_state* state)
@@ -405,7 +405,7 @@ void op_call_r(cpu_state* state)
     state->m[state->sp] = state->pc & 0x00ff;
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
-    state->pc = state->r[state->i.yx & 0x0f];
+    state->pc = (uint16_t)state->r[state->i.yx & 0x0f];
 }
 
 void op_ldi_r(cpu_state* state)
@@ -443,8 +443,8 @@ void op_stm_imm(cpu_state* state)
 
 void op_stm_r(cpu_state* state)
 {
-    state->m[state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f] & 0x00ff;
-    state->m[state->r[state->i.yx >> 4] + 1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->m[(uint16_t)state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f] & 0x00ff;
+    state->m[(uint16_t)state->r[state->i.yx >> 4] + 1] = state->r[state->i.yx & 0x0f] >> 8;
 }
 
 void op_addi(cpu_state* state)
@@ -702,15 +702,15 @@ void op_push(cpu_state* state)
 void op_pop(cpu_state* state)
 {
     state->sp -= 2;
-    state->r[state->i.yx & 0x0f] = state->m[state->sp] | (state->m[state->sp + 1] << 8);
+    state->r[state->i.yx & 0x0f] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
 }
 
 void op_pushall(cpu_state* state)
 {
     for(int i=0; i<16; ++i)
     {
-        state->m[state->sp] = state->r[i] & 0x00ff;
-        state->m[state->sp + 1] = state->r[i] >> 8;
+        state->m[state->sp] = (uint16_t)state->r[i] & 0x00ff;
+        state->m[state->sp + 1] = (uint16_t)state->r[i] >> 8;
         state->sp += 2;
     }
 }
@@ -720,7 +720,7 @@ void op_popall(cpu_state* state)
     for(int i=15; i>=0; --i)
     {
         state->sp -= 2;
-        state->r[i] = state->m[state->sp] | (state->m[state->sp + 1] << 8);
+        state->r[i] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
     }
 }
 
