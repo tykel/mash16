@@ -41,6 +41,7 @@ void cpu_init(cpu_state** state, uint8_t* mem)
     op_table[0x0d] = &op_snp;
     op_table[0x0e] = &op_sng;
     op_table[0x10] = &op_jmp_imm;
+    op_table[0x11] = &op_jmc;
     op_table[0x12] = &op_jx;
     op_table[0x13] = &op_jme;
     op_table[0x14] = &op_call_imm;
@@ -352,6 +353,14 @@ void op_jmp_imm(cpu_state* state)
     state->pc = state->i.hhll;
 }
 
+/* DEPRECATED -- implemented purely for compatibility. */
+void op_jmc(cpu_state* state)
+{
+    if(state->f.c)
+    {
+        state->pc = state->i.hhll;
+    }
+}
 void op_jx(cpu_state* state)
 {
     if(test_cond(state))

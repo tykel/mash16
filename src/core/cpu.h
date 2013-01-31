@@ -126,6 +126,7 @@ void op_snd3(cpu_state*);
 void op_snp(cpu_state*);
 void op_sng(cpu_state*);
 void op_jmp_imm(cpu_state*);
+void op_jmc(cpu_state*);
 void op_jx(cpu_state*);
 void op_jme(cpu_state*);
 void op_call_imm(cpu_state*);
