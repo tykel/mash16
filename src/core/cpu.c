@@ -279,7 +279,7 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
         for(int ix=ix_st, i=0; ix!=ix_end; ix+=ix_inc, i+=2)
         {
             /* Bounds checking for memory accesses. */
-            if(ix+x < 0 || ix+x > 319 || iy+y < 0 || iy+y > 239)
+            if(i+x < 0 || i+x > 318 || j+y < 0 || j+y > 239)
                 continue;
             uint8_t p  = m[w*iy + ix/2];
             uint8_t hp = p >> 4;
