@@ -205,7 +205,7 @@ void cpu_free(cpu_state* state)
 void op_error(cpu_state* state)
 {
     fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",state->i.op);
-    fprintf(stderr,"state: pc=%x\n",state->pc);
+    fprintf(stderr,"state: pc=%40x\n",state->pc);
     exit(1);
 }
 
@@ -632,6 +632,12 @@ void op_divi(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
+    if(!imm)
+    {
+        fprintf(stderr,"error: attempted to divide by 0\n");
+        fprintf(stderr,"state: pc=0x%40x\n",state->pc);
+        exit(1);
+    }
     flags_div(*rx,imm,state);
     *rx /= imm;
 }
@@ -640,6 +646,12 @@ void op_div_r2(cpu_state* state)
 {
     int16_t* rx = &state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
+    if(!ry)
+    {
+        fprintf(stderr,"error: attempted to divide by 0\n");
+        fprintf(stderr,"state: pc=0x%40x\n",state->pc);
+        exit(1);
+    }
     flags_div(*rx,ry,state);
     *rx /= ry;
 }
@@ -648,6 +660,12 @@ void op_div_r3(cpu_state* state)
 {
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
+    if(!ry)
+    {
+        fprintf(stderr,"error: attempted to divide by 0\n");
+        fprintf(stderr,"state: pc=0x%40x\n",state->pc);
+        exit(1);
+    }
     flags_div(rx,ry,state);
     state->r[state->i.z] = rx / ry;
 }
