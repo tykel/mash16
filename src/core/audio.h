@@ -4,7 +4,7 @@
 #include "cpu.h"
 
 #define AUDIO_FREQUENCY 	22050
-#define AUDIO_SAMPLES		2048
+#define AUDIO_SAMPLES		1024
 #define SND1_SAMPLES		(int)(22050 / 500)
 #define SND2_SAMPLES		(int)(22050 / 1000)
 #define SND3_SAMPLES		(int)(22050 / 1500)
