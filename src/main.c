@@ -9,6 +9,7 @@
 #include "header/header.h"
 #include "core/cpu.h"
 #include "core/gpu.h"
+#include "core/audio.h"
 
 #include <SDL/SDL.h>
 
@@ -58,12 +59,18 @@ int main(int argc, char* argv[])
 {
     /* Until a non-SDL GUI is implemented, exit if no rom specified */
     if(argc < 2)
-        return 1;
-
-    printf("argc >= 2\n");
+    {
+        printf("warning: no input filename supplied, exiting...\n");
+        exit(1);
+    }
     
     /* Read our rom file into memory */
-    uint8_t* buf = calloc(MEM_SIZE+sizeof(ch16_header),sizeof(uint8_t));
+    uint8_t* buf = NULL;
+    if(!(buf = calloc(MEM_SIZE+sizeof(ch16_header),sizeof(uint8_t))))
+    {
+        fprintf(stderr,"error: calloc failed (buf)\n");
+        exit(1);
+    }
     int len = read_file(argv[1],buf);
     if(!len)
         return 1;
@@ -77,13 +84,21 @@ int main(int argc, char* argv[])
     {
         use_header = 1;
         if(!verify_header(buf,len))
-            return 1;
+        {
+            fprintf(stderr,"error: header integrity check failed\n");
+            exit(1);
+        }
     }
 
     printf("Verified header\n");
 
     /* Get a buffer without header. */
-    uint8_t* mem = malloc(MEM_SIZE);
+    uint8_t* mem = NULL;
+    if(!(mem = malloc(MEM_SIZE)))
+    {
+        fprintf(stderr,"error: malloc failed (mem)\n");
+        exit(1);
+    }
     memcpy(mem,(uint8_t*)(buf + use_header*sizeof(ch16_header)),
            len - use_header*sizeof(ch16_header));
     free(buf);
@@ -97,7 +112,8 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
     }
-    if((screen = SDL_SetVideoMode(640,480,32,SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
+    if((screen = SDL_SetVideoMode(640,480,32,
+                    SDL_SWSURFACE|SDL_DOUBLEBUF|SDL_INIT_AUDIO)) == NULL)
     {
         fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
         return 1;
@@ -111,13 +127,14 @@ int main(int argc, char* argv[])
     /* Initialise the Chip16 processor state. */
     cpu_state* state = NULL;
     cpu_init(&state,mem);
+    audio_init();
     init_pal(state);
     
     uint32_t t = 0, oldt = 0;
-    int exit = 0;
+    int stop = 0;
     
     /* Emulation loop. */
-    while(!exit)
+    while(!stop)
     {
         while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             cpu_step(state);
@@ -134,7 +151,8 @@ int main(int argc, char* argv[])
                     cpu_io_update(&evt.key,state);
                     break;
                 case SDL_QUIT:
-                    exit = 1;
+                    stop = 1;
+                    goto cleanup;
                     break;
                 default:
                     break;
@@ -150,14 +168,14 @@ int main(int argc, char* argv[])
         state->meta.wait_vblnk = 0;
         state->meta.cycles = 0;
     }
-
+cleanup:
     printf("\n");
 
     /* Tidy up before exit. */
+    audio_free();
+    SDL_AudioQuit();
     cpu_free(state);
     free(mem);
-    SDL_FreeSurface(screen);
-    SDL_Quit();
-
-    return 0;
+    SDL_FreeSurface(screen); 
+    atexit(SDL_Quit);
 }

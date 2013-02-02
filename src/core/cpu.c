@@ -1,6 +1,7 @@
 #include "../consts.h"
 #include "cpu.h"
 #include "gpu.h"
+#include "audio.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -10,10 +11,22 @@
 /* Initialise the CPU to safe values. */
 void cpu_init(cpu_state** state, uint8_t* mem)
 {
-    *state = (cpu_state*)calloc(1,sizeof(cpu_state));
+    if(!(*state = (cpu_state*)calloc(1,sizeof(cpu_state))))
+    {
+        fprintf(stderr,"error: calloc failed (state)\n");
+        exit(1);
+    }
     (*state)->m = mem;
-    (*state)->vm = calloc(320*240,1);
-    (*state)->pal = malloc(16*sizeof(uint32_t));
+    if(!((*state)->vm = calloc(320*240,1)))
+    {
+        fprintf(stderr,"error: calloc failed (state->vm)\n");
+        exit(1);
+    }
+    if(!((*state)->pal = malloc(16*sizeof(uint32_t))))
+    {
+        fprintf(stderr,"error: malloc failed (state->pal)\n");
+        exit(1);
+    }
     (*state)->sp = STACK_ADDR;
     (*state)->f = (flags){0};
     
@@ -106,7 +119,7 @@ void cpu_step(cpu_state* state)
     /* Fetch instruction, increase PC. */
     state->i = *(instr*)(&state->m[state->pc]);
     state->pc += 4;
-    /* Call function ptr table entry */
+    /* Call function pointer table entry */
     (*op_table[state->i.op])(state);
     /* Update cycles. */
     ++state->meta.cycles;
@@ -320,22 +333,32 @@ void op_flip(cpu_state* state)
 
 void op_snd0(cpu_state* state)
 {
+    audio_stop();
 }
 
 void op_snd1(cpu_state* state)
 {
+    int16_t dt = state->i.hhll;
+    audio_play(500,dt);
 }
 
 void op_snd2(cpu_state* state)
 {
+    int16_t dt = state->i.hhll;
+    audio_play(1000,dt);
 }
 
 void op_snd3(cpu_state* state)
 {
+    int16_t dt = state->i.hhll;
+    audio_play(1500,dt);
 }
 
 void op_snp(cpu_state* state)
 {
+    int16_t f = state->m[(uint16_t)(state->r[state->i.yx & 0x0f])];
+    int16_t dt = state->i.hhll;
+    audio_play(f,dt);
 }
 
 void op_sng(cpu_state* state)
@@ -346,6 +369,7 @@ void op_sng(cpu_state* state)
     state->rls = (state->i.hhll >> 8) & 0x0f;
     state->vol = (state->i.hhll >> 4) & 0x0f;
     state->type = state->i.hhll & 0x0f;
+    audio_update(state);
 }
 
 void op_jmp_imm(cpu_state* state)
