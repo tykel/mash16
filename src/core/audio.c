@@ -43,12 +43,31 @@ void audio_free()
 	free(buffer);
 }
 
+/* (Re)populate the audio buffer and start playing. */
+void audio_play(int16_t f, int16_t dt)
+{
+	/* Pause while we set up parameters. */
+	SDL_PauseAudio(1);
+	/* Set things up. */
+	astate.f = f;
+	astate.dt = dt;
+	t = (int)dt * AUDIO_FREQUENCY/1000;
+	/* Unset pause, start playing. */
+	SDL_PauseAudio(0);
+}
+
+/* Stop playing audio. */
+void audio_stop()
+{
+	SDL_PauseAudio(1);
+}
+
 void audio_update(cpu_state *state)
 {
 	astate.wf = (waveform)state->type;
 	astate.atk = atk_ms[state->atk];
 	astate.dec = dec_ms[state->dec];
-	astate.sus = INT16_MAX / state->sus;
+	astate.sus = INT16_MAX / (state->sus + 1);
 	astate.rls = rls_ms[state->rls];
 	astate.vol = INT16_MAX / 2;
 	astate.tone = state->tone;
@@ -57,12 +76,11 @@ void audio_update(cpu_state *state)
 /* Callback function provided to SDL for copying sound data. */
 void audio_callback(void* data, uint8_t* stream, int len)
 {
-	t = SDL_GetTicks();
-	if(t > astate.dt)
+	if(t <= 0)
 	{
 		return;	
 	}
-	cpu_state *state = (cpu_state*)data;
+//	cpu_state *state = (cpu_state*)data;
 	fptr f_sample = NULL;
 	if(astate.f == 500)
 		f_sample = &audio_gen_snd1_sample;
@@ -74,29 +92,13 @@ void audio_callback(void* data, uint8_t* stream, int len)
 		f_sample = &audio_gen_sample;
 
 	int16_t *buffer = (int16_t*)stream;
+	/* We are dealing with 16 bit samples. */
 	len /= 2;
 	for(int i=0; i<len; ++i)
 	{
 		buffer[i] = (*f_sample)();
+		--t;
 	}
-}
-
-/* (Re)populate the audio buffer and start playing. */
-void audio_play(int16_t f, int16_t dt)
-{
-	/* Pause while we set up parameters. */
-	SDL_PauseAudio(1);
-	/* Set things up. */
-	astate.f = f;
-	astate.dt = dt;
-	/* Unset pause, start playing. */
-	SDL_PauseAudio(0);
-}
-
-/* Stop playing audio. */
-void audio_stop()
-{
-	SDL_PauseAudio(1);
 }
 
 int16_t audio_gen_snd1_sample()
@@ -137,6 +139,7 @@ int16_t audio_gen_sample()
 		case WF_TRIANGLE:
 		case WF_SAWTOOTH:
 		case WF_PULSE:
+			return rand();
 			break;
 		case WF_NOISE:
 			return rand();
