@@ -3,7 +3,7 @@
 
 #include "cpu.h"
 
-#define AUDIO_FREQUENCY 	22050
+#define AUDIO_RATE		 	22050
 #define AUDIO_SAMPLES		1024
 #define SND1_SAMPLES		(int)(22050 / 500)
 #define SND2_SAMPLES		(int)(22050 / 1000)
@@ -12,7 +12,7 @@
 /* Data types and structures. */
 typedef enum 
 {  
-	WF_TRIANGLE,
+	WF_TRIANGLE = 0,
 	WF_SAWTOOTH,
 	WF_PULSE,
 	WF_NOISE

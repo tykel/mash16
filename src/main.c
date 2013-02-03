@@ -73,9 +73,10 @@ int main(int argc, char* argv[])
     }
     int len = read_file(argv[1],buf);
     if(!len)
-        return 1;
-
-    printf("Read file\n");
+    {
+        fprintf(stderr,"error: file could not be opened\n");
+        exit(1);   
+    }
 
     /* Check if a rom header is present; if so, verify it */
     int use_header = 0;
@@ -90,8 +91,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    printf("Verified header\n");
-
     /* Get a buffer without header. */
     uint8_t* mem = NULL;
     if(!(mem = malloc(MEM_SIZE)))
@@ -102,8 +101,6 @@ int main(int argc, char* argv[])
     memcpy(mem,(uint8_t*)(buf + use_header*sizeof(ch16_header)),
            len - use_header*sizeof(ch16_header));
     free(buf);
-
-    printf("Copied ROM\n");
 
     /* Initialise SDL target. */
     SDL_Surface* screen;
@@ -119,9 +116,6 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    printf("SDL initialised\nScreen surface format: %dbpp w=%d h=%d\n",
-            screen->format->BitsPerPixel,screen->w,screen->h);
-    
     SDL_WM_SetCaption("mash16","mash16");
 
     /* Initialise the Chip16 processor state. */
@@ -152,8 +146,9 @@ int main(int argc, char* argv[])
                     break;
                 case SDL_QUIT:
                     stop = 1;
+                    /* Audio thread hangs a bit (?), notify that we're exiting. */
+                    printf("exiting...\n");
                     goto cleanup;
-                    break;
                 default:
                     break;
             }
@@ -169,11 +164,9 @@ int main(int argc, char* argv[])
         state->meta.cycles = 0;
     }
 cleanup:
-    printf("\n");
 
     /* Tidy up before exit. */
     audio_free();
-    SDL_AudioQuit();
     cpu_free(state);
     free(mem);
     SDL_FreeSurface(screen); 

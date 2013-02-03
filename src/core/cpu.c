@@ -357,7 +357,7 @@ void op_snd3(cpu_state* state)
 void op_snp(cpu_state* state)
 {
     uint16_t f = state->m[(uint16_t)(state->r[state->i.yx & 0x0f])] |
-                (state->m[(uint16_t)(state->r[state->i.yx & 0x0f]) + 1] << 8);
+                ((uint16_t)state->m[(uint16_t)(state->r[state->i.yx & 0x0f]) + 1] << 8);
     uint16_t dt = state->i.hhll;
     audio_play(f,dt);
 }
@@ -366,10 +366,10 @@ void op_sng(cpu_state* state)
 {
     state->atk = state->i.yx >> 4;
     state->dec = state->i.yx & 0x0f;
-    state->sus = (state->i.hhll >> 12) & 0x0f;
-    state->rls = (state->i.hhll >> 8) & 0x0f;
-    state->vol = (state->i.hhll >> 4) & 0x0f;
-    state->type = state->i.hhll & 0x0f;
+    state->vol = (state->i.hhll >> 12) & 0x0f;
+    state->type = (state->i.hhll >> 8) & 0x0f;
+    state->sus = (state->i.hhll >> 4) & 0x0f;
+    state->rls = state->i.hhll & 0x0f;
     audio_update(state);
 }
 
