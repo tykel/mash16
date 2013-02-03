@@ -1,9 +1,9 @@
 #include "audio.h"
 #include <SDL/SDL.h>
 
-static int t = 0;
+static int cur_sample = 0;
+static int total_samples = 0;
 static int spos = 0;
-static uint8_t *buffer = NULL;
 static audio_state astate;
 
 typedef int16_t (*fptr)();
@@ -15,13 +15,6 @@ void audio_init(cpu_state *state)
 	astate.wf = WF_TRIANGLE;
 	astate.f = 100;
 	astate.vol = INT16_MAX / 2;
-
-	uint8_t *audio_data = NULL;
-	if(!(audio_data = malloc(AUDIO_SAMPLES)))
-	{
-		fprintf(stderr, "error: malloc failed (audio_data)\n");
-		exit(1);
-	}
 
 	SDL_AudioSpec spec;
 	spec.freq = AUDIO_RATE;
@@ -43,19 +36,28 @@ void audio_free()
 {
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-    SDL_AudioQuit();
-	free(buffer);
 }
 
 /* (Re)populate the audio buffer and start playing. */
-void audio_play(int16_t f, int16_t dt)
+void audio_play(int16_t f, int16_t dt, int adsr)
 {
 	/* Pause while we set up parameters. */
 	SDL_PauseAudio(1);
 	/* Set things up. */
 	astate.f = f;
 	astate.dt = dt;
-	t = (int)dt * AUDIO_RATE/1000;
+	astate.use_envelope = adsr;
+	/* Number of samples for the whole sound. */
+	total_samples = (int)dt * AUDIO_RATE/1000;
+	/* Number of sampls for the sustain period. */
+	astate.sus_samples = total_samples - astate.atk_samples
+									   - astate.dec_samples
+									   - astate.rls_samples;
+	if(astate.sus_samples < 0)
+		astate.sus_samples = 0;
+	printf("A=%ds\tD=%ds\tS=%ds\tR=%ds\tTOTAL=%d\n",
+		astate.atk_samples,astate.dec_samples,astate.sus_samples,astate.rls_samples,total_samples);
+	cur_sample = 0;
 	/* Unset pause, start playing. */
 	SDL_PauseAudio(0);
 }
@@ -68,6 +70,7 @@ void audio_stop()
 
 void audio_update(cpu_state *state)
 {
+	/* Copy over the envelope parameters. */
 	astate.wf = (waveform)state->type;
 	astate.atk = atk_ms[state->atk];
 	astate.dec = dec_ms[state->dec];
@@ -75,28 +78,33 @@ void audio_update(cpu_state *state)
 	astate.rls = rls_ms[state->rls];
 	astate.vol = INT16_MAX / (2 * (16 - state->vol));
 	astate.tone = state->tone;
+	/* Get number of samples from duration for the perods. */
+	astate.atk_samples = (AUDIO_RATE * astate.atk) / 1000;
+	astate.dec_samples = (AUDIO_RATE * astate.dec) / 1000;
+	astate.rls_samples = (AUDIO_RATE * astate.rls) / 1000;
 }
 
 /* Callback function provided to SDL for copying sound data. */
 void audio_callback(void* data, uint8_t* stream, int len)
 {
-	if(t <= 0)
-		return;	
+	if(cur_sample >= total_samples)
+		return;
 
 	fptr f_sample = NULL;
-	if(astate.f == 500)
+	if(astate.use_envelope)
+		f_sample = &audio_gen_sample;
+	else if(astate.f == 500)
 		f_sample = &audio_gen_snd1_sample;
 	else if(astate.f == 1000)
 		f_sample = &audio_gen_snd2_sample;
 	else if(astate.f == 1500)
 		f_sample = &audio_gen_snd3_sample;
-	else
-		f_sample = &audio_gen_sample;
 
 	int16_t *buffer = (int16_t*)stream;
 	/* We are dealing with 16 bit samples. */
 	len /= 2;
-	for(int i=0; i<len; ++i, --t)
+
+	for(int i=0; i<len; ++i, ++cur_sample)
 		buffer[i] = (*f_sample)();
 }
 
@@ -135,22 +143,18 @@ int16_t audio_gen_snd3_sample()
 int16_t audio_gen_sample()
 {
 	++spos;
-	int samples = AUDIO_RATE / (astate.f + 1);
-	if(spos >= samples)
+	/* Number of samples for oscillation period at given frequency. */
+	double samples = (double)AUDIO_RATE / (double)(astate.f + 1);
+	if((double)spos >= samples)
 		spos = 0;
+	/* Our output sample. */
 	double s = 0.0;
-	/* Get number of samples from duration. */
-	int atk = (AUDIO_RATE * astate.atk) / 1000;
-	int dec = (AUDIO_RATE * astate.dec) / 1000;
-	int dt = (AUDIO_RATE * astate.dt) / 1000;
-	int rls = (AUDIO_RATE * astate.rls) / 1000;
 	switch(astate.wf)
 	{
 		case WF_TRIANGLE:
-			s = 2*(double)spos/(double)samples - 1.0;
+			s = 2.0 * (double)spos / (double)samples - 1.0;
 			break;
 		case WF_SAWTOOTH:
-			/* Triangle centered around (samples/2). */
 			if(4*spos < samples) 
 				s = (double)(4*spos)/(double)(samples);
 			else
@@ -160,25 +164,25 @@ int16_t audio_gen_sample()
 			s = 1.0; 
 			break;
 		case WF_NOISE:
-			return rand();
+			s = (double)rand() / (double)RAND_MAX;
+			break;
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", astate.wf);
 			exit(1);
 	}
 	/* Scale the amplitude according to position in envelope. */
-	/*if(t < atk)
-		s *= astate.vol * (double)t / atk;
-	else if(t < dec + atk)
-		s *= astate.sus + (astate.vol - astate.sus)*(t - atk);
-	else if(t < dt - rls)
+	if(cur_sample < astate.atk_samples)
+		s *= astate.vol * (double)cur_sample / astate.atk_samples;
+	else if(cur_sample < astate.dec_samples + astate.atk_samples)
+		s *= astate.sus + (astate.vol - astate.sus)*(astate.atk_samples - cur_sample)/(astate.dec_samples);
+	else if(cur_sample < astate.atk_samples + astate.dec_samples + astate.sus_samples)
 		s *= astate.sus;
 	else
-		s *= astate.sus * (double)rls / (t - dt - dec - atk);*/
-	
-	s *= astate.vol;
+		s *= astate.sus * (1.0 - (double)(cur_sample - astate.sus_samples - astate.dec_samples - astate.atk_samples) /
+												(double)astate.rls_samples);
 
 	/* Positive or negative? */
-	if(2 * spos < samples)
+	if((double)(2 * spos) < samples && astate.wf != WF_NOISE)
 		return (int16_t)-s;
 	return (int16_t)s;
 }

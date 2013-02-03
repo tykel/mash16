@@ -164,11 +164,11 @@ int main(int argc, char* argv[])
         state->meta.cycles = 0;
     }
 cleanup:
-
     /* Tidy up before exit. */
+//return 0;
     audio_free();
     cpu_free(state);
-    free(mem);
-    SDL_FreeSurface(screen); 
+    free(mem); 
+    SDL_FreeSurface(screen);
     atexit(SDL_Quit);
 }
