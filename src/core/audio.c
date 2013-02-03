@@ -71,9 +71,9 @@ void audio_update(cpu_state *state)
 	astate.wf = (waveform)state->type;
 	astate.atk = atk_ms[state->atk];
 	astate.dec = dec_ms[state->dec];
-	astate.sus = INT16_MAX / (2 * state->sus + 1);
+	astate.sus = INT16_MAX / (2 * (16 - state->sus));
 	astate.rls = rls_ms[state->rls];
-	astate.vol = INT16_MAX / 2;
+	astate.vol = INT16_MAX / (2 * (16 - state->vol));
 	astate.tone = state->tone;
 }
 
@@ -147,36 +147,38 @@ int16_t audio_gen_sample()
 	switch(astate.wf)
 	{
 		case WF_TRIANGLE:
-			/* Triangle centered around (samples/2). */
-			if(2*spos < samples) 
-				s = (double)(2*spos)/(double)(samples);
-			else
-				s = (double)(samples)/(double)(2*spos);
+			s = 2*(double)spos/(double)samples - 1.0;
 			break;
 		case WF_SAWTOOTH:
-			s = (double)spos/(double)samples;
+			/* Triangle centered around (samples/2). */
+			if(4*spos < samples) 
+				s = (double)(4*spos)/(double)(samples);
+			else
+				s = (double)(samples)/(double)(4*spos);
 			break;
 		case WF_PULSE:
 			s = 1.0; 
 			break;
 		case WF_NOISE:
-			return rand() - INT16_MAX;
+			return rand();
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", astate.wf);
 			exit(1);
 	}
 	/* Scale the amplitude according to position in envelope. */
-	if(t < atk)
+	/*if(t < atk)
 		s *= astate.vol * (double)t / atk;
 	else if(t < dec + atk)
-		s *= astate.vol * (double)dec / (t - atk);
+		s *= astate.sus + (astate.vol - astate.sus)*(t - atk);
 	else if(t < dt - rls)
-		s *= astate.vol;
+		s *= astate.sus;
 	else
-		s *= astate.vol * (double)rls / (t - dt - dec - atk);
+		s *= astate.sus * (double)rls / (t - dt - dec - atk);*/
 	
+	s *= astate.vol;
+
 	/* Positive or negative? */
-	if(2*spos < samples)
-		return -s;
-	return s;
+	if(2 * spos < samples)
+		return (int16_t)-s;
+	return (int16_t)s;
 }
