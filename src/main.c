@@ -1,8 +1,19 @@
 /*
- *  mash16 -- a chip16 emulator
- *  Copyright (C) 2011-2, T. Kelsall
+ *   mash16 - the chip16 emulator
+ *   Copyright (C) 2012-2013 tykel
  *
- *  main.c : program entry point 
+ *   mash16 is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   mash16 is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "consts.h"
@@ -104,13 +115,15 @@ int main(int argc, char* argv[])
 
     /* Initialise SDL target. */
     SDL_Surface* screen;
-    if(SDL_Init(SDL_INIT_VIDEO) < 0)
+    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|
+                SDL_INIT_TIMER|SDL_INIT_NOPARACHUTE) < 0)
     {
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
     }
+    atexit(SDL_Quit);
     if((screen = SDL_SetVideoMode(640,480,32,
-                    SDL_SWSURFACE|SDL_DOUBLEBUF|SDL_INIT_AUDIO)) == NULL)
+                    SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
     {
         fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
         return 1;
@@ -170,5 +183,5 @@ cleanup:
     cpu_free(state);
     free(mem); 
     SDL_FreeSurface(screen);
-    atexit(SDL_Quit);
+    exit(0);
 }

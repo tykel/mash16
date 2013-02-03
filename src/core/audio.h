@@ -1,9 +1,27 @@
+/*
+ *   mash16 - the chip16 emulator
+ *   Copyright (C) 2012-2013 tykel
+ *
+ *   mash16 is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   mash16 is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef AUDIO_H
 #define AUDIO_H
 
 #include "cpu.h"
 
-/* Tweak these if sound pops or is delayed. */
+/* Tweak these if sound is artefacted. */
 #define AUDIO_RATE		 	44100
 #define AUDIO_SAMPLES		512
 
@@ -20,6 +38,7 @@ typedef enum
 	WF_NOISE
 } waveform;
 
+/* Lookup tables for envelope durations. */
 static const int atk_ms[16] = 
 {
 	2, 8, 16, 24, 38, 56, 68, 80, 100, 250, 500, 800, 1000, 3000, 5000, 8000
@@ -35,18 +54,29 @@ static const int rls_ms[16] =
 	6, 24, 48, 72, 114, 168, 204, 240, 300, 750, 1500, 2400, 3000, 9000, 15000, 24000
 };
 
-/* Tracks how the sound should be generated. */
+/* Structure to track how the sound should be generated. */
 typedef struct
 {
+	/* PCM data relevant. */
+	/* Current sample index, and number of samples to generate. */
+	int s_index, s_total;
+	/* Current position in the waveform period. */
+	int s_period_index;
+	/* Temporary storage for returning samples. */
+	double sample;
+	/* Sample length of different parts of the sound. */
+	int atk_samples, dec_samples, sus_samples, rls_samples;
+
+	/* ADSR relevant. */
+	/* Waveform type. */
+	waveform wf;
+	/* Fequency, duration, tone, ADSR, volume. */
 	int f;
 	int dt;
     int tone;
-    int atk, atk_samples;
-    int dec, dec_samples;
-    int sus, sus_samples;
-    int rls, rls_samples;
+    int atk, dec, sus, rls;
     int vol;
-	waveform wf;
+    /* Should the ADSR envelope be used (snd0-3 v. sng/p). */
 	int use_envelope;
 
 } audio_state;
