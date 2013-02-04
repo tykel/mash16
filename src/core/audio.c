@@ -64,17 +64,16 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	as.dt = dt;
 	as.use_envelope = adsr;
 	/* Number of samples for the whole sound. */
-	as.s_total = (int)dt * AUDIO_RATE/1000;
+	as.s_total = (int)dt * AUDIO_RATE/1000 + as.rls_samples;
 	/* Number of samples for an oscillation period. */
 	as.s_period_total = AUDIO_RATE / (as.f + 1);
 	/* Number of samples for the sustain period. */
-	as.sus_samples = as.s_total - as.atk_samples
-								- as.dec_samples
-								- as.rls_samples;
+	as.sus_samples = (dt * AUDIO_RATE/1000) - as.atk_samples
+											- as.dec_samples;
 	if(as.sus_samples < 0)
 		as.sus_samples = 0;
 	//printf("A=%ds\tD=%ds\tS=%ds\tR=%ds\tTOTAL=%d\n",
-	//	as.atk_as.s_period_total,as.dec_as.s_period_total,as.sus_as.s_period_total,as.rls_as.s_period_total,s_total);
+	//	as.atk_samples,as.dec_samples,as.sus_samples,as.rls_samples,as.s_total);
 	as.s_index = 0;
 	/* Unset pause, start playing. */
 	SDL_PauseAudio(0);
@@ -93,9 +92,9 @@ void audio_update(cpu_state *state)
 	as.wf = (waveform)state->type;
 	as.atk = atk_ms[state->atk];
 	as.dec = dec_ms[state->dec];
-	as.sus = INT16_MAX / (1 * (16 - state->sus));
+	as.sus = INT16_MAX / (2*(16 - state->sus));
 	as.rls = rls_ms[state->rls];
-	as.vol = INT16_MAX / (1 * (16 - state->vol));
+	as.vol = INT16_MAX / (2*(16 - state->vol));
 	as.tone = state->tone;
 	/* Get number of as.s_period_total from duration for the perods. */
 	as.atk_samples = (AUDIO_RATE * as.atk) / 1000;
@@ -187,17 +186,21 @@ int16_t audio_gen_sample()
 			exit(1);
 	}
 	/* Scale the amplitude according to position in envelope. */
+	/* Attack */
 	if(as.s_index < as.atk_samples)
 		as.sample *= as.vol * (double)as.s_index / as.atk_samples;
+	/* Decay */
 	else if(as.s_index < as.dec_samples + as.atk_samples)
 		as.sample *= as.sus + (as.vol - as.sus) *
-						  (1.0 - (double)(as.s_index - as.dec_samples) /
+						  (1.0 - (double)(as.s_index - as.atk_samples) /
 						  		 (double)as.dec_samples);
+	/* Sustain */
 	else if(as.s_index < as.atk_samples + as.dec_samples + as.sus_samples)
 		as.sample *= as.sus;
+	/* Release */
 	else
-		as.sample *= as.sus * (1.0 - (double)(as.s_index - as.sus_samples - as.dec_samples - as.atk_samples) /
-								 (double)as.rls_samples);
+		as.sample *= as.sus * (1.0 - (double)(as.s_index - (as.sus_samples + as.dec_samples + as.atk_samples)) /
+								 	 (double)as.rls_samples);
 
 	/* Positive or negative? */
 	if((double)(2 * as.s_period_index) < as.s_period_total)
