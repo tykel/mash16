@@ -34,7 +34,7 @@ void audio_init(cpu_state *state)
 	SDL_AudioSpec spec;
 	spec.freq = AUDIO_RATE;
 	spec.format = AUDIO_S16SYS;
-	spec.channels = 0;
+	spec.channels = 1;
 	spec.samples = (uint16_t)AUDIO_SAMPLES;
 	spec.callback = audio_callback;
 	spec.userdata = state;
@@ -65,14 +65,16 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	as.use_envelope = adsr;
 	/* Number of samples for the whole sound. */
 	as.s_total = (int)dt * AUDIO_RATE/1000;
-	/* Number of sampls for the sustain period. */
+	/* Number of samples for an oscillation period. */
+	as.s_period_total = AUDIO_RATE / (as.f + 1);
+	/* Number of samples for the sustain period. */
 	as.sus_samples = as.s_total - as.atk_samples
-									  - as.dec_samples
-									  - as.rls_samples;
+								- as.dec_samples
+								- as.rls_samples;
 	if(as.sus_samples < 0)
 		as.sus_samples = 0;
 	//printf("A=%ds\tD=%ds\tS=%ds\tR=%ds\tTOTAL=%d\n",
-	//	as.atk_samples,as.dec_samples,as.sus_samples,as.rls_samples,s_total);
+	//	as.atk_as.s_period_total,as.dec_as.s_period_total,as.sus_as.s_period_total,as.rls_as.s_period_total,s_total);
 	as.s_index = 0;
 	/* Unset pause, start playing. */
 	SDL_PauseAudio(0);
@@ -95,7 +97,7 @@ void audio_update(cpu_state *state)
 	as.rls = rls_ms[state->rls];
 	as.vol = INT16_MAX / (1 * (16 - state->vol));
 	as.tone = state->tone;
-	/* Get number of samples from duration for the perods. */
+	/* Get number of as.s_period_total from duration for the perods. */
 	as.atk_samples = (AUDIO_RATE * as.atk) / 1000;
 	as.dec_samples = (AUDIO_RATE * as.dec) / 1000;
 	as.rls_samples = (AUDIO_RATE * as.rls) / 1000;
@@ -118,7 +120,7 @@ void audio_callback(void* data, uint8_t* stream, int len)
 		f_sample = &audio_gen_snd3_sample;
 
 	int16_t *buffer = (int16_t*)stream;
-	/* We are dealing with 16 bit samples. */
+	/* We are dealing with 16 bit as.s_period_total. */
 	len /= 2;
 
 	for(int i=0; i<len; ++i, ++as.s_index)
@@ -160,26 +162,24 @@ int16_t audio_gen_snd3_sample()
 int16_t audio_gen_sample()
 {
 	++as.s_period_index;
-	/* Number of samples for oscillation period at given frequency. */
-	double samples = (double)AUDIO_RATE / (double)(as.f + 1);
-	if((double)as.s_period_index >= samples)
+	if((double)as.s_period_index >= as.s_period_total)
 		as.s_period_index = 0;
 	switch(as.wf)
 	{
 		case WF_TRIANGLE:
-			as.sample = 2.0 * (double)as.s_period_index / (double)samples - 1.0;
+			as.sample = 2.0 * (double)as.s_period_index / (double)as.s_period_total - 1.0;
 			break;
 		case WF_SAWTOOTH:
-			if(4*as.s_period_index < samples) 
-				as.sample = (double)(4*as.s_period_index)/(double)(samples);
+			if(4*as.s_period_index < as.s_period_total) 
+				as.sample = (double)(4*as.s_period_index)/(double)(as.s_period_total);
 			else
-				as.sample = (double)(samples)/(double)(4*as.s_period_index);
+				as.sample = (double)(as.s_period_total)/(double)(4*as.s_period_index);
 			break;
 		case WF_PULSE:
 			as.sample = 1.0; 
 			break;
 		case WF_NOISE:
-			if(as.s_index % (int)samples == 1)
+			if(as.s_index % (int)as.s_period_total == 1)
 				as.sample = (double)(rand() % RAND_MAX)/ (double)RAND_MAX;
 			break;
 		default:
@@ -200,7 +200,7 @@ int16_t audio_gen_sample()
 								 (double)as.rls_samples);
 
 	/* Positive or negative? */
-	if((double)(2 * as.s_period_index) < samples)
+	if((double)(2 * as.s_period_index) < as.s_period_total)
 		return (int16_t)-as.sample;
 	return (int16_t)as.sample;
 }

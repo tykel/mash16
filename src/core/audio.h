@@ -61,7 +61,7 @@ typedef struct
 	/* Current sample index, and number of samples to generate. */
 	int s_index, s_total;
 	/* Current position in the waveform period. */
-	int s_period_index;
+	int s_period_index, s_period_total;
 	/* Temporary storage for returning samples. */
 	double sample;
 	/* Sample length of different parts of the sound. */
