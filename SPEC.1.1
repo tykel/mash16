@@ -1,0 +1,308 @@
+Chip16 virtual machine
+Hardware spec: 1.1
+
+Contributors:
+--------------
+* Chris2Balls
+* Cottonvibes
+* Paul_nicholls
+* Runawayprisoner
+* Serge2k
+* Shendo
+* Tronix286
+* Tykel
+
+Thanks to:
+-----------
+* @ruantec
+* Arne
+* BestCoder
+* Bill_gates
+* Chrono Archangel
+* Exophase
+* Fieryrage
+* LoRd_SnOw
+* Tricky Upgrade
+* Xtreme2Damax
+
+File Format:
+-----------
+
+ROMs are stored either in a Chip16 ROM file (.c16), or a raw binary file (preferred .bin, also .c16).
+The ROM file stores a 16-byte header, and the binary data after that.
+Emulators should load ROM headers for internal use, and only use the binary data for emulation.
+Binary data is always loaded at address 0x0000.
+
+The header is as follows (0x00 - 0x0F) :
+- 0x00: Magic number 'CH16'
+- 0x04: Reserved
+- 0x05: Spec version (high nibble=major, low nibble=minor, so 0.7 = 0x07 and 1.0 = 0x10)
+- 0x06: Rom size (excl. header, in bytes)
+- 0x0A: Start address (initial value of PC)
+- 0x0C: CRC32 checksum (excl. header, polynom = 0x04c11db7)
+
+- 0x10: Start of Chip16 raw rom, end of header
+
+CPU:
+-----
+
+1x 16 bit program counter (PC)
+1x 16 bit stack pointer (SP)
+16x 16 bit general purpose registers (R0 - RF)
+1x 8 bit flag register
+
+Machine uses little-endian byte ordering.
+
+All opcodes take exactly 1 cycle to execute.
+CPU speed is 1 Mhz.
+
+GPU:
+-----
+60 FPS, raises an internal VBlank flag each frame (~16 ms) which the CPU can wait-on with the VBLNK instruction.
+Resolution is 320x240 pixels with 4 bit indexed color.
+Along with a primary layer is a background layer which can be set to only 1 color index.
+Screen does not wrap. Everything that is offscreen stays offscreen.
+Sprites can be drawn to negative coordinates, so that a 4x4 pixel sprite drawn at (-2,-2),
+will show 2x2 pixels on the top-left part of the screen.
+
+Sprites are byte coded color indexes. 1 Byte represents a block of 2 pixels.
+For example, if the sprite height and width are set to 2 the sprite is 4 pixels wide and 2 pixels tall.
+Higher nibble is the left pixel and lower nibble is the right pixel.
+
+If a new sprite overlaps any existing pixel (other then 0 - transparent) carry flag is raised.
+
+Custom user palettes can be used besides the default one. Palettes can be stored in 3-byte, RGB format (bytes in that order). 
+There are 16 colors so the PAL instruction will read 48 bytes for the palette, and assign RGB values to the color indexes in ascending 
+order (0x0,0x1...0xF). Loading a palette affects everything that has been drawn since the last VBlank.
+
+SPU:
+-----
+Two options are available:
+- Playing one of 3 fixed tones (500 Hz, 1000 Hz, 1500 Hz) for a given number of milliseconds, OR
+- Using sound generation options (SNG instruction), play a tone from memory for a given number of milliseconds.
+
+Sound generator options are detailed in the SNG opcode description.
+
+Color indexes (0xRRGGBB):
+------------------------
+0x0 - 0x000000 (Black, Transparent in foreground layer)
+0x1 - 0x000000 (Black)
+0x2 - 0x888888 (Gray)
+0x3 - 0xBF3932 (Red)
+0x4 - 0xDE7AAE (Pink)
+0x5 - 0x4C3D21 (Dark brown)
+0x6 - 0x905F25 (Brown)
+0x7 - 0xE49452 (Orange)
+0x8 - 0xEAD979 (Yellow)
+0x9 - 0x537A3B (Green)
+0xA - 0xABD54A (Light green)
+0xB - 0x252E38 (Dark blue)
+0xC - 0x00467F (Blue)
+0xD - 0x68ABCC (Light blue)
+0xE - 0xBCDEE4 (Sky blue)
+0xF - 0xFFFFFF (White)
+
+Controllers:
+-------------
+Controllers are accessed through memory mapped I/O ports.
+Controller 1: FFF0.
+Controller 2: FFF2.
+
+Bit[0] - Up
+Bit[1] - Down
+Bit[2] - Left
+Bit[3] - Right
+Bit[4] - Select
+Bit[5] - Start
+Bit[6] - A
+Bit[7] - B
+Bit[8 - 15] - Unused (Always zero).
+
+Controller status gets updated each VBlank.
+
+Memory:
+--------
+64 KB (65536 bytes).
+
+0x0000 - Start of ROM.
+0xFDF0 - Start of stack (512 bytes).
+0xFFF0 - IO ports.
+
+Flag register:
+---------------
+Bit[0] - Reserved
+Bit[1] - c (Unsigned Carry and Unsigned Borrow flag)
+Bit[2] - z (Zero flag)
+Bit[3] - Reserved
+Bit[4] - Reserved
+Bit[5] - Reserved
+Bit[6] - o (Signed Overflow Flag)
+Bit[7] - n (Negative Flag; aka Sign Flag)
+
+c flag:
+- for add - is set when the result would have imaginary bit[16] set, else its cleared.
+- for sub - is set when the operation needed to borrow from bit[16], else its cleared.
+- for mul - is set when the result is too big to fit into 16 bits, else its cleared.
+- for div - is set when the remainder of the division is non-zero, else it is cleared.
+
+z flag:
+- is set when the result is 0, else its cleared.
+
+o flag:
+- in general this flag is used when the sign of the result differs from what would be expected.
+- for addition it is set when the result is positive and both operands were negative,
+or if the result is negative and both operands were positive; else it is cleared.
+- for subtraction (x-y=z) it is set when z is positive and x is negative and y is positive,
+or if z is negative and x is positive and y is negative; else it is cleared.
+
+n flag:
+- it is set when the result is less than 0 (bit[15] == 1); else it is cleared.
+
+Conditional Types:
+---------------
+The conditions below are used for conditional jumps and conditional calls.
+For example: "jle some_label" or "cno some_label"
+The condition in brackets refer to the Flag register's flags.
+
+Z   = 0x0 // [z==1]         Equal (Zero)
+NZ  = 0x1 // [z==0]         Not Equal (Non-Zero)
+N   = 0x2 // [n==1]         Negative
+NN  = 0x3 // [n==0]         Not-Negative (Positive or Zero)
+P   = 0x4 // [n==0 && z==0] Positive
+O   = 0x5 // [o==1]         Overflow
+NO  = 0x6 // [o==0]         No Overflow
+A   = 0x7 // [c==0 && z==0] Above       (Unsigned Greater Than)
+AE  = 0x8 // [c==0]         Above Equal (Unsigned Greater Than or Equal)
+B   = 0x9 // [c==1]         Below       (Unsigned Less Than)
+BE  = 0xA // [c==1 || z==1] Below Equal (Unsigned Less Than or Equal)
+G   = 0xB // [o==n && z==0] Signed Greater Than
+GE  = 0xC // [o==n]         Signed Greater Than or Equal
+L   = 0xD // [o!=n]         Signed Less Than
+LE  = 0xE // [o!=n || z==1] Signed Less Than or Equal
+RES = 0xF // Reserved for future use
+
+Alternative Valid Mnemonics:
+C   = 0x9 // [c==1]         Carry     (Same as B)
+NC  = 0x8 // [c==0]         Not Carry (Same as GE)
+
+Opcodes:
+---------
+
+HH - high byte.
+LL - low byte.
+N - nibble (4 bit value).
+X, Y, Z - 4 bit register identifier.
+
+Opcode (Hex)	Mnemonic		Usage
+
+00 00 00 00	NOP			Not operation. Wastes a cycle.
+01 00 00 00	CLS			Clear screen (Foreground layer is erased, background is set to index 0).
+02 00 00 00	VBLNK			Wait for VBlank. If (!vblank) PC-=4;
+03 00 0N 00	BGC N			Set background color to index N. If the index was set to 0 the color is black.
+04 00 LL HH	SPR HHLL		Set sprite width (LL) and height (HH).
+05 YX LL HH	DRW RX, RY, HHLL	Draw sprite from address HHLL at coordinates stored in register X and Y (treated as signed numbers). Affects carry flag (explained in GPU info).
+06 YX 0Z 00	DRW RX, RY, RZ		Draw sprite from address pointed by register Z at coordinates stored in register X and Y (treated as signed numbers).  Affects carry flag.
+07 0X LL HH	RND RX, HHLL		Generate a random number and store it in register X. Maximum value is HHLL.
+	
+08 00 00 00	FLIP 0, 0		Set flip orientation for sprites. horizontal flip = false; vertical flip = false
+08 00 00 01	FLIP 0, 1		Set flip orientation for sprites. horizontal flip = false; vertical flip = true
+08 00 00 02	FLIP 1, 0		Set flip orientation for sprites. horizontal flip = true;  vertical flip = false
+08 00 00 03	FLIP 1, 1		Set flip orientation for sprites. horizontal flip = true;  vertical flip = true
+
+09 00 00 00	SND0			Stop playing sounds.
+0A 00 LL HH	SND1 HHLL		Play 500Hz tone for HHLL miliseconds.
+0B 00 LL HH	SND2 HHLL		Play 1000Hz tone for HHLL miliseconds.
+0C 00 LL HH	SND3 HHLL		Play 1500Hz tone for HHLL miliseconds.
+0D 0X LL HH     SNP Rx, HHLL   Play Sound for HHLL miliseconds at the tone specified in address pointed to by Register X (uses current sound generator settings; ADSR, etc.).
+
+0E AD SR VT     SNG AD, VTSR   Sound generator (applies to all sound tones which follow).
+                                  A = attack  (0..15)
+                                  D = decay   (0..15)
+                                  S = sustain (0..15, volume)
+                                  R = release (0..15)
+                                  V = volume  (0..15)
+                                  T = type of sound:
+                                     00 = triangle wave
+                                     01 = sawtooth wave
+                                     02 = pulse wave (is just square for now)
+                                     03 = noise
+                                     non-valid values default to 0 output
+
+// Jumps
+10 00 LL HH	JMP HHLL		Jump to the specified address.
+12 0x LL HH	Jx  HHLL		Jump to the specified address if condition 'x' (x refers to a Conditional Type)
+13 YX LL HH	JME RX, RY, HHLL	Jump to the specified address if value in register X is equal to value in register Y.
+16 0X 00 00	JMP RX			Jump to the address specified in register X (Indirect Jump)
+
+// Calls
+14 00 LL HH	CALL HHLL		Call subroutine at the specified address. Store PC to [SP]. Increase SP by 2.
+15 00 00 00	RET			Return from a subroutine. Decrease SP by 2. Get PC from [SP].
+17 0x LL HH     Cx   HHLL		If condition 'x', then performs a CALL; Else, does nothing. (x refers to a Conditional Type).
+18 0X 00 00	CALL RX			Call subroutine at the address specified in RX. Store PC to [SP]. Increase SP by 2.
+
+// Loads
+20 0X LL HH	LDI RX, HHLL		Load immediate value to register X.
+21 00 LL HH	LDI SP, HHLL		Point SP to the specified address. Does not move existing values in memory to new location.
+22 0X LL HH	LDM RX, HHLL		Load register X with the 16bit value at the specified address.
+23 YX 00 00	LDM RX, RY		Load register X with the 16bit value at the specified address pointed by register Y.
+24 YX 00 00	MOV RX, RY		Copy data from register Y to register X.
+
+// Stores
+30 0X LL HH	STM RX, HHLL		Store value of register X at the specified address.
+31 YX 00 00	STM RX, RY		Store value of register X at the specified address pointed by register Y.
+
+// Arithmetic
+40 0X LL HH	ADDI RX, HHLL		Add immediate value to register X. Affects [c,z,o,n]
+41 YX 00 00	ADD RX, RY		Add value of register Y to register X. Result is stored in register X. Affects [c,z,o,n]
+42 YX 0Z 00	ADD RX, RY, RZ		Add value of register Y to register X. Result is stored in register Z. Affects [c,z,o,n]
+
+50 0X LL HH	SUBI RX, HHLL		Subtract immediate value from register X. Result is stored in register X. Affects [c,z,o,n].
+51 YX 00 00	SUB RX, RY		Subtract value of register Y from register X. Result is stored in register X. Affects [c,z,o,n]
+52 YX 0Z 00	SUB RX, RY, RZ		Subtract value of register Y from register X. Result is stored in register Z. Affects [c,z,o,n]
+
+53 0X LL HH	CMPI RX, HHLL		Subtract immediate value from register X. Result is discarded. Affects [c,z,o,n].
+54 YX 00 00	CMP RX, RY		Subtract value of register Y from register X. Result is discarded. Affects [c,z,o,n]
+
+60 0X LL HH	ANDI RX, HHLL		AND immediate value with register X. Result is stored in register X. Affects [z,n]
+61 YX 00 00	AND RX, RY		AND value of register Y with value of register X. Result is stored in register X. Affects [z,n]
+62 YX 0Z 00	AND RX, RY, RZ		AND value of register Y with value of register X. Result is stored in register Z. Affects [z,n]
+
+63 0X LL HH	TSTI RX, HHLL		AND immediate value with register X. Result is discarded. Affects [z,n]
+64 YX 00 00	TST RX, RY		AND value of register Y with value of register X. Result is discarded. Affects [z,n]
+
+70 0X LL HH	ORI RX, HHLL		OR immediate value with register X. Result is stored in register X. Affects [z,n]
+71 YX 00 00	OR RX, RY		OR value of register Y with value of register X. Result is stored in register X. Affects [z,n]
+72 YX 0Z 00	OR RX, RY, RZ		OR value of register Y with value of register X. Result is stored in register Z. Affects [z,n]
+
+80 0X LL HH	XORI RX, HHLL		XOR immediate value with register X. Result is stored in register X. Affects [z,n]
+81 YX 00 00	XOR RX, RY		XOR value of register Y with value of register X. Result is stored in register X. Affects [z,n]
+82 YX 0Z 00	XOR RX, RY, RZ		XOR value of register Y with value of register X. Result is stored in register Z. Affects [z,n]
+
+90 0X LL HH	MULI RX, HHLL		Multiply immediate value with register X. Result is stored in register X. Affects [c,z,n]
+91 YX 00 00	MUL RX, RY		Multiply value of register Y with value of register X. Result is stored in register X. Affects [c,z,n]
+92 YX 0Z 00	MUL RX, RY, RZ		Multiply value of register Y with value of register X. Result is stored in register Z. Affects [c,z,n]
+
+A0 0X LL HH	DIVI RX, HHLL		Divide immediate value with register X. Result is stored in register X. Affects [c,z,n]
+A1 YX 00 00	DIV RX, RY		Divide value of register Y with value of register X. Result is stored in register X. Affects [c,z,n]
+A2 YX 0Z 00	DIV RX, RY, RZ		Divide value of register Y with value of register X. Result is stored in register Z. Affects [c,z,n]
+
+B0 0X 0N 00	SHL RX, N		Logical    Shift value in register X left N times.  Affects [z,n]
+B1 0X 0N 00	SHR RX, N		Logical    Shift value in register X right N times. Affects [z,n]
+B0 0X 0N 00	SAL RX, N		Arithmetic Shift value in register X left N times.  Affects [z,n] (same as SHL)
+B2 0X 0N 00	SAR RX, N		Arithmetic Shift value in register X right N times. Affects [z,n]
+B3 YX 00 00	SHL RX, RY		Logical    Shift value in register X left by the value in (RY & 0xf).  Affects [z,n]
+B4 YX 00 00	SHR RX, RY		Logical    Shift value in register X right by the value in (RY & 0xf). Affects [z,n]
+B3 YX 00 00	SAL RX, RY		Arithmetic Shift value in register X left by the value in (RY & 0xf).  Affects [z,n] (same as SHL)
+B5 YX 00 00	SAR RX, RY		Arithmetic Shift value in register X right by the value in (RY & 0xf). Affects [z,n]
+
+// Push / Pop
+C0 0X 00 00	PUSH RX			Store register X on stack. Increase SP by 2.
+C1 0X 00 00	POP  RX			Decrease SP by 2. Load register X from stack. 
+C2 00 00 00	PUSHALL			Store all general purpose registers (r0~rF) at [SP]. Increase SP by 32.
+C3 00 00 00	POPALL			Decrease SP by 32. Load all general purpose registers (r0~rF) from [SP].
+C4 00 00 00	PUSHF 			Store flags register on stack. Increase SP by 2.
+C5 00 00 00	POPF			Decrease SP by 2. Load flags register from stack.
+
+// Palette
+D0 00 LL HH     PAL HHLL   Load the palette starting at address HHLL, 16*3 bytes, RGB format; used for all drawing since last vblank.
+D1 0x 00 00     PAL Rx   Load the palette starting at the address pointed to by Register X, 16*3 bytes, RGB format; used for all drawing since last vblank.
