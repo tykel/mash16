@@ -22,10 +22,13 @@
 static audio_state as;
 
 typedef int16_t (*fptr)();
+fptr f_sample;
 
 /* Initialise the SDL audio system. */
 void audio_init(cpu_state *state)
 {
+	f_sample = NULL;
+
 	as = (audio_state){0};
 	as.wf = WF_TRIANGLE;
 	as.f = 100;
@@ -67,7 +70,7 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	as.s_total = (dt * AUDIO_RATE/1000) + as.rls_samples;
 	/* Number of samples for an oscillation period. */
 	as.s_period_total = AUDIO_RATE / (as.f + 1);
-	/* Number of samples for the sustain period. */
+	/* Number of samples for the sustain duration. */
 	as.sus_samples = (dt * AUDIO_RATE/1000) - as.atk_samples
 											- as.dec_samples;
 	if(as.sus_samples < 0)
@@ -75,6 +78,22 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	//printf("A=%ds\tD=%ds\tS=%ds\tR=%ds\tTOTAL=%d\n",
 	//	as.atk_samples,as.dec_samples,as.sus_samples,as.rls_samples,as.s_total);
 	as.s_index = 0;
+
+	/* Set up the right sampling function. */
+	if(as.use_envelope)
+		f_sample = &audio_gen_sample;
+	else if(as.f == 500)
+		f_sample = &audio_gen_snd1_sample;
+	else if(as.f == 1000)
+		f_sample = &audio_gen_snd2_sample;
+	else if(as.f == 1500)
+		f_sample = &audio_gen_snd3_sample;
+	else
+	{
+		fprintf(stderr,"error: invalid frequency for beeper (%dHz)\n",as.f);
+		exit(1);
+	}
+
 	/* Unset pause, start playing. */
 	SDL_PauseAudio(0);
 }
@@ -107,21 +126,6 @@ void audio_callback(void* data, uint8_t* stream, int len)
 {
 	if(as.s_index >= as.s_total)
 		return;
-
-	fptr f_sample = NULL;
-	if(as.use_envelope)
-		f_sample = &audio_gen_sample;
-	else if(as.f == 500)
-		f_sample = &audio_gen_snd1_sample;
-	else if(as.f == 1000)
-		f_sample = &audio_gen_snd2_sample;
-	else if(as.f == 1500)
-		f_sample = &audio_gen_snd3_sample;
-	else
-	{
-		fprintf(stderr,"error: invalid frequency for beeper (%dHz)\n",as.f);
-		exit(1);
-	}
 
 	int16_t *buffer = (int16_t*)stream;
 	/* We are dealing with 16 bit as.s_period_total. */
@@ -183,8 +187,7 @@ int16_t audio_gen_sample()
 			as.sample = 1.0; 
 			break;
 		case WF_NOISE:
-			//if(as.s_period_index % (AUDIO_RATE / as.f) == 0)
-				as.sample = 2.0*(double)(rand() % INT16_MAX)/(double)INT16_MAX - 1.0;
+			as.sample = 2.0*(double)(rand() % INT16_MAX)/(double)(INT16_MAX) - 1.0;
 			break;
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", as.wf);

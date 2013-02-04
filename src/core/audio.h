@@ -22,7 +22,7 @@
 #include "cpu.h"
 
 /* Tweak these if sound is artefacted. */
-#define AUDIO_RATE		 	22050
+#define AUDIO_RATE		 	44100
 #define AUDIO_SAMPLES		512
 
 #define SND1_SAMPLES		(int)(AUDIO_RATE / 500)
