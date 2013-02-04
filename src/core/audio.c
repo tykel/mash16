@@ -64,7 +64,7 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	as.dt = dt;
 	as.use_envelope = adsr;
 	/* Number of samples for the whole sound. */
-	as.s_total = (int)dt * AUDIO_RATE/1000 + as.rls_samples;
+	as.s_total = (dt * AUDIO_RATE/1000) + as.rls_samples;
 	/* Number of samples for an oscillation period. */
 	as.s_period_total = AUDIO_RATE / (as.f + 1);
 	/* Number of samples for the sustain period. */
@@ -117,6 +117,11 @@ void audio_callback(void* data, uint8_t* stream, int len)
 		f_sample = &audio_gen_snd2_sample;
 	else if(as.f == 1500)
 		f_sample = &audio_gen_snd3_sample;
+	else
+	{
+		fprintf(stderr,"error: invalid frequency for beeper (%dHz)\n",as.f);
+		exit(1);
+	}
 
 	int16_t *buffer = (int16_t*)stream;
 	/* We are dealing with 16 bit as.s_period_total. */
@@ -178,8 +183,8 @@ int16_t audio_gen_sample()
 			as.sample = 1.0; 
 			break;
 		case WF_NOISE:
-			if(as.s_index % (int)as.s_period_total == 1)
-				as.sample = (double)(rand() % RAND_MAX)/ (double)RAND_MAX;
+			//if(as.s_period_index % (AUDIO_RATE / as.f) == 0)
+				as.sample = 2.0*(double)(rand() % INT16_MAX)/(double)INT16_MAX - 1.0;
 			break;
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", as.wf);
@@ -202,7 +207,11 @@ int16_t audio_gen_sample()
 		as.sample *= as.sus * (1.0 - (double)(as.s_index - (as.sus_samples + as.dec_samples + as.atk_samples)) /
 								 	 (double)as.rls_samples);
 
-	/* Positive or negative? */
+	/* Noise not affected by silly oscillation. */
+	if(as.wf == WF_NOISE)
+		return (int16_t)as.sample;
+
+	/* Positive or negative? */	
 	if((double)(2 * as.s_period_index) < as.s_period_total)
 		return (int16_t)-as.sample;
 	return (int16_t)as.sample;
