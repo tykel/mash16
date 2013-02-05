@@ -1,10 +1,10 @@
 CC = gcc
-SDL_CFLAGS = $(shell sdl-config --cflags)
-CFLAGS = -O0 -std=gnu99 -Wall -Werror -g $(SDL_CFLAGS)
-SDL_LDFLAGS = $(shell sdl-config --libs)
+SDL_CFLAGS = 
+CFLAGS = -O2 -std=gnu99 -Wall -Werror -g $(SDL_CFLAGS)
+SDL_LDFLAGS = -lSDLmain -lSDL 
 LDFLAGS = -lm $(SDL_LDFLAGS)
-OBJ = obj
-OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o $(OBJ)/gpu.o
+OBJ = build
+OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o $(OBJ)/cpu_ops.o $(OBJ)/gpu.o $(OBJ)/audio.o
 
 #DIRECTORIES
 SRC = src
@@ -30,7 +30,13 @@ $(OBJ)/crc.o: $(HDR)/crc.c $(HDR)/crc.h $(SRC)/consts.h
 $(OBJ)/cpu.o: $(CORE)/cpu.c $(CORE)/cpu.h $(SRC)/consts.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(OBJ)/cpu_ops.o: $(CORE)/cpu_ops.c $(CORE)/cpu.h $(SRC)/consts.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(OBJ)/gpu.o: $(CORE)/gpu.c $(CORE)/gpu.h $(CORE)/cpu.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ)/audio.o: $(CORE)/audio.c $(CORE)/audio.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

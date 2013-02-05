@@ -1,7 +1,7 @@
 VariantDir('build','src',duplicate = 0)
 
 env = Environment()
-env.Append(CCFLAGS = ['-g', '-O2', '-std=c99'])
+env.Append(CCFLAGS = ['-g', '-O2', '-std=c99', '-Wall', '-Werror'])
 env.Replace(CC = 'clang')
 
 sources = Glob('./build/*.c')
