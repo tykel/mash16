@@ -16,12 +16,6 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- *  header.c
- *  
- *  tykel (C) 2011-2012
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
