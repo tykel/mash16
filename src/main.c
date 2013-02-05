@@ -16,6 +16,9 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+int use_verbose;
+
+#include "options.h"
 #include "consts.h"
 #include "header/header.h"
 #include "core/cpu.h"
@@ -27,6 +30,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 void print_state(cpu_state* state)
 {
@@ -68,12 +72,44 @@ int read_file(char* fp, uint8_t* buf)
 
 int main(int argc, char* argv[])
 {
-    /* Until a non-SDL GUI is implemented, exit if no rom specified */
-    if(argc < 2)
+    /* Set up default options, then read them from the command line. */
+    program_opts opts;
+    opts.filename = NULL;
+    opts.use_audio = 1;
+    opts.audio_sample_rate = AUDIO_RATE;
+    opts.audio_buffer_size = AUDIO_SAMPLES;
+    opts.use_verbose = 0;
+    opts.video_scaler = 2;
+    opts.use_cpu_limit = 1;
+    opts.use_cpu_rec = 0;
+
+    options_parse(argc,argv,&opts);
+    use_verbose = opts.use_verbose;
+
+    /* Sanitize the input. */
+    int input_errors = 0;
+    if(opts.video_scaler <= 0 || opts.video_scaler > 2)
     {
-        printf("warning: no input filename supplied, exiting...\n");
-        exit(1);
+        fprintf(stderr,"error: scaler %dx not supported\n",opts.video_scaler);
+        ++input_errors;
     }
+    if(opts.audio_sample_rate != 8000 && opts.audio_sample_rate != 11025 &&
+       opts.audio_sample_rate != 22050 && opts.audio_sample_rate != 44100)
+    {
+        fprintf(stderr,"error: %dHz sample rate not supported\n",opts.audio_sample_rate);
+        ++input_errors;
+    }
+    if(opts.audio_buffer_size < 128)
+    {
+        fprintf(stderr,"error: audio buffer size (%d B) too small\n",opts.audio_buffer_size);
+        ++input_errors;
+    }
+    if(input_errors)
+        exit(1);
+
+    /* Temporary warning. */
+    if(opts.use_cpu_rec)
+        printf("warning: recompiler core not available, falling back to interpreter\n");
     
     /* Read our rom file into memory */
     uint8_t* buf = NULL;
@@ -82,7 +118,7 @@ int main(int argc, char* argv[])
         fprintf(stderr,"error: calloc failed (buf)\n");
         exit(1);
     }
-    int len = read_file(argv[1],buf);
+    int len = read_file(opts.filename,buf);
     if(!len)
     {
         fprintf(stderr,"error: file could not be opened\n");
@@ -115,17 +151,21 @@ int main(int argc, char* argv[])
 
     /* Initialise SDL target. */
     SDL_Surface* screen;
-    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|
-                SDL_INIT_TIMER|SDL_INIT_NOPARACHUTE) < 0)
+    int sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE;
+    if(opts.use_audio)
+        sdl_flags |= SDL_INIT_AUDIO;
+    if(SDL_Init(sdl_flags) < 0)
     {
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
         return 1;
     }
     atexit(SDL_Quit);
-    if((screen = SDL_SetVideoMode(640,480,32,
+    if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,32,
                     SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
     {
-        fprintf(stderr,"Failed to init. video mode (320x240,32bpp): %s\n",SDL_GetError());
+        fprintf(stderr,"Failed to init. video mode (%dx%d,32bpp): %s\n",
+                opts.video_scaler*320,opts.video_scaler*240,
+                SDL_GetError());
         return 1;
     }
 
@@ -133,21 +173,41 @@ int main(int argc, char* argv[])
 
     /* Initialise the Chip16 processor state. */
     cpu_state* state = NULL;
-    cpu_init(&state,mem);
-    audio_init();
+    cpu_init(&state,mem,&opts);
+    audio_init(state,&opts);
     init_pal(state);
     
-    uint32_t t = 0, oldt = 0;
+    /* Timing variables. */
+    int t = 0, oldt = 0;
+    int fps = 0, lastsec = 0;
+    char strfps[100] = {0};
+
     int stop = 0;
     
     /* Emulation loop. */
     while(!stop)
     {
-        while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
-            cpu_step(state);
-        //print_state(state);
+        /* If using strict emulation, limit to 1M cycles / sec. */
+        if(opts.use_cpu_limit)
+        {
+            while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+                cpu_step(state);
+            while((double)(t = SDL_GetTicks()) - oldt < (double)FRAME_DT) 
+                SDL_Delay(0);
+            oldt = t;
+        }
+        /* Otherwise, max out in 1/60th sec. */
+        else
+        {
+            while((double)(t = SDL_GetTicks()) - oldt < (double)FRAME_DT)
+            {
+                for(int i=0; i<1000; ++i)
+                    cpu_step(state);
+            }
+            oldt = t;
+        }
+        ++fps;
         /* Handle input. */
-        //cpu_io_reset(state);
         SDL_Event evt;
         while(SDL_PollEvent(&evt))
         {
@@ -166,15 +226,19 @@ int main(int argc, char* argv[])
                     break;
             }
         }
-        /* Timing for cycle times. */
-        while((t = SDL_GetTicks()) - oldt < FRAME_DT) ;
-            //SDL_Delay(0);
-        oldt = t;
         /* Draw. */
-        blit_screen2x(screen,state);
+        blit_screen(screen,state,opts.video_scaler);
         /* Reset vblank flag. */
         state->meta.wait_vblnk = 0;
         state->meta.cycles = 0;
+
+        if(t > lastsec + 1000)
+        {
+            snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
+            SDL_WM_SetCaption(strfps, NULL);
+            lastsec = t;
+            fps = 0;
+        }
     }
 cleanup:
     /* Tidy up before exit. */

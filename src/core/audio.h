@@ -19,11 +19,8 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#include "../options.h"
 #include "cpu.h"
-
-/* Tweak these if sound is artefacted. */
-#define AUDIO_RATE		 	44100
-#define AUDIO_SAMPLES		512
 
 #define SND1_SAMPLES		(int)(AUDIO_RATE / 500)
 #define SND2_SAMPLES		(int)(AUDIO_RATE / 1000)
@@ -36,7 +33,7 @@ typedef enum
 	WF_SAWTOOTH,
 	WF_PULSE,
 	WF_NOISE
-} waveform;
+} waveform_t;
 
 /* Lookup tables for envelope durations. */
 static const int atk_ms[16] = 
@@ -58,6 +55,7 @@ static const int rls_ms[16] =
 typedef struct
 {
 	/* PCM data relevant. */
+	int sample_rate, buffer_size;
 	/* Current sample index, and number of samples to generate. */
 	int s_index, s_total;
 	/* Current position in the waveform period. */
@@ -69,7 +67,7 @@ typedef struct
 
 	/* ADSR relevant. */
 	/* Waveform type. */
-	waveform wf;
+	waveform_t wf;
 	/* Fequency, duration, tone, ADSR, volume. */
 	int f;
 	int dt;
@@ -82,7 +80,7 @@ typedef struct
 } audio_state;
 
 /* Function declarations. */
-void audio_init();
+void audio_init(cpu_state*,program_opts*);
 void audio_free();
 void audio_update(cpu_state*);
 void audio_play(int16_t,int16_t,int);

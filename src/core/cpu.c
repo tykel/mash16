@@ -25,8 +25,10 @@
 #include <stdio.h>
 #include <time.h>
 
+extern int use_verbose;
+
 /* Initialise the CPU to safe values. */
-void cpu_init(cpu_state** state, uint8_t* mem)
+void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 {
     if(!(*state = (cpu_state*)calloc(1,sizeof(cpu_state))))
     {
@@ -140,6 +142,7 @@ void cpu_step(cpu_state* state)
     (*op_table[state->i.op])(state);
     /* Update cycles. */
     ++state->meta.cycles;
+    ++state->meta.total_cycles;
 }
 
 /* Update I/O port contents with gamepad input. */

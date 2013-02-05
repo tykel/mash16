@@ -41,6 +41,14 @@ void load_pal(uint8_t* pal, int alpha, cpu_state* state)
     }
 }
 
+inline void blit_screen(SDL_Surface* sfc, cpu_state* state, int scale)
+{
+    if(scale == 2)
+        blit_screen2x(sfc,state);
+    else if(scale == 1)
+        blit_screen1x(sfc,state);
+}
+
 void blit_screen1x(SDL_Surface* sfc, cpu_state* state)
 {
     SDL_LockSurface(sfc);

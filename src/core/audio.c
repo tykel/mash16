@@ -20,12 +20,13 @@
 #include <SDL/SDL.h>
 
 static audio_state as;
-
+static int use_audio;
+extern int use_verbose;
 typedef int16_t (*fptr)();
 fptr f_sample;
 
 /* Initialise the SDL audio system. */
-void audio_init(cpu_state *state)
+void audio_init(cpu_state *state, program_opts *opts)
 {
 	f_sample = NULL;
 
@@ -33,12 +34,17 @@ void audio_init(cpu_state *state)
 	as.wf = WF_TRIANGLE;
 	as.f = 100;
 	as.vol = INT16_MAX;
+	as.buffer_size = opts->audio_buffer_size;
+	as.sample_rate = opts->audio_sample_rate;
+	use_audio = opts->use_audio;
+	if(!use_audio)
+		return;
 
 	SDL_AudioSpec spec;
-	spec.freq = AUDIO_RATE;
+	spec.freq = as.sample_rate;
 	spec.format = AUDIO_S16SYS;
 	spec.channels = 1;
-	spec.samples = (uint16_t)AUDIO_SAMPLES;
+	spec.samples = (uint16_t)as.buffer_size;
 	spec.callback = audio_callback;
 	spec.userdata = state;
 
@@ -52,42 +58,53 @@ void audio_init(cpu_state *state)
 /* Clean up after the sound system. */
 void audio_free()
 {
-	SDL_LockAudio();
-	SDL_CloseAudio();
-	SDL_UnlockAudio();
+	if(use_audio)
+	{
+		SDL_LockAudio();
+		SDL_CloseAudio();
+		SDL_UnlockAudio();
+	}
 }
 
 /* (Re)populate the audio buffer and start playing. */
 void audio_play(int16_t f, int16_t dt, int adsr)
 {
+	if(!use_audio)
+		return;
 	/* Pause while we set up parameters. */
 	SDL_PauseAudio(1);
 	/* Set things up. */
 	as.f = f;
 	as.dt = dt;
 	as.use_envelope = adsr;
+	/* Reset the sample index so we start at the beginning of the buffer. */
+	as.s_index = 0;
 	/* Number of samples for the whole sound. */
-	as.s_total = (dt * AUDIO_RATE/1000) + as.rls_samples;
+	as.s_total = (dt * as.sample_rate/1000) + as.rls_samples;
 	/* Number of samples for an oscillation period. */
-	as.s_period_total = AUDIO_RATE / (as.f + 1);
+	as.s_period_total = as.sample_rate / (as.f + 1);
 	/* Check other numbers of samples are correct. */
-	if(as.dt * AUDIO_RATE/1000 < as.atk_samples)
+	if(as.dt * as.sample_rate/1000 < as.atk_samples)
 	{
-		as.atk_samples = as.dt * AUDIO_RATE/1000;
+		as.atk_samples = as.dt * as.sample_rate/1000;
 		as.dec_samples = 0;
 	}
-	else if(dt * AUDIO_RATE/1000 + as.atk_samples < as.dec_samples)
+	else if(dt * as.sample_rate/1000 + as.atk_samples < as.dec_samples)
 	{
-		as.dec_samples = dt * AUDIO_RATE/1000 + as.atk_samples;	
+		as.dec_samples = dt * as.sample_rate/1000 + as.atk_samples;	
 	}
 	/* Number of samples for the sustain duration. */
-	as.sus_samples = (dt * AUDIO_RATE/1000) - as.atk_samples
-											- as.dec_samples;
+	as.sus_samples = (dt * as.sample_rate/1000) - as.atk_samples
+												- as.dec_samples;
 	if(as.sus_samples < 0)
 		as.sus_samples = 0;
-	//printf("A=%ds\tD=%ds\tS=%ds\tR=%ds\tTOTAL=%d\n",
-	//	as.atk_samples,as.dec_samples,as.sus_samples,as.rls_samples,as.s_total);
-	as.s_index = 0;
+
+	/* Log if necessary. */
+	if(use_verbose)
+	{
+		printf("Playing: A=%ds\tD=%ds\tS=%ds\tTOTAL=%d\tR=%ds\n",
+				as.atk_samples,as.dec_samples,as.sus_samples,as.s_total,as.rls_samples);
+	}
 
 	/* Set up the right sampling function. */
 	if(as.use_envelope)
@@ -118,7 +135,7 @@ void audio_stop()
 void audio_update(cpu_state *state)
 {
 	/* Copy over the envelope parameters. */
-	as.wf = (waveform)state->type;
+	as.wf = (waveform_t)state->type;
 	as.atk = atk_ms[state->atk];
 	as.dec = dec_ms[state->dec];
 	as.sus = INT16_MAX / (2*(16 - state->sus));
@@ -126,9 +143,9 @@ void audio_update(cpu_state *state)
 	as.vol = INT16_MAX / (2*(16 - state->vol));
 	as.tone = state->tone;
 	/* Get number of as.s_period_total from duration for the perods. */
-	as.atk_samples = (AUDIO_RATE * as.atk) / 1000;
-	as.dec_samples = (AUDIO_RATE * as.dec) / 1000;
-	as.rls_samples = (AUDIO_RATE * as.rls) / 1000;
+	as.atk_samples = (as.sample_rate * as.atk) / 1000;
+	as.dec_samples = (as.sample_rate * as.dec) / 1000;
+	as.rls_samples = (as.sample_rate * as.rls) / 1000;
 }
 
 /* Callback function provided to SDL for copying sound data. */
