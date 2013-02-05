@@ -70,6 +70,16 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	as.s_total = (dt * AUDIO_RATE/1000) + as.rls_samples;
 	/* Number of samples for an oscillation period. */
 	as.s_period_total = AUDIO_RATE / (as.f + 1);
+	/* Check other numbers of samples are correct. */
+	if(as.dt * AUDIO_RATE/1000 < as.atk_samples)
+	{
+		as.atk_samples = as.dt * AUDIO_RATE/1000;
+		as.dec_samples = 0;
+	}
+	else if(dt * AUDIO_RATE/1000 + as.atk_samples < as.dec_samples)
+	{
+		as.dec_samples = dt * AUDIO_RATE/1000 + as.atk_samples;	
+	}
 	/* Number of samples for the sustain duration. */
 	as.sus_samples = (dt * AUDIO_RATE/1000) - as.atk_samples
 											- as.dec_samples;
