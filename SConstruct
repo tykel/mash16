@@ -1,8 +1,13 @@
+import os
 VariantDir('build','src',duplicate = 0)
 
 env = Environment()
-env.Append(CCFLAGS = ['-g', '-O2', '-std=c99', '-Wall', '-Werror'])
-env.Replace(CC = 'clang')
+
+svnno = os.popen('svnversion .').read()[:-1]
+svnno = svnno.split(':')[0]
+
+env.Append(CCFLAGS = ['-O2', '-std=c99', '-Wall', '-Werror', '-DMAJOR=0', '-DMINOR=5', '-DREV=0', '-DBUILD='+svnno])
+#env.Replace(CC = 'clang')
 
 sources = Glob('./build/*.c')
 sources.extend(Glob('./build/core/*.c'))

@@ -20,6 +20,7 @@
 #define CPU_H
 
 #include "../consts.h"
+#include "../options.h"
 #include <SDL/SDL.h>
 
 #define FLAG_C 2
@@ -65,7 +66,7 @@ typedef union
 } instr;
 
 /* Stores CPU flags. */
-typedef struct 
+typedef struct flags
 {
     uint32_t c;
     uint32_t z;
@@ -74,15 +75,16 @@ typedef struct
 } flags;
 
 /* Holds information about the CPU. */
-typedef struct
+typedef struct cpu_meta
 {
-    uint64_t cycles;
+    int cycles;
+    long total_cycles;
     int wait_vblnk;
 
 } cpu_meta;
 
 /* Holds CPU functionality. */
-typedef struct
+typedef struct cpu_state
 {
     /* Pure CPU stuff. */
     int16_t r[16];
@@ -120,7 +122,7 @@ typedef void (*cpu_op)(cpu_state*);
 cpu_op op_table[0x100];
 
 /* CPU functions. */
-void cpu_init(cpu_state**,uint8_t*);
+void cpu_init(cpu_state**,uint8_t*,program_opts*);
 void cpu_step(cpu_state*);
 void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
 void cpu_io_reset(cpu_state*);

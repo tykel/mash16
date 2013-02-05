@@ -19,6 +19,8 @@
 #ifndef CONSTS_H
 #define CONSTS_H
 
+#define CLOCK_RATE		1000000
+
 #define MEM_SIZE        0x10000
 #define MAX_ADDR        0xFFFF
 #define STACK_ADDR      0xFDF0
@@ -26,7 +28,7 @@
 #define IO_PAD2_ADDR    0xFFF2
 
 #define FRAME_CYCLES    16667
-#define FRAME_DT        16
+#define FRAME_DT        16.66667
 
 #define PAD_UP          0x01
 #define PAD_DOWN        0x02
@@ -36,6 +38,9 @@
 #define PAD_START       0x20
 #define PAD_A           0x40
 #define PAD_B           0x80
+
+#define AUDIO_RATE		44100
+#define AUDIO_SAMPLES	512
 
 #include <stdint.h>
 

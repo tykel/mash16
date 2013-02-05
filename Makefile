@@ -1,10 +1,10 @@
 CC = gcc
 SDL_CFLAGS = 
-CFLAGS = -O2 -std=gnu99 -Wall -Werror -g $(SDL_CFLAGS)
+CFLAGS = -O2 -std=c99 -Wall -Werror -g -DMAJOR=0 -DMINOR=5 -DREV=0 -DBUILD=`svnversion .` $(SDL_CFLAGS)
 SDL_LDFLAGS = -lSDLmain -lSDL 
 LDFLAGS = -lm $(SDL_LDFLAGS)
 OBJ = build
-OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o $(OBJ)/cpu_ops.o $(OBJ)/gpu.o $(OBJ)/audio.o
+OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o $(OBJ)/cpu_ops.o $(OBJ)/gpu.o $(OBJ)/audio.o $(OBJ)/options.o
 
 #DIRECTORIES
 SRC = src
@@ -18,7 +18,10 @@ all: mash16
 mash16: $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
 
-$(OBJ)/main.o: $(SRC)/main.c $(SRC)/consts.h
+$(OBJ)/main.o: $(SRC)/main.c $(SRC)/consts.h $(SRC)/options.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ)/options.o: $(SRC)/options.c $(SRC)/options.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJ)/header.o: $(HDR)/header.c $(HDR)/header.h $(HDR)/crc.h $(SRC)/consts.h
