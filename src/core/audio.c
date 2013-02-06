@@ -214,35 +214,37 @@ int16_t audio_gen_sample()
 			as.sample = 1.0; 
 			break;
 		case WF_NOISE:
-			as.sample = 2.0*(double)(rand() % INT16_MAX)/(double)(INT16_MAX) - 1.0;
+			if(!as.s_period_index)
+				as.sample = 2.0*(double)(rand() % INT16_MAX)/(double)(INT16_MAX) - 1.0;
 			break;
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", as.wf);
 			exit(1);
 	}
+	double sample = as.sample;
 	/* Scale the amplitude according to position in envelope. */
 	/* Attack */
 	if(as.s_index < as.atk_samples)
-		as.sample *= as.vol * (double)as.s_index / as.atk_samples;
+		sample *= as.vol * (double)as.s_index / as.atk_samples;
 	/* Decay */
 	else if(as.s_index < as.dec_samples + as.atk_samples)
-		as.sample *= as.sus + (as.vol - as.sus) *
+		sample *= as.sus + (as.vol - as.sus) *
 						  (1.0 - (double)(as.s_index - as.atk_samples) /
 						  		 (double)as.dec_samples);
 	/* Sustain */
 	else if(as.s_index < as.atk_samples + as.dec_samples + as.sus_samples)
-		as.sample *= as.sus;
+		sample *= as.sus;
 	/* Release */
 	else
-		as.sample *= as.sus * (1.0 - (double)(as.s_index - (as.sus_samples + as.dec_samples + as.atk_samples)) /
+		sample *= as.sus * (1.0 - (double)(as.s_index - (as.sus_samples + as.dec_samples + as.atk_samples)) /
 								 	 (double)as.rls_samples);
 
 	/* Noise not affected by silly oscillation. */
 	if(as.wf == WF_NOISE)
-		return (int16_t)as.sample;
+		return (int16_t)sample;
 
 	/* Positive or negative? */	
 	if((double)(2 * as.s_period_index) < as.s_period_total)
-		return (int16_t)-as.sample;
-	return (int16_t)as.sample;
+		return (int16_t)-sample;
+	return (int16_t)sample;
 }
