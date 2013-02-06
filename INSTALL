@@ -1,0 +1,10 @@
+mash16 uses the Scons build tool, which requires python.
+Use your package manager to get the scons package, or
+download it from their website <www.scons.org>.
+
+Then run:
+    $ scons
+followed by
+    # scons install
+this time as root.
+
