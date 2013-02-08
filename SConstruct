@@ -12,7 +12,7 @@ env.Alias('install', ['/usr/local/bin'])
 
 # Use `svnversion` for revision number
 
-svnno = os.popen('svnversion .').read()[:-1].replace('M',':').split(':')[1]
+svnno = os.popen('svnversion .').read()[:-1].replace('M',':').split(':')[0]
 
 # Standard C flags, use svn revision too
 
