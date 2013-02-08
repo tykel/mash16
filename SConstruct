@@ -2,7 +2,7 @@
 
 maj = '0'
 min = '5'
-rev = '1'
+rev = '2'
 
 import os
 VariantDir('build','src',duplicate = 0)
