@@ -81,9 +81,6 @@ void op_drw_r(cpu_state* state)
 
 int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 {
-    if(use_verbose)
-        printf("draw: (%dx%d) @ (%d,%d), [%p], flip: x=%d y=%d\n",
-                w*2,h,x,y,m,fx,fy);
     /* If nothing will be on-screen, may as well exit. */
     if(x > 319 || y > 239 || !w || !h || y+h < 0 || x+w*2 < 0)
         return 0;

@@ -136,6 +136,15 @@ int main(int argc, char* argv[])
             fprintf(stderr,"error: header integrity check failed\n");
             exit(1);
         }
+        if(opts.use_verbose)
+        {
+            ch16_header* h = (ch16_header*)buf;
+            printf("header integrity check: ok\n");
+            printf("> spec. version:  %d.%d\n",h->spec_ver>>4,h->spec_ver&0x0f);
+            printf("> rom size:       %d B\n",h->rom_size);
+            printf("> start address:  0x%04x\n",h->start_addr);
+            printf("> crc32 checksum: 0x%8x\n",h->crc32_sum);
+        }
     }
 
     /* Get a buffer without header. */
@@ -168,19 +177,24 @@ int main(int argc, char* argv[])
                 SDL_GetError());
         return 1;
     }
+    if(opts.use_verbose)
+        printf("sdl initialised\n");
 
-    SDL_WM_SetCaption("mash16","mash16");
+    char strfps[100] = {0};
+    snprintf(strfps,100,"mash16 - %s",opts.filename);
+    SDL_WM_SetCaption(strfps,NULL);
 
     /* Initialise the Chip16 processor state. */
     cpu_state* state = NULL;
     cpu_init(&state,mem,&opts);
     audio_init(state,&opts);
     init_pal(state);
+    if(opts.use_verbose)
+        printf("chip16 state initialised\n\n");
     
     /* Timing variables. */
     int t = 0, oldt = 0;
     int fps = 0, lastsec = 0;
-    char strfps[100] = {0};
 
     int stop = 0;
     
@@ -192,21 +206,48 @@ int main(int argc, char* argv[])
         {
             while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
                 cpu_step(state);
-            while((double)(t = SDL_GetTicks()) - oldt < (double)FRAME_DT) 
-                SDL_Delay(0);
+            /* Avoid hogging the CPU... */
+            while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
+                SDL_Delay(1);
             oldt = t;
+            ++fps;
         }
         /* Otherwise, max out in 1/60th sec. */
         else
         {
-            while((double)(t = SDL_GetTicks()) - oldt < (double)FRAME_DT)
+            while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
             {
-                for(int i=0; i<1000; ++i)
+                for(int i=0; i<600; ++i)
+                {
                     cpu_step(state);
+                    /* Don't forget to count our frames! */
+                    if(state->meta.wait_vblnk)
+                    {
+                        state->meta.wait_vblnk = 0;
+                        ++fps;
+                    }
+                    else if(state->meta.cycles >= FRAME_CYCLES)
+                    {
+                        state->meta.cycles = 0;
+                        ++fps;
+                    }
+                }
             }
             oldt = t;
         }
-        ++fps;
+        /* Update the FPS counter after every second, or second's worth of frames. */
+        if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
+        {
+            /* Output debug info. */
+            if(opts.use_verbose)
+                printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
+            /* Update the caption. */
+            snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
+            SDL_WM_SetCaption(strfps, NULL);
+            /* Reset timing info. */
+            lastsec = t;
+            fps = 0;
+        }
         /* Handle input. */
         SDL_Event evt;
         while(SDL_PollEvent(&evt))
@@ -231,14 +272,6 @@ int main(int argc, char* argv[])
         /* Reset vblank flag. */
         state->meta.wait_vblnk = 0;
         state->meta.cycles = 0;
-
-        if(t > lastsec + 1000)
-        {
-            snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
-            SDL_WM_SetCaption(strfps, NULL);
-            lastsec = t;
-            fps = 0;
-        }
     }
 cleanup:
     /* Tidy up before exit. */
@@ -247,5 +280,7 @@ cleanup:
     cpu_free(state);
     free(mem); 
     SDL_FreeSurface(screen);
+    if(opts.use_verbose)
+        printf("memory freed, goodbye\n");
     exit(0);
 }

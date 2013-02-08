@@ -27,8 +27,8 @@
 #define IO_PAD1_ADDR    0xFFF0
 #define IO_PAD2_ADDR    0xFFF2
 
-#define FRAME_CYCLES    16667
-#define FRAME_DT        16.66667
+#define FRAME_CYCLES    (CLOCK_RATE/60.0)
+#define FRAME_DT        16
 
 #define PAD_UP          0x01
 #define PAD_DOWN        0x02

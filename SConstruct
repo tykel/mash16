@@ -2,7 +2,7 @@
 
 maj = '0'
 min = '5'
-rev = '0'
+rev = '1'
 
 import os
 VariantDir('build','src',duplicate = 0)
@@ -34,9 +34,9 @@ mash16 = env.Program(target = 'mash16',
                      source = sources,
                      LIBS = libraries)
 
-tar_src = env.Tar('mash16-'+maj+'.'+min+'.'+rev+'-src.tar.gz',
+tar_src = env.Tar('archive/mash16-'+maj+'.'+min+'.'+rev+'-src.tar.gz',
              ['src', 'INSTALL', 'LICENSE', 'SConstruct', 'SPEC.1.1'])
-tar = env.Tar('mash16-'+maj+'.'+min+'.'+rev+'.tar.gz', 'mash16')
+tar = env.Tar('archive/mash16-'+maj+'.'+min+'.'+rev+'.tar.gz', 'mash16')
 
 #Install
 
