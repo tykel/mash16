@@ -34,15 +34,13 @@ int use_verbose;
 
 void print_state(cpu_state* state)
 {
-    printf("---------------------------------------\n");
-    printf("pc: %x\t\tsp: %x\t\tflags: %d%d%d%d\n",
+    printf("---------------------------------------------------------------------------\n");
+    printf("pc:  0x%04x\t\tsp: 0x%04x\t\tflags: %d%d%d%d\n",
         state->pc,state->sp,state->f.c,state->f.z,state->f.o,state->f.n);
-    printf("spr: %dx%d\t\tbgc: %d\t\tinstr: %08x\n",state->sw,state->sh,state->bgc,state->i.dword);
+    printf("spr: %3dx%3d\t\tbgc: %x\t\t\tinstr: %08x\n",state->sw,state->sh,state->bgc,state->i.dword);
     for(int i=0; i<4; ++i)
-        printf("r%d: %d\t\tr%d: %d\t\tr%d: %d\t\tr%d: %d\n",
+        printf("r%x: %5d\t\tr%x: %5d\t\tr%x: %5d\t\tr%x: %5d\n",
             i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
-    if(getchar() == 'q')
-        exit(1);
 }
 
 int verify_header(uint8_t* bin, int len)
@@ -196,58 +194,62 @@ int main(int argc, char* argv[])
     int t = 0, oldt = 0;
     int fps = 0, lastsec = 0;
 
-    int stop = 0;
+    int stop = 0, pause = 0;
     
     /* Emulation loop. */
     while(!stop)
     {
-        /* If using strict emulation, limit to 1M cycles / sec. */
-        if(opts.use_cpu_limit)
+        if(!pause)
         {
-            while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
-                cpu_step(state);
-            /* Avoid hogging the CPU... */
-            while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
-                SDL_Delay(1);
-            oldt = t;
-            ++fps;
-        }
-        /* Otherwise, max out in 1/60th sec. */
-        else
-        {
-            while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
+            /* If using strict emulation, limit to 1M cycles / sec. */
+            if(opts.use_cpu_limit)
             {
-                for(int i=0; i<600; ++i)
-                {
+                while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
                     cpu_step(state);
-                    /* Don't forget to count our frames! */
-                    if(state->meta.wait_vblnk)
+                /* Avoid hogging the CPU... */
+                while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
+                    SDL_Delay(1);
+                oldt = t;
+                ++fps;
+            }
+            /* Otherwise, max out in 1/60th sec. */
+            else
+            {
+                while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
+                {
+                    for(int i=0; i<600; ++i)
                     {
-                        state->meta.wait_vblnk = 0;
-                        ++fps;
-                    }
-                    else if(state->meta.cycles >= FRAME_CYCLES)
-                    {
-                        state->meta.cycles = 0;
-                        ++fps;
+                        cpu_step(state);
+                        /* Don't forget to count our frames! */
+                        if(state->meta.wait_vblnk)
+                        {
+                            state->meta.wait_vblnk = 0;
+                            ++fps;
+                        }
+                        else if(state->meta.cycles >= FRAME_CYCLES)
+                        {
+                            state->meta.cycles = 0;
+                            ++fps;
+                        }
                     }
                 }
+                oldt = t;
             }
-            oldt = t;
+            /* Update the FPS counter after every second, or second's worth of frames. */
+            if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
+            {
+                /* Output debug info. */
+                if(opts.use_verbose)
+                    printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
+                /* Update the caption. */
+                snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
+                SDL_WM_SetCaption(strfps, NULL);
+                /* Reset timing info. */
+                lastsec = t;
+                fps = 0;
+            }
         }
-        /* Update the FPS counter after every second, or second's worth of frames. */
-        if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
-        {
-            /* Output debug info. */
-            if(opts.use_verbose)
-                printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
-            /* Update the caption. */
-            snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
-            SDL_WM_SetCaption(strfps, NULL);
-            /* Reset timing info. */
-            lastsec = t;
-            fps = 0;
-        }
+        
         /* Handle input. */
         SDL_Event evt;
         while(SDL_PollEvent(&evt))
@@ -255,6 +257,21 @@ int main(int argc, char* argv[])
             switch(evt.type)
             {
                 case SDL_KEYDOWN:
+                    if(evt.key.keysym.sym == SDLK_SPACE)
+                    {
+                        if(!pause)
+                        {
+                            print_state(state);
+                            pause = 1;
+                        }
+                        else
+                            pause = 0;
+                    }
+                    else if(evt.key.keysym.sym == SDLK_n && pause)
+                    {
+                        cpu_step(state);
+                        print_state(state);
+                    }
                 case SDL_KEYUP:
                     cpu_io_update(&evt.key,state);
                     break;
