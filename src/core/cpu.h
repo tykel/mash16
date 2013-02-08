@@ -77,8 +77,8 @@ typedef struct flags
 /* Holds information about the CPU. */
 typedef struct cpu_meta
 {
-    int cycles;
-    long total_cycles;
+    long cycles;
+    double target_cycles;
     int wait_vblnk;
 
 } cpu_meta;

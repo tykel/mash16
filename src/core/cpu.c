@@ -142,7 +142,7 @@ void cpu_step(cpu_state* state)
     (*op_table[state->i.op])(state);
     /* Update cycles. */
     ++state->meta.cycles;
-    ++state->meta.total_cycles;
+    ++state->meta.target_cycles;
 }
 
 /* Update I/O port contents with gamepad input. */

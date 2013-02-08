@@ -102,7 +102,7 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 	/* Log if necessary. */
 	if(use_verbose)
 	{
-		printf("Playing: A=%ds\tD=%ds\tS=%ds\tTOTAL=%d\tR=%ds\n",
+		printf("audio: A=%ds\tD=%ds\tS=%ds\tTOTAL=%ds\tR=%ds\n",
 				as.atk_samples,as.dec_samples,as.sus_samples,as.s_total,as.rls_samples);
 	}
 
