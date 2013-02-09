@@ -34,13 +34,16 @@ int use_verbose;
 
 void print_state(cpu_state* state)
 {
+    printf("state @ cycle %ld:\n",state->meta.target_cycles);
     printf("---------------------------------------------------------------------------\n");
-    printf("pc:  0x%04x\t\tsp: 0x%04x\t\tflags: %d%d%d%d\n",
-        state->pc,state->sp,state->f.c,state->f.z,state->f.o,state->f.n);
-    printf("spr: %3dx%3d\t\tbgc: %x\t\t\tinstr: %08x\n",state->sw,state->sh,state->bgc,state->i.dword);
+    printf("| pc:  0x%04x  |\t\t| sp: 0x%04x |\t\t| flags: %c%c%c%c     | \n",
+        state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
+    printf("| spr: %3dx%3d |\t\t| bg: 0x%x    |\t\t| instr: %08x |\n",state->sw,state->sh,state->bgc,state->i.dword);
+    printf("-------------------------------------------------------------------------------------\n");
     for(int i=0; i<4; ++i)
-        printf("r%x: %5d\t\tr%x: %5d\t\tr%x: %5d\t\tr%x: %5d\n",
+        printf("| r%x:  %5d |\t\t| r%x: %5d |\t\t| r%x: %5d |\t\t| r%x: %5d |\n",
             i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
+    printf("-------------------------------------------------------------------------------------\n");
 }
 
 int verify_header(uint8_t* bin, int len)
@@ -80,9 +83,19 @@ int main(int argc, char* argv[])
     opts.video_scaler = 2;
     opts.use_cpu_limit = 1;
     opts.use_cpu_rec = 0;
+    opts.num_breakpoints = 0;
 
     options_parse(argc,argv,&opts);
     use_verbose = opts.use_verbose;
+
+    if(use_verbose)
+    {
+        printf("total breakpoints: %d\n",opts.num_breakpoints);
+        for(int i=0; i<opts.num_breakpoints; ++i)
+        {
+            printf("> bp %d: 0x%x\n",i,opts.breakpoints[i]);
+        }
+    }
 
     /* Sanitize the input. */
     int input_errors = 0;
@@ -205,7 +218,26 @@ int main(int argc, char* argv[])
             if(opts.use_cpu_limit)
             {
                 while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+                {        
                     cpu_step(state);
+                    /* Stop at breakpoint if necessary. */
+                    if(opts.num_breakpoints > 0)
+                    {
+                        for(int i=0; i<opts.num_breakpoints; ++i)
+                        {
+                            if(state->pc == opts.breakpoints[i])
+                            {
+                                pause = 1;
+                                printf("breaking at 0x%x\n",state->pc);
+                            }
+                        }
+                        if(pause)
+                        {
+                            print_state(state);
+                            break;
+                        }
+                    }
+                }
                 /* Avoid hogging the CPU... */
                 while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
                     SDL_Delay(1);
