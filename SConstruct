@@ -1,8 +1,8 @@
-# mash16 SConfigure, 2013
+# mash16 SConstruct, 2013
 
 maj = '0'
 min = '5'
-rev = '2'
+rev = '3'
 
 import os
 VariantDir('build','src',duplicate = 0)

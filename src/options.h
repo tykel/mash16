@@ -20,6 +20,7 @@
 #define OPTIONS_H
 
 #define MAX_STRING	100
+#define BREAKPOINTS 100
 
 typedef struct program_opts
 {
@@ -31,6 +32,8 @@ typedef struct program_opts
 	int video_scaler;
 	int use_cpu_limit;
 	int use_cpu_rec;
+	int breakpoints[BREAKPOINTS];
+	int num_breakpoints;
 } program_opts;
 
 void options_parse(int,char**,program_opts*);

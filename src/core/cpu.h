@@ -78,7 +78,7 @@ typedef struct flags
 typedef struct cpu_meta
 {
     long cycles;
-    double target_cycles;
+    long target_cycles;
     int wait_vblnk;
 
 } cpu_meta;
