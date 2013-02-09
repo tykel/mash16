@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
 
     /* Sanitize the input. */
     int input_errors = 0;
-    if(opts.video_scaler <= 0 || opts.video_scaler > 2)
+    if(opts.video_scaler <= 0 || opts.video_scaler > 3)
     {
         fprintf(stderr,"error: scaler %dx not supported\n",opts.video_scaler);
         ++input_errors;
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
     if(SDL_Init(sdl_flags) < 0)
     {
         fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
-        return 1;
+        exit(1);
     }
     atexit(SDL_Quit);
     if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,32,
@@ -186,16 +186,16 @@ int main(int argc, char* argv[])
         fprintf(stderr,"Failed to init. video mode (%dx%d,32bpp): %s\n",
                 opts.video_scaler*320,opts.video_scaler*240,
                 SDL_GetError());
-        return 1;
+        exit(1);
     }
     if(opts.use_verbose)
-        printf("sdl initialised\n");
+        printf("sdl initialised: %dx%d\n",screen->w,screen->h);
 
     char strfps[100] = {0};
     snprintf(strfps,100,"mash16 - %s",opts.filename);
     SDL_WM_SetCaption(strfps,NULL);
 
-    /* Initialise the Chip16 processor state. */
+    /* Initialise the chip16 processor state. */
     cpu_state* state = NULL;
     cpu_init(&state,mem,&opts);
     audio_init(state,&opts);
@@ -226,10 +226,7 @@ int main(int argc, char* argv[])
                         for(int i=0; i<opts.num_breakpoints; ++i)
                         {
                             if(state->pc == opts.breakpoints[i])
-                            {
                                 pause = 1;
-                                printf("breaking at 0x%x\n",state->pc);
-                            }
                         }
                         if(pause)
                         {
