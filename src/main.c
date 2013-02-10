@@ -35,15 +35,15 @@ int use_verbose;
 void print_state(cpu_state* state)
 {
     printf("state @ cycle %ld:\n",state->meta.target_cycles);
-    printf("---------------------------------------------------------------------------\n");
-    printf("| pc:  0x%04x  |\t\t| sp: 0x%04x |\t\t| flags: %c%c%c%c     | \n",
+    printf("-----------------------------------------------------------\n");
+    printf("| pc:   0x%04x |     | sp: 0x%04x |     | flags: %c%c%c%c     | \n",
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
-    printf("| spr: %3dx%3d |\t\t| bg: 0x%x    |\t\t| instr: %08x |\n",state->sw,state->sh,state->bgc,state->i.dword);
-    printf("-------------------------------------------------------------------------------------\n");
+    printf("| spr: %3dx%3d |     | bg:    0x%x |     | instr: %08x |\n",state->sw,state->sh,state->bgc,state->i.dword);
+    printf("-----------------------------------------------------------\n");
     for(int i=0; i<4; ++i)
-        printf("| r%x:  %5d |\t\t| r%x: %5d |\t\t| r%x: %5d |\t\t| r%x: %5d |\n",
+        printf("| r%x:  %5d |  | r%x: %5d |  | r%x: %5d |  | r%x: %5d |\n",
             i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
-    printf("-------------------------------------------------------------------------------------\n");
+    printf("-----------------------------------------------------------\n");
 }
 
 int verify_header(uint8_t* bin, int len)
@@ -301,14 +301,14 @@ int main(int argc, char* argv[])
                         cpu_step(state);
                         print_state(state);
                     }
+                    else if(evt.key.keysym.sym == SDLK_ESCAPE)
+                        stop = 1;
                 case SDL_KEYUP:
                     cpu_io_update(&evt.key,state);
                     break;
                 case SDL_QUIT:
                     stop = 1;
-                    /* Audio thread hangs a bit (?), notify that we're exiting. */
-                    printf("exiting...\n");
-                    goto cleanup;
+                    break;
                 default:
                     break;
             }
@@ -319,9 +319,7 @@ int main(int argc, char* argv[])
         state->meta.wait_vblnk = 0;
         state->meta.cycles = 0;
     }
-cleanup:
     /* Tidy up before exit. */
-//return 0;
     audio_free();
     cpu_free(state);
     free(mem); 
