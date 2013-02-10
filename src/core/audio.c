@@ -33,7 +33,7 @@ void audio_init(cpu_state *state, program_opts *opts)
 	as = (audio_state){0};
 	as.wf = WF_TRIANGLE;
 	as.f = 100;
-	as.vol = INT16_MAX;
+	as.vol = INT16_MAX/2;
 	as.buffer_size = opts->audio_buffer_size;
 	as.sample_rate = opts->audio_sample_rate;
 	use_audio = opts->use_audio;
