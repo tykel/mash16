@@ -36,6 +36,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
         printf("  --no-audio             disable audio output\n");
         printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100)\n");
         printf("  --audio-buffer=N       set audio buffer size to N bytes (128+)\n");
+        printf("  --audio-volume=N       set audio volume to N (0-255)\n");
         printf("  --video-scaler=N       scale video N times (1,2,3)\n");
         printf("  --no-cpu-limit         disable 1 MHz clock\n");
         printf("  --cpu-rec              use (experimental) recompiler core\n");
@@ -106,6 +107,26 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     opts->audio_buffer_size = size;
 
             }
+            else if(!strncmp(argv[i],"--audio-volume",14))
+            {
+                char *num;
+                if(strlen(argv[i]) > 15 && argv[i][14] == '=')
+                    num = &argv[i][15];
+                else if(i+1 < argc)
+                    num = argv[++i];
+                else
+                {
+                    fprintf(stderr,"error: no volume amount provided\n");
+                    continue;
+                }
+
+                long int vol = strtol(num,NULL,0);
+                if(!vol)
+                    fprintf(stderr,"error: invalid input '%s'\n",num);
+                else
+                    opts->audio_volume = vol;
+
+            }
             else if(!strncmp(argv[i],"--verbose",MAX_STRING))
             {
                 opts->use_verbose = 1;
@@ -165,6 +186,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                 printf("  --no-audio             disable audio output\n");
                 printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100)\n");
                 printf("  --audio-buffer=N       set audio buffer size to N bytes (128+)\n");
+                printf("  --audio-volume=N       set audio volume to N (0-255)\n");
                 printf("  --video-scaler=N       scale video N times (1,2,3)\n");
                 printf("  --no-cpu-limit         disable 1 MHz clock\n");
                 printf("  --cpu-rec              use (experimental) recompiler core\n");

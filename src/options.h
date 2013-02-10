@@ -28,6 +28,7 @@ typedef struct program_opts
 	int use_audio;
 	int audio_sample_rate;
 	int audio_buffer_size;
+	int audio_volume;
 	int use_verbose;
 	int video_scaler;
 	int use_cpu_limit;

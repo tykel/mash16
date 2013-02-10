@@ -73,7 +73,7 @@ typedef struct
 	int dt;
     int tone;
     int atk, dec, sus, rls;
-    int vol;
+    int vol, max_vol;
     /* Should the ADSR envelope be used (snd0-3 v. sng/p). */
 	int use_envelope;
 

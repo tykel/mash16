@@ -79,6 +79,7 @@ int main(int argc, char* argv[])
     opts.use_audio = 1;
     opts.audio_sample_rate = AUDIO_RATE;
     opts.audio_buffer_size = AUDIO_SAMPLES;
+    opts.audio_volume = 128;
     opts.use_verbose = 0;
     opts.video_scaler = 2;
     opts.use_cpu_limit = 1;
@@ -113,6 +114,11 @@ int main(int argc, char* argv[])
     if(opts.audio_buffer_size < 128)
     {
         fprintf(stderr,"error: audio buffer size (%d B) too small\n",opts.audio_buffer_size);
+        ++input_errors;
+    }
+    if(opts.audio_volume < 0  || opts.audio_volume > 255)
+    {
+        fprintf(stderr, "error: volume %d not valid (range is 0-255)\n",opts.audio_volume);
         ++input_errors;
     }
     if(input_errors)
