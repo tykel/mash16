@@ -33,7 +33,8 @@ void audio_init(cpu_state *state, program_opts *opts)
 	as = (audio_state){0};
 	as.wf = WF_TRIANGLE;
 	as.f = 100;
-	as.vol = INT16_MAX/2;
+	as.max_vol = opts->audio_volume << 7;
+	as.vol = as.max_vol;
 	as.buffer_size = opts->audio_buffer_size;
 	as.sample_rate = opts->audio_sample_rate;
 	use_audio = opts->use_audio;
@@ -138,9 +139,9 @@ void audio_update(cpu_state *state)
 	as.wf = (waveform_t)state->type;
 	as.atk = atk_ms[state->atk];
 	as.dec = dec_ms[state->dec];
-	as.sus = INT16_MAX / (2*(16 - state->sus));
+	as.sus = as.max_vol / (2*(16 - state->sus));
 	as.rls = rls_ms[state->rls];
-	as.vol = INT16_MAX / (2*(16 - state->vol));
+	as.vol = as.max_vol / (2*(16 - state->vol));
 	as.tone = state->tone;
 	/* Get number of as.s_period_total from duration for the perods. */
 	as.atk_samples = (as.sample_rate * as.atk) / 1000;
@@ -215,7 +216,7 @@ int16_t audio_gen_sample()
 			break;
 		case WF_NOISE:
 			if(!as.s_period_index)
-				as.sample = 2.0*(double)(rand() % INT16_MAX)/(double)(INT16_MAX) - 1.0;
+				as.sample = 2.0*(double)(rand() % as.max_vol)/(double)(as.max_vol) - 1.0;
 			break;
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", as.wf);
