@@ -106,7 +106,8 @@ int main(int argc, char* argv[])
         ++input_errors;
     }
     if(opts.audio_sample_rate != 8000 && opts.audio_sample_rate != 11025 &&
-       opts.audio_sample_rate != 22050 && opts.audio_sample_rate != 44100)
+       opts.audio_sample_rate != 22050 && opts.audio_sample_rate != 44100 &&
+       opts.audio_sample_rate != 48000)
     {
         fprintf(stderr,"error: %dHz sample rate not supported\n",opts.audio_sample_rate);
         ++input_errors;
@@ -163,6 +164,10 @@ int main(int argc, char* argv[])
             printf("> crc32 checksum: 0x%8x\n",h->crc32_sum);
         }
     }
+    else if(opts.use_verbose)
+    {
+        printf("header not found\n");
+    }
 
     /* Get a buffer without header. */
     uint8_t* mem = NULL;
@@ -182,20 +187,20 @@ int main(int argc, char* argv[])
         sdl_flags |= SDL_INIT_AUDIO;
     if(SDL_Init(sdl_flags) < 0)
     {
-        fprintf(stderr,"Failed to initialise SDL: %s\n",SDL_GetError());
+        fprintf(stderr,"error: failed to initialise SDL: %s\n",SDL_GetError());
         exit(1);
     }
     atexit(SDL_Quit);
     if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,32,
                     SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
     {
-        fprintf(stderr,"Failed to init. video mode (%dx%d,32bpp): %s\n",
+        fprintf(stderr,"error: failed to init. video mode (%d x %d x 32 bpp): %s\n",
                 opts.video_scaler*320,opts.video_scaler*240,
                 SDL_GetError());
         exit(1);
     }
     if(opts.use_verbose)
-        printf("sdl initialised: %dx%d\n",screen->w,screen->h);
+        printf("sdl initialised: %d x %d x %d bpp\n",screen->w,screen->h,screen->format->BitsPerPixel);
 
     char strfps[100] = {0};
     snprintf(strfps,100,"mash16 - %s",opts.filename);
