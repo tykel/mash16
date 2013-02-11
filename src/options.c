@@ -34,7 +34,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
         printf("  Run FILE in the chip16 emulation.\n\n");
         printf("Options:\n");
         printf("  --no-audio             disable audio output\n");
-        printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100)\n");
+        printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100,48000)\n");
         printf("  --audio-buffer=N       set audio buffer size to N bytes (128+)\n");
         printf("  --audio-volume=N       set audio volume to N (0-255)\n");
         printf("  --video-scaler=N       scale video N times (1,2,3)\n");
@@ -184,7 +184,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                 printf("  Run FILE in the chip16 emulation.\n\n");
                 printf("Options:\n\n");
                 printf("  --no-audio             disable audio output\n");
-                printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100)\n");
+                printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100,48000)\n");
                 printf("  --audio-buffer=N       set audio buffer size to N bytes (128+)\n");
                 printf("  --audio-volume=N       set audio volume to N (0-255)\n");
                 printf("  --video-scaler=N       scale video N times (1,2,3)\n");

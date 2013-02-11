@@ -39,7 +39,7 @@
 #define PAD_A           0x40
 #define PAD_B           0x80
 
-#define AUDIO_RATE		44100
+#define AUDIO_RATE		48000
 #define AUDIO_SAMPLES	512
 
 #include <stdint.h>

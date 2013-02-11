@@ -41,7 +41,7 @@ void load_pal(uint8_t* pal, int alpha, cpu_state* state)
     }
 }
 
-/* (Public) blitting functins. */
+/* (Public) blitting functions. */
 inline void blit_screen(SDL_Surface* sfc, cpu_state* state, int scale)
 {
     if(scale == 2)
