@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
     
     /* Read our rom file into memory */
     uint8_t* buf = NULL;
-    if(!(buf = calloc(MEM_SIZE+sizeof(ch16_header),sizeof(uint8_t))))
+    if(!(buf = calloc(MEM_SIZE+sizeof(ch16_header),1)))
     {
         fprintf(stderr,"error: calloc failed (buf)\n");
         exit(1);

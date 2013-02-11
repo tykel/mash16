@@ -1,0 +1,39 @@
+.TH MASH16 1 "February 2013"
+.SH NAME
+mash16 \- the chip16 emulator.
+.SH SYNOPSIS
+.BI mash16 " FILE " "[" "OPTION" "]..." 
+.SH DESCRIPTION
+.B mash16
+is an emulator for the chip16 platform, which aims to make writing
+emulators easier for beginners. This emulator is also designed to
+aid in developing chip16 programs.
+
+It supports the full instruction set, and features a debugger for better
+understanding of the system.
+.SH OPTIONS
+.IP --no-audio
+Disable audio output.
+.IP --audio-sample-rate=N
+Set audio sample rate to N (8000, 11025, 22050, 44100, default=48000).
+.IP --audio-buffer=N
+Set audio buffer size to N bytes (128+).
+.IP --verbose
+Print debug output when running.
+.IP --video-scaler=N
+Set screen scaler to N (1,2,3).
+.IP --no-cpu-limit
+Do not restrict the speed of the emulation to 1 MHz.
+.IP --cpu-rec
+Use (experimental) recompiler core.
+.IP --break@N[,...]
+Add a breakpoint at address(es) N, separated by commas.
+.SH DEBUGGING
+Once a ROM has been loaded and started, press SPACE to pause the emulation and view
+the current CPU state. Press N to step into the next instruction, and SPACE to
+resume the emulation.
+
+Breakpoints specified by the user on the command line will be paused at automatically.
+.SH AUTHOR
+tykel <timmehboy@live.com> -- author and chip16 project lead
+
