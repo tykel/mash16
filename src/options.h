@@ -35,6 +35,7 @@ typedef struct program_opts
 	int use_cpu_rec;
 	int breakpoints[BREAKPOINTS];
 	int num_breakpoints;
+    int use_breakall;
 } program_opts;
 
 void options_parse(int,char**,program_opts*);

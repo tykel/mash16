@@ -42,6 +42,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
         printf("  --cpu-rec              use (experimental) recompiler core\n");
         printf("  --verbose              print debug information to standard output\n");
         printf("  --break@N,...          add breakpoint(s) at address(es) N,...\n");
+        printf("  --break-all            break at every intruction\n");
         printf("  --help                 print this help text\n");
         printf("  --version              print version information\n");
 
@@ -133,6 +134,11 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--break",7))
             {
+                if(!strncmp(argv[i],"--break-all",MAX_STRING))
+                {
+                    opts->use_breakall = 1;
+                    continue;
+                }
                 char *n, *nums;
                 if(strlen(argv[i]) > 8 && argv[i][7] == '@')
                 {
@@ -192,6 +198,9 @@ void options_parse(int argc, char** argv, program_opts* opts)
                 printf("  --cpu-rec              use (experimental) recompiler core\n");
                 printf("  --verbose              print debug information to standard output\n");
                 printf("  --break@N,...          add breakpoint(s) at address(es) N,...\n");
+                printf("  --break-all            break at every intruction\n");
+                printf("  --help                 print this help text\n");
+                printf("  --version              print version information\n");
                 printf("\nCopyright (C) 2012-2013 tykel\n");
                 printf("http://code.google.com/p/mash16\n");
             }
