@@ -85,6 +85,7 @@ int main(int argc, char* argv[])
     opts.use_cpu_limit = 1;
     opts.use_cpu_rec = 0;
     opts.num_breakpoints = 0;
+    opts.use_breakall = 0;
 
     options_parse(argc,argv,&opts);
     use_verbose = opts.use_verbose;
@@ -231,6 +232,7 @@ int main(int argc, char* argv[])
                 while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
                 {        
                     cpu_step(state);
+                    pause = opts.use_breakall;
                     /* Stop at breakpoint if necessary. */
                     if(opts.num_breakpoints > 0)
                     {
@@ -239,11 +241,11 @@ int main(int argc, char* argv[])
                             if(state->pc == opts.breakpoints[i])
                                 pause = 1;
                         }
-                        if(pause)
-                        {
-                            print_state(state);
-                            break;
-                        }
+                    }
+                    if(pause)
+                    {
+                        print_state(state);
+                        break;
                     }
                 }
                 /* Avoid hogging the CPU... */
