@@ -32,7 +32,7 @@ extern int use_verbose;
 void op_error(cpu_state* state)
 {
     fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",state->i.op);
-    fprintf(stderr,"state: pc=%40x\n",state->pc);
+    fprintf(stderr,"state: pc=%04x\n",state->pc);
     exit(1);
 }
 
@@ -474,7 +474,7 @@ void op_divi(cpu_state* state)
     if(!imm)
     {
         fprintf(stderr,"error: attempted to divide by 0\n");
-        fprintf(stderr,"state: pc=0x%40x\n",state->pc);
+        fprintf(stderr,"state: pc=0x%04x\n",state->pc);
         exit(1);
     }
     flags_div(*rx,imm,state);
@@ -488,7 +488,7 @@ void op_div_r2(cpu_state* state)
     if(!ry)
     {
         fprintf(stderr,"error: attempted to divide by 0\n");
-        fprintf(stderr,"state: pc=0x%40x\n",state->pc);
+        fprintf(stderr,"state: pc=0x%04x\n",state->pc);
         exit(1);
     }
     flags_div(*rx,ry,state);
@@ -502,7 +502,7 @@ void op_div_r3(cpu_state* state)
     if(!ry)
     {
         fprintf(stderr,"error: attempted to divide by 0\n");
-        fprintf(stderr,"state: pc=0x%40x\n",state->pc);
+        fprintf(stderr,"state: pc=0x%04x\n",state->pc);
         exit(1);
     }
     flags_div(rx,ry,state);

@@ -16,6 +16,7 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* A global used in other files. */
 int use_verbose;
 
 #include "options.h"
