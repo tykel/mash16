@@ -167,9 +167,9 @@ void audio_callback(void* data, uint8_t* stream, int len)
 int16_t audio_gen_snd1_sample()
 {
 	++as.s_period_index;
-	if(as.s_period_index >= SND1_SAMPLES)
+	if(as.s_period_index >= as.sample_rate/SND1_FREQ)
 		as.s_period_index = 0;
-	if(2*as.s_period_index < SND1_SAMPLES)
+	if(2*as.s_period_index < as.sample_rate/SND1_FREQ)
 		return -as.vol;
 	return as.vol;
 }
@@ -177,9 +177,9 @@ int16_t audio_gen_snd1_sample()
 int16_t audio_gen_snd2_sample()
 {
 	++as.s_period_index;
-	if(as.s_period_index >= SND2_SAMPLES)
+	if(as.s_period_index >= as.sample_rate/SND2_FREQ)
 		as.s_period_index = 0;
-	if(2*as.s_period_index < SND2_SAMPLES)
+	if(2*as.s_period_index < as.sample_rate/SND2_FREQ)
 		return -as.vol;
 	return as.vol;
 }
@@ -187,9 +187,9 @@ int16_t audio_gen_snd2_sample()
 int16_t audio_gen_snd3_sample()
 {
 	++as.s_period_index;
-	if(as.s_period_index >= SND3_SAMPLES)
+	if(as.s_period_index >= as.sample_rate/SND3_FREQ)
 		as.s_period_index = 0;
-	if(2*as.s_period_index < SND3_SAMPLES)
+	if(2*as.s_period_index < as.sample_rate/SND3_FREQ)
 		return -as.vol;
 	return as.vol;
 }

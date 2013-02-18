@@ -22,9 +22,9 @@
 #include "../options.h"
 #include "cpu.h"
 
-#define SND1_SAMPLES		(int)(AUDIO_RATE / 500)
-#define SND2_SAMPLES		(int)(AUDIO_RATE / 1000)
-#define SND3_SAMPLES		(int)(AUDIO_RATE / 1500)
+#define SND1_FREQ		500
+#define SND2_FREQ		1000
+#define SND3_FREQ		1500
 
 /* Data types and structures. */
 typedef enum 

@@ -317,6 +317,7 @@ int main(int argc, char* argv[])
                     }
                     else if(evt.key.keysym.sym == SDLK_ESCAPE)
                         stop = 1;
+                    break;
                 case SDL_KEYUP:
                     cpu_io_update(&evt.key,state);
                     break;
