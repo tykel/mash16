@@ -6,7 +6,6 @@ rev = '5'
 
 import os
 
-
 VariantDir('build','src',duplicate = 0)
 
 env = Environment(TARFLAGS = '-cz' )
@@ -18,17 +17,19 @@ gittag = "\\\""+os.popen('git rev-parse HEAD | cut -c-10').read()[:-1]+"\\\""
 
 # Standard C flags, use svn revision too
 
-env.Append(CCFLAGS = ['-O2', '-s', '-std=c99', '-Wall', '-Werror', '-DMAJOR='+maj, '-DMINOR='+min, '-DREV='+rev, '-DBUILD='+gittag])
+env.Append(CCFLAGS = ['-O2', '-g', '-std=c99', '-Wall', '-Werror', '-DMAJOR='+maj, '-DMINOR='+min, '-DREV='+rev, '-DBUILD='+gittag])
 
-# Clang generates smaller binaries... but gcc is more widely installed
+cc = ARGUMENTS.get('CC',0)
+if cc:
+    env.Replace(CC = cc)
 
-#env.Replace(CC = 'clang')
+env.Append(CCFLAGS= os.popen('pkg-config --cflags sdl').read().split())
 
 sources = Glob('./build/*.c')
 sources.extend(Glob('./build/core/*.c'))
 sources.extend(Glob('./build/header/*.c'))
 
-libraries = ['SDLmain', 'SDL']
+libraries = os.popen('pkg-config --libs sdl').read().split()
 
 # Compile
 
