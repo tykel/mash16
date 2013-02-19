@@ -33,6 +33,18 @@ int use_verbose;
 #include <stdio.h>
 #include <string.h>
 
+/* Globals used within the file. */
+static program_opts opts;
+static cpu_state* state;
+static SDL_Surface* screen;
+static char strfps[100] = {0};
+
+
+/* Timing variables. */
+static int t = 0, oldt = 0;
+static int fps = 0, lastsec = 0;
+static int stop = 0, paused = 0;
+
 void print_state(cpu_state* state)
 {
     printf("state @ cycle %ld:\n",state->meta.target_cycles);
@@ -72,10 +84,156 @@ int read_file(char* fp, uint8_t* buf)
     return len;
 }
 
+/* Sanitize the input. */
+void sanitize_options(program_opts* opts)
+{
+    int input_errors = 0;
+    if(opts->video_scaler <= 0 || opts->video_scaler > 3)
+    {
+        fprintf(stderr,"error: scaler %dx not supported\n",opts->video_scaler);
+        ++input_errors;
+    }
+    if(opts->audio_sample_rate != 8000 && opts->audio_sample_rate != 11025 &&
+       opts->audio_sample_rate != 22050 && opts->audio_sample_rate != 44100 &&
+       opts->audio_sample_rate != 48000)
+    {
+        fprintf(stderr,"error: %dHz sample rate not supported\n",opts->audio_sample_rate);
+        ++input_errors;
+    }
+    if(opts->audio_buffer_size < 128)
+    {
+        fprintf(stderr,"error: audio buffer size (%d B) too small\n",opts->audio_buffer_size);
+        ++input_errors;
+    }
+    if(opts->audio_volume < 0  || opts->audio_volume > 255)
+    {
+        fprintf(stderr, "error: volume %d not valid (range is 0-255)\n",opts->audio_volume);
+        ++input_errors;
+    }
+    /* Temporary warning. */
+    if(opts->use_cpu_rec)
+        printf("warning: recompiler core not available, falling back to interpreter\n");
+    
+    if(input_errors)
+        exit(1);
+}
+
+/* Emulation loop. */
+void emulation_loop()
+{ 
+    if(!paused)
+    {
+        /* If using strict emulation, limit to 1M cycles / sec. */
+        if(opts.use_cpu_limit)
+        {
+            while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+            {        
+                cpu_step(state);
+                paused = opts.use_breakall;
+                /* Stop at breakpoint if necessary. */
+                if(opts.num_breakpoints > 0)
+                {
+                    for(int i=0; i<opts.num_breakpoints; ++i)
+                    {
+                        if(state->pc == opts.breakpoints[i])
+                            paused = 1;
+                    }
+                }
+                if(paused)
+                {
+                    print_state(state);
+                    break;
+                }
+            }
+            /* Avoid hogging the CPU... */
+            while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
+                SDL_Delay(1);
+            oldt = t;
+            ++fps;
+        }
+        /* Otherwise, max out in 1/60th sec. */
+        else
+        {
+            while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
+            {
+                for(int i=0; i<600; ++i)
+                {
+                    cpu_step(state);
+                    /* Don't forget to count our frames! */
+                    if(state->meta.wait_vblnk)
+                    {
+                        state->meta.wait_vblnk = 0;
+                        ++fps;
+                    }
+                    else if(state->meta.cycles >= FRAME_CYCLES)
+                    {
+                        state->meta.cycles = 0;
+                        ++fps;
+                    }
+                }
+            }
+            oldt = t;
+        }
+        /* Update the FPS counter after every second, or second's worth of frames. */
+        if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
+        {
+            /* Output debug info. */
+            if(opts.use_verbose)
+                printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
+            /* Update the caption. */
+            //snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
+            //SDL_WM_SetCaption(strfps, NULL);
+            /* Reset timing info. */
+            lastsec = t;
+            fps = 0;
+        }
+    }
+    
+    /* Handle input. */
+    SDL_Event evt;
+    while(SDL_PollEvent(&evt))
+    {
+        switch(evt.type)
+        {
+            case SDL_KEYDOWN:
+                if(evt.key.keysym.sym == SDLK_SPACE)
+                {
+                    if(!paused)
+                    {
+                        print_state(state);
+                        paused = 1;
+                    }
+                    else
+                        paused = 0;
+                }
+                else if(evt.key.keysym.sym == SDLK_n && paused)
+                {
+                    cpu_step(state);
+                    print_state(state);
+                }
+                else if(evt.key.keysym.sym == SDLK_ESCAPE)
+                    stop = 1;
+                break;
+            case SDL_KEYUP:
+                cpu_io_update(&evt.key,state);
+                break;
+            case SDL_QUIT:
+                stop = 1;
+                break;
+            default:
+                break;
+        }
+    }
+    /* Draw. */
+    blit_screen(screen,state,opts.video_scaler);
+    /* Reset vblank flag. */
+    state->meta.wait_vblnk = 0;
+    state->meta.cycles = 0;
+}
+
 int main(int argc, char* argv[])
 {
     /* Set up default options, then read them from the command line. */
-    program_opts opts;
     opts.filename = NULL;
     opts.use_audio = 1;
     opts.audio_sample_rate = AUDIO_RATE;
@@ -99,38 +257,9 @@ int main(int argc, char* argv[])
             printf("> bp %d: 0x%x\n",i,opts.breakpoints[i]);
         }
     }
-
-    /* Sanitize the input. */
-    int input_errors = 0;
-    if(opts.video_scaler <= 0 || opts.video_scaler > 3)
-    {
-        fprintf(stderr,"error: scaler %dx not supported\n",opts.video_scaler);
-        ++input_errors;
-    }
-    if(opts.audio_sample_rate != 8000 && opts.audio_sample_rate != 11025 &&
-       opts.audio_sample_rate != 22050 && opts.audio_sample_rate != 44100 &&
-       opts.audio_sample_rate != 48000)
-    {
-        fprintf(stderr,"error: %dHz sample rate not supported\n",opts.audio_sample_rate);
-        ++input_errors;
-    }
-    if(opts.audio_buffer_size < 128)
-    {
-        fprintf(stderr,"error: audio buffer size (%d B) too small\n",opts.audio_buffer_size);
-        ++input_errors;
-    }
-    if(opts.audio_volume < 0  || opts.audio_volume > 255)
-    {
-        fprintf(stderr, "error: volume %d not valid (range is 0-255)\n",opts.audio_volume);
-        ++input_errors;
-    }
-    if(input_errors)
-        exit(1);
-
-    /* Temporary warning. */
-    if(opts.use_cpu_rec)
-        printf("warning: recompiler core not available, falling back to interpreter\n");
     
+    sanitize_options(&opts);
+
     /* Read our rom file into memory */
     uint8_t* buf = NULL;
     if(!(buf = calloc(MEM_SIZE+sizeof(ch16_header),1)))
@@ -183,7 +312,6 @@ int main(int argc, char* argv[])
     free(buf);
 
     /* Initialise SDL target. */
-    SDL_Surface* screen;
     int sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE;
     if(opts.use_audio)
         sdl_flags |= SDL_INIT_AUDIO;
@@ -193,8 +321,7 @@ int main(int argc, char* argv[])
         exit(1);
     }
     atexit(SDL_Quit);
-    if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,32,
-                    SDL_SWSURFACE|SDL_DOUBLEBUF)) == NULL)
+    if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,0)) == NULL)
     {
         fprintf(stderr,"error: failed to init. video mode (%d x %d x 32 bpp): %s\n",
                 opts.video_scaler*320,opts.video_scaler*240,
@@ -204,136 +331,19 @@ int main(int argc, char* argv[])
     if(opts.use_verbose)
         printf("sdl initialised: %d x %d x %d bpp\n",screen->w,screen->h,screen->format->BitsPerPixel);
 
-    char strfps[100] = {0};
     snprintf(strfps,100,"mash16 - %s",opts.filename);
     SDL_WM_SetCaption(strfps,NULL);
 
     /* Initialise the chip16 processor state. */
-    cpu_state* state = NULL;
     cpu_init(&state,mem,&opts);
     audio_init(state,&opts);
     init_pal(state);
     if(opts.use_verbose)
         printf("chip16 state initialised\n\n");
-    
-    /* Timing variables. */
-    int t = 0, oldt = 0;
-    int fps = 0, lastsec = 0;
 
-    int stop = 0, pause = 0;
-    
-    /* Emulation loop. */
     while(!stop)
-    {
-        if(!pause)
-        {
-            /* If using strict emulation, limit to 1M cycles / sec. */
-            if(opts.use_cpu_limit)
-            {
-                while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
-                {        
-                    cpu_step(state);
-                    pause = opts.use_breakall;
-                    /* Stop at breakpoint if necessary. */
-                    if(opts.num_breakpoints > 0)
-                    {
-                        for(int i=0; i<opts.num_breakpoints; ++i)
-                        {
-                            if(state->pc == opts.breakpoints[i])
-                                pause = 1;
-                        }
-                    }
-                    if(pause)
-                    {
-                        print_state(state);
-                        break;
-                    }
-                }
-                /* Avoid hogging the CPU... */
-                while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
-                    SDL_Delay(1);
-                oldt = t;
-                ++fps;
-            }
-            /* Otherwise, max out in 1/60th sec. */
-            else
-            {
-                while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
-                {
-                    for(int i=0; i<600; ++i)
-                    {
-                        cpu_step(state);
-                        /* Don't forget to count our frames! */
-                        if(state->meta.wait_vblnk)
-                        {
-                            state->meta.wait_vblnk = 0;
-                            ++fps;
-                        }
-                        else if(state->meta.cycles >= FRAME_CYCLES)
-                        {
-                            state->meta.cycles = 0;
-                            ++fps;
-                        }
-                    }
-                }
-                oldt = t;
-            }
-            /* Update the FPS counter after every second, or second's worth of frames. */
-            if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
-            {
-                /* Output debug info. */
-                if(opts.use_verbose)
-                    printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
-                /* Update the caption. */
-                snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
-                SDL_WM_SetCaption(strfps, NULL);
-                /* Reset timing info. */
-                lastsec = t;
-                fps = 0;
-            }
-        }
-        
-        /* Handle input. */
-        SDL_Event evt;
-        while(SDL_PollEvent(&evt))
-        {
-            switch(evt.type)
-            {
-                case SDL_KEYDOWN:
-                    if(evt.key.keysym.sym == SDLK_SPACE)
-                    {
-                        if(!pause)
-                        {
-                            print_state(state);
-                            pause = 1;
-                        }
-                        else
-                            pause = 0;
-                    }
-                    else if(evt.key.keysym.sym == SDLK_n && pause)
-                    {
-                        cpu_step(state);
-                        print_state(state);
-                    }
-                    else if(evt.key.keysym.sym == SDLK_ESCAPE)
-                        stop = 1;
-                    break;
-                case SDL_KEYUP:
-                    cpu_io_update(&evt.key,state);
-                    break;
-                case SDL_QUIT:
-                    stop = 1;
-                    break;
-                default:
-                    break;
-            }
-        }
-        /* Draw. */
-        blit_screen(screen,state,opts.video_scaler);
-        /* Reset vblank flag. */
-        state->meta.wait_vblnk = 0;
-        state->meta.cycles = 0;
-    }
+        emulation_loop();
+
     /* Tidy up before exit. */
     audio_free();
     cpu_free(state);
