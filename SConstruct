@@ -2,21 +2,23 @@
 
 maj = '0'
 min = '5'
-rev = '4'
+rev = '5'
 
 import os
+
+
 VariantDir('build','src',duplicate = 0)
 
 env = Environment(TARFLAGS = '-cz' )
 env.Alias('install', ['/usr/local/bin'])
 
-# Use `svnversion` for revision number
+# Get Git tag with git rev-parse
 
-svnno = os.popen('svnversion .').read()[:-1].replace('M',':').split(':')[1]
+gittag = "\\\""+os.popen('git rev-parse HEAD | cut -c-10').read()[:-1]+"\\\""
 
 # Standard C flags, use svn revision too
 
-env.Append(CCFLAGS = ['-O2', '-s', '-std=c99', '-Wall', '-Werror', '-DMAJOR='+maj, '-DMINOR='+min, '-DREV='+rev, '-DBUILD='+svnno])
+env.Append(CCFLAGS = ['-O2', '-s', '-std=c99', '-Wall', '-Werror', '-DMAJOR='+maj, '-DMINOR='+min, '-DREV='+rev, '-DBUILD='+gittag])
 
 # Clang generates smaller binaries... but gcc is more widely installed
 

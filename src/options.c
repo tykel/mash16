@@ -52,7 +52,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
     }
     else if(!strncmp(argv[1],"--version",MAX_STRING))
     {
-        printf("mash16 %d.%d.%d (r%d) -- the chip16 emulator\n",MAJOR,MINOR,REV,BUILD);
+        printf("mash16 %d.%d.%d (#%s) -- the chip16 emulator\n",MAJOR,MINOR,REV,BUILD);
         exit(0);
     }
     else if(argv[1][0] == '-')
@@ -206,7 +206,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--version",MAX_STRING))
             {
-                printf("mash16 %d.%d.%d (r%d) -- the chip16 emulator\n",MAJOR,MINOR,REV,BUILD);
+                printf("mash16 %d.%d.%d (#%s) -- the chip16 emulator\n",MAJOR,MINOR,REV,BUILD);
             }
             else
             {
