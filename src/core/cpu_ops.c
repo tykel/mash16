@@ -38,27 +38,32 @@ void op_error(cpu_state* state)
 
 void op_nop(cpu_state* state)
 {
+    state->meta.type = OP_NONE;
 }
 
 void op_cls(cpu_state* state)
 {
     memset(state->vm,0,320*240);
+    state->meta.type = OP_NONE;
 }
 
 void op_vblnk(cpu_state* state)
 {
     state->meta.wait_vblnk = 1;
+    state->meta.type = OP_NONE;
 }
 
 void op_bgc(cpu_state* state)
 {
     state->bgc = state->i.n;
+    state->meta.type = OP_N;
 }
 
 void op_spr(cpu_state* state)
 {
     state->sw = state->i.hhll & 0x00ff;
     state->sh = state->i.hhll >> 8;
+    state->meta.type = OP_HHLL;
 }
 
 void op_drw_imm(cpu_state* state)
@@ -68,6 +73,7 @@ void op_drw_imm(cpu_state* state)
     state->f.c = op_drw(&state->m[state->i.hhll],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_drw_r(cpu_state* state)
@@ -77,6 +83,7 @@ void op_drw_r(cpu_state* state)
     state->f.c = op_drw(&state->m[(uint16_t)state->r[state->i.z]],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
+    state->meta.type = OP_R;
 }
 
 int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
@@ -137,35 +144,41 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 void op_rnd(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = rand() % (state->i.hhll + 1);
+    state->meta.type = OP_HHLL;
 }
 
 void op_flip(cpu_state* state)
 {
     state->fx = state->i.hhll >> 9;
     state->fy = (state->i.hhll >> 8) & 0x01;
+    state->meta.type = OP_N_N;
 }
 
 void op_snd0(cpu_state* state)
 {
     audio_stop();
+    state->meta.type = OP_NONE;
 }
 
 void op_snd1(cpu_state* state)
 {
     int16_t dt = state->i.hhll;
     audio_play(500,dt,0);
+    state->meta.type = OP_HHLL;
 }
 
 void op_snd2(cpu_state* state)
 {
     int16_t dt = state->i.hhll;
     audio_play(1000,dt,0);
+    state->meta.type = OP_HHLL;
 }
 
 void op_snd3(cpu_state* state)
 {
     int16_t dt = state->i.hhll;
     audio_play(1500,dt,0);
+    state->meta.type = OP_HHLL;
 }
 
 void op_snp(cpu_state* state)
@@ -174,6 +187,7 @@ void op_snp(cpu_state* state)
                 ((uint16_t)state->m[(uint16_t)(state->r[state->i.yx & 0x0f]) + 1] << 8);
     uint16_t dt = state->i.hhll;
     audio_play(f,dt,1);
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_sng(cpu_state* state)
@@ -185,11 +199,13 @@ void op_sng(cpu_state* state)
     state->sus = (state->i.hhll >> 4) & 0x0f;
     state->rls = state->i.hhll & 0x0f;
     audio_update(state);
+    state->meta.type = OP_HHLL_HHLL;
 }
 
 void op_jmp_imm(cpu_state* state)
 {
     state->pc = state->i.hhll;
+    state->meta.type = OP_HHLL;
 }
 
 /* DEPRECATED -- implemented purely for compatibility. */
@@ -199,6 +215,7 @@ void op_jmc(cpu_state* state)
     {
         state->pc = state->i.hhll;
     }
+    state->meta.type = OP_HHLL;
 }
 void op_jx(cpu_state* state)
 {
@@ -206,6 +223,7 @@ void op_jx(cpu_state* state)
     {
         state->pc = state->i.hhll;
     }
+    state->meta.type = OP_HHLL;
 }
 
 void op_jme(cpu_state* state)
@@ -216,6 +234,7 @@ void op_jme(cpu_state* state)
     {
         state->pc = state->i.hhll;
     }
+    state->meta.type = OP_R_R;
 }
 
 void op_call_imm(cpu_state* state)
@@ -224,17 +243,20 @@ void op_call_imm(cpu_state* state)
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
     state->pc = state->i.hhll;
+    state->meta.type = OP_HHLL;
 }
 
 void op_ret(cpu_state* state)
 {
     state->sp -= 2;
     state->pc = state->m[state->sp] | (state->m[state->sp + 1] << 8);
+    state->meta.type = OP_NONE;
 }
 
 void op_jmp_r(cpu_state* state)
 {
     state->pc = (uint16_t)state->r[state->i.yx & 0x0f];
+    state->meta.type = OP_R;
 }
 
 void op_cx(cpu_state* state)
@@ -246,6 +268,7 @@ void op_cx(cpu_state* state)
         state->sp += 2;
         state->pc = state->i.hhll;
     }
+    state->meta.type = OP_HHLL;
 }
 
 void op_call_r(cpu_state* state)
@@ -254,45 +277,53 @@ void op_call_r(cpu_state* state)
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
     state->pc = (uint16_t)state->r[state->i.yx & 0x0f];
+    state->meta.type = OP_R;
 }
 
 void op_ldi_r(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = (int16_t)state->i.hhll;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_ldi_sp(cpu_state* state)
 {
     state->sp = state->i.hhll;
+    state->meta.type = OP_SP_HHLL;
 }
 
 void op_ldm_imm(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = state->m[state->i.hhll] |
                                   (state->m[state->i.hhll + 1] << 8);
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_ldm_r(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = state->m[(uint16_t)state->r[state->i.yx >> 4]] |
                                   (state->m[(uint16_t)state->r[state->i.yx >> 4] + 1] << 8);
+    state->meta.type = OP_R_R;
 }
 
 void op_mov(cpu_state* state)
 {
     state->r[state->i.yx & 0x0f] = state->r[state->i.yx >> 4];
+    state->meta.type = OP_R_R;
 }
 
 void op_stm_imm(cpu_state* state)
 {
     state->m[state->i.hhll] = state->r[state->i.yx & 0x0f] & 0x00ff;
     state->m[state->i.hhll + 1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_stm_r(cpu_state* state)
 {
     state->m[(uint16_t)state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f] & 0x00ff;
     state->m[(uint16_t)state->r[state->i.yx >> 4] + 1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->meta.type = OP_R_R;
 }
 
 void op_addi(cpu_state* state)
@@ -301,6 +332,7 @@ void op_addi(cpu_state* state)
     int16_t imm = (int16_t)state->i.hhll;
     flags_add(*r,imm,state);
     *r += imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_add_r2(cpu_state* state)
@@ -309,6 +341,7 @@ void op_add_r2(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_add(*rx,ry,state);
     *rx += ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_add_r3(cpu_state* state)
@@ -317,6 +350,7 @@ void op_add_r3(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_add(rx,ry,state);
     state->r[state->i.z] = rx + ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_subi(cpu_state* state)
@@ -325,6 +359,7 @@ void op_subi(cpu_state* state)
     int16_t imm = state->i.hhll;
     flags_sub(*rx,imm,state);
     *rx -= imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_sub_r2(cpu_state* state)
@@ -333,6 +368,7 @@ void op_sub_r2(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_sub(*rx,ry,state);
     *rx -= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_sub_r3(cpu_state* state)
@@ -341,6 +377,7 @@ void op_sub_r3(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_sub(rx,ry,state);
     state->r[state->i.z] = rx - ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_cmpi(cpu_state* state)
@@ -348,6 +385,7 @@ void op_cmpi(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
     flags_sub(rx,imm,state);
+    state->meta.type = OP_R_HHLL;
  }
 
 void op_cmp(cpu_state* state)
@@ -355,6 +393,7 @@ void op_cmp(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
     flags_sub(rx,ry,state);
+    state->meta.type = OP_R_R;
 }
 
 void op_andi(cpu_state* state)
@@ -363,6 +402,7 @@ void op_andi(cpu_state* state)
     int16_t imm = state->i.hhll;
     flags_and(*rx,imm,state);
     *rx &= imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_and_r2(cpu_state* state)
@@ -371,6 +411,7 @@ void op_and_r2(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_and(*rx,ry,state);
     *rx &= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_and_r3(cpu_state* state)
@@ -379,6 +420,7 @@ void op_and_r3(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_and(rx,ry,state);
     state->r[state->i.z] = rx & ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_tsti(cpu_state* state)
@@ -386,6 +428,7 @@ void op_tsti(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t imm = state->i.hhll;
     flags_and(rx,imm,state);
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_tst(cpu_state* state)
@@ -393,6 +436,7 @@ void op_tst(cpu_state* state)
     int16_t rx = state->r[state->i.yx & 0x0f];
     int16_t ry = state->r[state->i.yx >> 4];
     flags_and(rx,ry,state);
+    state->meta.type = OP_R_R;
 }
 
 void op_ori(cpu_state* state)
@@ -401,6 +445,7 @@ void op_ori(cpu_state* state)
     int16_t imm = state->i.hhll;
     flags_or(*rx,imm,state);
     *rx |= imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_or_r2(cpu_state* state)
@@ -409,6 +454,7 @@ void op_or_r2(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_or(*rx,ry,state);
     *rx |= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_or_r3(cpu_state* state)
@@ -417,6 +463,7 @@ void op_or_r3(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_or(rx,ry,state);
     state->r[state->i.z] = rx | ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_xori(cpu_state* state)
@@ -425,6 +472,7 @@ void op_xori(cpu_state* state)
     int16_t imm = state->i.hhll;
     flags_xor(*rx,imm,state);
     *rx ^= imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_xor_r2(cpu_state* state)
@@ -433,6 +481,7 @@ void op_xor_r2(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_xor(*rx,ry,state);
     *rx ^= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_xor_r3(cpu_state* state)
@@ -441,6 +490,7 @@ void op_xor_r3(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_xor(rx,ry,state);
     state->r[state->i.z] = rx ^ ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_muli(cpu_state* state)
@@ -449,6 +499,7 @@ void op_muli(cpu_state* state)
     int16_t imm = state->i.hhll;
     flags_mul(*rx,imm,state);
     *rx *= imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_mul_r2(cpu_state* state)
@@ -457,6 +508,7 @@ void op_mul_r2(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_mul(*rx,ry,state);
     *rx *= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_mul_r3(cpu_state* state)
@@ -465,6 +517,7 @@ void op_mul_r3(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_mul(rx,ry,state);
     state->r[state->i.z] = rx * ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_divi(cpu_state* state)
@@ -479,6 +532,7 @@ void op_divi(cpu_state* state)
     }
     flags_div(*rx,imm,state);
     *rx /= imm;
+    state->meta.type = OP_R_HHLL;
 }
 
 void op_div_r2(cpu_state* state)
@@ -493,6 +547,7 @@ void op_div_r2(cpu_state* state)
     }
     flags_div(*rx,ry,state);
     *rx /= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_div_r3(cpu_state* state)
@@ -507,6 +562,7 @@ void op_div_r3(cpu_state* state)
     }
     flags_div(rx,ry,state);
     state->r[state->i.z] = rx / ry;
+    state->meta.type = OP_R_R_R;
 }
 
 void op_shl_n(cpu_state* state)
@@ -515,6 +571,7 @@ void op_shl_n(cpu_state* state)
     int16_t n = state->i.n;
     flags_shl(*rx,n,state);
     *rx <<= n;
+    state->meta.type = OP_R_N;
 }
 
 void op_shr_n(cpu_state* state)
@@ -523,6 +580,7 @@ void op_shr_n(cpu_state* state)
     int16_t n = state->i.n;
     flags_shr(*rx,n,state);
     *rx >>= n;
+    state->meta.type = OP_R_N;
 }
 
 void op_sar_n(cpu_state* state)
@@ -531,6 +589,7 @@ void op_sar_n(cpu_state* state)
     int16_t n = state->i.n;
     flags_sar(*rx,n,state);
     *rx >>= n;
+    state->meta.type = OP_R_N;
 }
 
 void op_shl_r(cpu_state* state)
@@ -539,6 +598,7 @@ void op_shl_r(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_shl(*rx,ry,state);
     *rx <<= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_shr_r(cpu_state* state)
@@ -547,6 +607,7 @@ void op_shr_r(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_shr(*rx,ry,state);
     *rx >>= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_sar_r(cpu_state* state)
@@ -555,6 +616,7 @@ void op_sar_r(cpu_state* state)
     int16_t ry = state->r[state->i.yx >> 4];
     flags_sar(*rx,ry,state);
     *rx >>= ry;
+    state->meta.type = OP_R_R;
 }
 
 void op_push(cpu_state* state)
@@ -563,12 +625,14 @@ void op_push(cpu_state* state)
     state->m[state->sp] = rx & 0x00ff;
     state->m[state->sp + 1] = rx >> 8;
     state->sp += 2;
+    state->meta.type = OP_R;
 }
 
 void op_pop(cpu_state* state)
 {
     state->sp -= 2;
     state->r[state->i.yx & 0x0f] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
+    state->meta.type = OP_R;
 }
 
 void op_pushall(cpu_state* state)
@@ -579,6 +643,7 @@ void op_pushall(cpu_state* state)
         state->m[state->sp + 1] = (uint16_t)state->r[i] >> 8;
         state->sp += 2;
     }
+    state->meta.type = OP_NONE;
 }
 
 void op_popall(cpu_state* state)
@@ -588,6 +653,7 @@ void op_popall(cpu_state* state)
         state->sp -= 2;
         state->r[i] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
     }
+    state->meta.type = OP_NONE;
 }
 
 void op_pushf(cpu_state* state)
@@ -596,6 +662,7 @@ void op_pushf(cpu_state* state)
                           state->f.o << 6 | state->f.n << 7;
     state->m[state->sp + 1] = 0;
     state->sp += 2;
+    state->meta.type = OP_NONE;
 }
 
 void op_popf(cpu_state* state)
@@ -605,16 +672,19 @@ void op_popf(cpu_state* state)
     state->f.z = (state->m[state->sp] >> 2) & 1;
     state->f.o = (state->m[state->sp] >> 6) & 1;
     state->f.n = (state->m[state->sp] >> 7) & 1;
+    state->meta.type = OP_NONE;
 }
 
 void op_pal_imm(cpu_state* state)
 {
     load_pal(&state->m[state->i.hhll],0,state);
+    state->meta.type = OP_HHLL;
 }
 
 void op_pal_r(cpu_state* state)
 {
     load_pal(&state->m[(uint16_t)state->r[state->i.yx & 0x0f]],0,state);
+    state->meta.type = OP_R;
 }
 
 /* Flag computing functions. */

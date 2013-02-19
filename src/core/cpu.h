@@ -65,6 +65,12 @@ typedef union
     };
 } instr;
 
+/* Instruction type (encoding) -- mainly used for disassembler. */
+typedef enum
+{
+    OP_NONE, OP_N, OP_N_N, OP_HHLL, OP_HHLL_HHLL, OP_R, OP_R_N, OP_R_HHLL, OP_SP_HHLL, OP_R_R, OP_R_R_R
+} instr_type;
+
 /* Stores CPU flags. */
 typedef struct flags
 {
@@ -80,6 +86,7 @@ typedef struct cpu_meta
     long cycles;
     long target_cycles;
     int wait_vblnk;
+    instr_type type;
 
 } cpu_meta;
 

@@ -21,6 +21,7 @@ int use_verbose;
 
 #include "options.h"
 #include "consts.h"
+#include "strings.h"
 #include "header/header.h"
 #include "core/cpu.h"
 #include "core/gpu.h"
@@ -47,8 +48,45 @@ static int stop = 0, paused = 0;
 
 void print_state(cpu_state* state)
 {
-    printf("state @ cycle %ld:\n",state->meta.target_cycles);
-    printf("--------------------------------------------------------------\n");
+    printf("state @ cycle %ld:",state->meta.target_cycles);
+    printf("    [ %s%s ", str_ops[state->i.op], state->i.op==0x12 || state->i.op==0x17 ? str_cond[state->i.yx&0xf]:"");
+    switch(state->meta.type)
+    {
+        case OP_HHLL:
+            printf("$%04x",state->i.hhll);
+            break;
+        case OP_N:
+            printf("%x",state->i.n);
+            break;
+        case OP_R:
+            printf("r%x",state->i.yx&0xf);
+            break;
+        case OP_R_N:
+            printf("r%x, %x",state->i.yx&0xf,state->i.n);
+            break;
+        case OP_R_R:
+            printf("r%x, r%x",state->i.yx&0xf, state->i.yx >> 4);
+            break;
+        case OP_R_R_R:
+            printf("r%x, r%x, r%x",state->i.yx&0xf, state->i.yx >> 4, state->i.z);
+            break;
+        case OP_N_N:
+            printf("%x, %x",state->i.yx&0xf, state->i.yx >> 4);
+            break;
+        case OP_R_HHLL:
+            printf("r%x, $%04x",state->i.yx&0xf, state->i.hhll);
+            break;
+        case OP_HHLL_HHLL:
+            printf("$%02x, $%04x",state->i.yx,state->i.hhll);
+            break;
+        case OP_SP_HHLL:
+            printf("sp, $%04x",state->i.hhll);
+            break;
+        case OP_NONE:
+        default:
+            break;
+    }
+    printf(" ]\n--------------------------------------------------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
     printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %08x |\n",state->sw,state->sh,state->bgc,state->i.dword);
