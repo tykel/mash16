@@ -17,6 +17,8 @@
  */
 
 #include "options.h"
+#include "strings.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,24 +32,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
     }
     else if(!strncmp(argv[1],"--help",MAX_STRING))
     {
-        printf("Usage: mash16 FILE [OPTION]...\n\n");
-        printf("  Run FILE in the chip16 emulation.\n\n");
-        printf("Options:\n");
-        printf("  --no-audio             disable audio output\n");
-        printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100,48000)\n");
-        printf("  --audio-buffer=N       set audio buffer size to N bytes (128+)\n");
-        printf("  --audio-volume=N       set audio volume to N (0-255)\n");
-        printf("  --video-scaler=N       scale video N times (1,2,3)\n");
-        printf("  --no-cpu-limit         disable 1 MHz clock\n");
-        printf("  --cpu-rec              use (experimental) recompiler core\n");
-        printf("  --verbose              print debug information to standard output\n");
-        printf("  --break@N,...          add breakpoint(s) at address(es) N,...\n");
-        printf("  --break-all            break at every intruction\n");
-        printf("  --help                 print this help text\n");
-        printf("  --version              print version information\n");
-
-        printf("\nCopyright (C) 2012-2013 tykel\n");
-        printf("http://code.google.com/p/mash16\n");
+        printf(str_help);
         exit(0);
     }
     else if(!strncmp(argv[1],"--version",MAX_STRING))
@@ -186,23 +171,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {
-                printf("Usage: mash16 FILE [OPTION]...\n\n");
-                printf("  Run FILE in the chip16 emulation.\n\n");
-                printf("Options:\n\n");
-                printf("  --no-audio             disable audio output\n");
-                printf("  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100,48000)\n");
-                printf("  --audio-buffer=N       set audio buffer size to N bytes (128+)\n");
-                printf("  --audio-volume=N       set audio volume to N (0-255)\n");
-                printf("  --video-scaler=N       scale video N times (1,2,3)\n");
-                printf("  --no-cpu-limit         disable 1 MHz clock\n");
-                printf("  --cpu-rec              use (experimental) recompiler core\n");
-                printf("  --verbose              print debug information to standard output\n");
-                printf("  --break@N,...          add breakpoint(s) at address(es) N,...\n");
-                printf("  --break-all            break at every intruction\n");
-                printf("  --help                 print this help text\n");
-                printf("  --version              print version information\n");
-                printf("\nCopyright (C) 2012-2013 tykel\n");
-                printf("http://code.google.com/p/mash16\n");
+                printf(str_help);
             }
             else if(!strncmp(argv[i],"--version",MAX_STRING))
             {
