@@ -165,7 +165,7 @@ void emulation_loop()
         if(opts.use_cpu_limit)
         {
             while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
-            {        
+            {
                 cpu_step(state);
                 paused = opts.use_breakall;
                 /* Stop at breakpoint if necessary. */
@@ -219,8 +219,8 @@ void emulation_loop()
             if(opts.use_verbose)
                 printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
             /* Update the caption. */
-            //snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
-            //SDL_WM_SetCaption(strfps, NULL);
+            snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
+            SDL_WM_SetCaption(strfps, NULL);
             /* Reset timing info. */
             lastsec = t;
             fps = 0;
@@ -234,6 +234,7 @@ void emulation_loop()
         switch(evt.type)
         {
             case SDL_KEYDOWN:
+                cpu_io_update(&evt.key,state);
                 if(evt.key.keysym.sym == SDLK_SPACE)
                 {
                     if(!paused)
