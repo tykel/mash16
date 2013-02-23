@@ -59,6 +59,7 @@ const char* const str_help =
         "  --audio-sample-rate=N  set audio sample rate to N Hz (8000,11025,22050,44100,48000)\n"
         "  --audio-buffer=N       set audio buffer size to N bytes (128+)\n"
         "  --audio-volume=N       set audio volume to N (0-255)\n"
+        "  --fullscreen           use fullscreen mode\n"
         "  --video-scaler=N       scale video N times (1,2,3)\n"
         "  --no-cpu-limit         disable 1 MHz clock\n"
         "  --cpu-rec              use (experimental) recompiler core\n"

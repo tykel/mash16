@@ -280,6 +280,7 @@ int main(int argc, char* argv[])
     opts.audio_volume = 128;
     opts.use_verbose = 0;
     opts.video_scaler = 2;
+    opts.use_fullscreen = 0;
     opts.use_cpu_limit = 1;
     opts.use_cpu_rec = 0;
     opts.num_breakpoints = 0;
@@ -360,7 +361,8 @@ int main(int argc, char* argv[])
         exit(1);
     }
     atexit(SDL_Quit);
-    if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,0)) == NULL)
+    int video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
+    if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,video_flags)) == NULL)
     {
         fprintf(stderr,"error: failed to init. video mode (%d x %d x 32 bpp): %s\n",
                 opts.video_scaler*320,opts.video_scaler*240,
@@ -368,7 +370,9 @@ int main(int argc, char* argv[])
         exit(1);
     }
     if(opts.use_verbose)
-        printf("sdl initialised: %d x %d x %d bpp\n",screen->w,screen->h,screen->format->BitsPerPixel);
+        printf("sdl initialised: %d x %d x %d bpp%s\n",
+                screen->w,screen->h,screen->format->BitsPerPixel,
+                opts.use_fullscreen?" (fullscreen)":"");
 
     snprintf(strfps,100,"mash16 - %s",opts.filename);
     SDL_WM_SetCaption(strfps,NULL);

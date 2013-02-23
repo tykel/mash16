@@ -1,46 +1,33 @@
+# COMMON DEFS
 CC = gcc
-SDL_CFLAGS = 
-CFLAGS = -O2 -std=c99 -Wall -Werror -g -DMAJOR=0 -DMINOR=5 -DREV=0 -DBUILD=`svnversion .` $(SDL_CFLAGS)
-SDL_LDFLAGS = -lSDLmain -lSDL 
+TAG =\"`git rev-parse HEAD | cut -c-10`\"
+SDL_CFLAGS = `pkg-config --cflags sdl`
+CFLAGS = -O2 -std=c99 -Wall -Werror -s -DMAJOR=0 -DMINOR=5 -DREV=0 -DBUILD=$(TAG) $(SDL_CFLAGS)
+SDL_LDFLAGS = `pkg-config --libs sdl`
 LDFLAGS = -lm $(SDL_LDFLAGS)
 OBJ = build
-OBJECTS = $(OBJ)/main.o $(OBJ)/header.o $(OBJ)/crc.o $(OBJ)/cpu.o $(OBJ)/cpu_ops.o $(OBJ)/gpu.o $(OBJ)/audio.o $(OBJ)/options.o
 
 #DIRECTORIES
 SRC = src
 HDR = $(SRC)/header
 CORE = $(SRC)/core
 
-.PHONY: all clean
+SOURCES = $(wildcard src/*/*.c) $(wildcard src/*/*.h)
+OBJECTS = $(SOURCES:.c=.o)
 
-all: mash16
+.PHONY: code all clean
+
+all: code
+
+code:
+	$(MAKE) -C $(SRC)
 
 mash16: $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $@
+	cd src; $(CC) $(OBJECTS) $(LDFLAGS) -o $@
 
-$(OBJ)/main.o: $(SRC)/main.c $(SRC)/consts.h $(SRC)/options.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/options.o: $(SRC)/options.c $(SRC)/options.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/header.o: $(HDR)/header.c $(HDR)/header.h $(HDR)/crc.h $(SRC)/consts.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/crc.o: $(HDR)/crc.c $(HDR)/crc.h $(SRC)/consts.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/cpu.o: $(CORE)/cpu.c $(CORE)/cpu.h $(SRC)/consts.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/cpu_ops.o: $(CORE)/cpu_ops.c $(CORE)/cpu.h $(SRC)/consts.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/gpu.o: $(CORE)/gpu.c $(CORE)/gpu.h $(CORE)/cpu.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(OBJ)/audio.o: $(CORE)/audio.c $(CORE)/audio.h
-	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.c
+	cd src; $(CC) -c $(CFLAGS) $< -o $@
 
 clean:
-	@rm $(OBJECTS) 2> /dev/null || true
+	@rm -f $(OBJECTS) 2> /dev/null || true
+	@rm -f mash16 2> /dev/null || true

@@ -31,6 +31,7 @@ typedef struct program_opts
 	int audio_volume;
 	int use_verbose;
 	int video_scaler;
+    int use_fullscreen;
 	int use_cpu_limit;
 	int use_cpu_rec;
 	int breakpoints[BREAKPOINTS];
