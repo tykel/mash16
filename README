@@ -17,6 +17,7 @@ OPTIONS:
 --audio-buffer=n        : set audio buffer size (512-8192 recommended)
 --verbose               : log emulation
 --video-scaler=n        : screen scaler size (1,2,3,4)
+--fullscreen            : use fullscreen mode
 --no-cpu-limit          : do not restrict the speed of the emulation
 
 --cpu-rec               : use (experimental) recompiler core

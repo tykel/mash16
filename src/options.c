@@ -142,6 +142,10 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     exit(1);
                 }
             }
+            else if(!strncmp(argv[i],"--fullscreen",MAX_STRING))
+            {
+                opts->use_fullscreen = 1;
+            }
             else if(!strncmp(argv[i],"--video-scaler",14))
             {
                 char *num;

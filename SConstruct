@@ -2,7 +2,7 @@
 
 maj = '0'
 min = '5'
-rev = '5'
+rev = '6'
 
 import os
 
