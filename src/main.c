@@ -226,7 +226,8 @@ void emulation_loop()
             fps = 0;
         }
     }
-    
+    else
+        SDL_Delay(FRAME_DT);
     /* Handle input. */
     SDL_Event evt;
     while(SDL_PollEvent(&evt))
