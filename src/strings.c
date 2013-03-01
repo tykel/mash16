@@ -61,6 +61,7 @@ const char* const str_help =
         "  --audio-volume=N       set audio volume to N (0-255)\n"
         "  --fullscreen           use fullscreen mode\n"
         "  --video-scaler=N       scale video N times (1,2,3)\n"
+        "  --palette=FILE         use the palette defined in FILE (text)\n"     
         "  --no-cpu-limit         disable 1 MHz clock\n"
         "  --cpu-rec              use (experimental) recompiler core\n"
         "  --verbose              print debug information to standard output\n"

@@ -2,7 +2,7 @@
 
 maj = '0'
 min = '5'
-rev = '6'
+rev = '7'
 
 import os
 
@@ -13,11 +13,20 @@ env.Alias('install', ['/usr/local/bin'])
 
 # Get Git tag with git rev-parse
 
-gittag = "\\\""+os.popen('git rev-parse HEAD | cut -c-10').read()[:-1]+"\\\""
+gittag = ""
+if(not os.path.isdir(".git")):
+    f = open("gitrev","r")
+    gittag = f.read()
+    f.close()
+else:
+    gittag = "\\\""+os.popen('git rev-parse HEAD | cut -c-10').read()[:-1]+"\\\""
+    f = open("gitrev","w")
+    f.write(gittag)
+    f.close()
 
 # Standard C flags, use svn revision too
 
-env.Append(CCFLAGS = ['-O2', '-g', '-std=c99', '-Wall', '-Werror', '-DMAJOR='+maj, '-DMINOR='+min, '-DREV='+rev, '-DBUILD='+gittag])
+env.Append(CCFLAGS = ['-O2', '-std=c99', '-Wall', '-DMAJOR='+maj, '-DMINOR='+min, '-DREV='+rev, '-DBUILD='+gittag])
 
 cc = ARGUMENTS.get('CC',0)
 if cc:
@@ -38,7 +47,7 @@ mash16 = env.Program(target = 'mash16',
                      LIBS = libraries)
 
 tar_src = env.Tar('archive/mash16-'+maj+'.'+min+'.'+rev+'-src.tar.gz',
-             ['src', 'INSTALL', 'LICENSE', 'SConstruct', 'SPEC.1.1'])
+             ['src', 'INSTALL', 'LICENSE', 'SConstruct', 'SPEC.1.1', 'gitrev'])
 tar = env.Tar('archive/mash16-'+maj+'.'+min+'.'+rev+'.tar.gz', 'mash16')
 
 #Install

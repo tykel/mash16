@@ -216,8 +216,8 @@ void emulation_loop()
         if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
         {
             /* Output debug info. */
-            if(opts.use_verbose)
-                printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
+            //if(opts.use_verbose)
+            //    printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
             /* Update the caption. */
             snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
             SDL_WM_SetCaption(strfps, NULL);
@@ -275,6 +275,7 @@ int main(int argc, char* argv[])
 {
     /* Set up default options, then read them from the command line. */
     opts.filename = NULL;
+    opts.pal_filename = NULL;
     opts.use_audio = 1;
     opts.audio_sample_rate = AUDIO_RATE;
     opts.audio_buffer_size = AUDIO_SAMPLES;
@@ -384,6 +385,10 @@ int main(int argc, char* argv[])
     init_pal(state);
     if(opts.use_verbose)
         printf("chip16 state initialised\n\n");
+
+    if(opts.pal_filename != NULL)
+        if(!read_palette(opts.pal_filename, state->pal))
+            fprintf(stderr,"error: palette in %s could not be read, potential corruption\n",opts.pal_filename);
 
     while(!stop)
         emulation_loop();

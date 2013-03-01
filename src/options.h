@@ -19,12 +19,15 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
+ #include <stdint.h>
+
 #define MAX_STRING	100
 #define BREAKPOINTS 100
 
 typedef struct program_opts
 {
 	char *filename;
+    char *pal_filename;
 	int use_audio;
 	int audio_sample_rate;
 	int audio_buffer_size;
@@ -38,6 +41,8 @@ typedef struct program_opts
 	int num_breakpoints;
     int use_breakall;
 } program_opts;
+
+int read_palette(char const *,uint32_t *);
 
 void options_parse(int,char**,program_opts*);
 
