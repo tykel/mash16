@@ -23,6 +23,28 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern int use_verbose;
+
+int read_palette(char const *filename, uint32_t *palette)
+{
+    FILE *palf = fopen(filename,"r");
+    if(palf == NULL)
+        return 0;
+    if(use_verbose)
+        printf("palette loaded:\n>");
+    int i;
+    for(i = 0; i < 16; ++i)
+    {
+        fscanf(palf,"%x",&palette[i]);
+        if(use_verbose)
+            printf("%s%06x",(i && !(i%4)) ? "\n> " : " ",palette[i]);
+    }
+    if(use_verbose)
+        printf("\r\n\n");
+
+    return 1;
+}
+
 void options_parse(int argc, char** argv, program_opts* opts)
 {
     if(argc < 2)
@@ -164,6 +186,18 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     fprintf(stderr,"error: invalid input '%s'\n",num);
                 else
                     opts->video_scaler = scale;
+            }
+            else if(!strncmp(argv[i],"--palette",9))
+            {
+                if(strlen(argv[i]) > 10 && argv[i][9] == '=')
+                    opts->pal_filename = &argv[i][10];
+                else if(i+1 < argc)
+                    opts->pal_filename = argv[++i];
+                else
+                {
+                    fprintf(stderr,"error: no palette file provided\n");
+                    continue;
+                }
             }
             else if(!strncmp(argv[i],"--no-cpu-limit",MAX_STRING))
             {
