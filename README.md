@@ -1,12 +1,12 @@
-# Mash16 -- Advanced Chip16 Emulator
+# Mash16 -- Reference Chip16 Emulator
 
 ## Summary
 
 Mash16 is an emulator for the [Chip16](http;//github.com/tykel/chip16) platform, which aims to make writing
 emulators easier for beginners.
 
-It supports the full instruction set, and the user is encouraged to read the
-source code.
+It is one of the reference emulators, and hence supports the full instruction set.
+The user is encouraged to read the source code.
 
 ## Screenshots
 
