@@ -2,11 +2,16 @@
 
 ## Summary
 
-Mash16 is an emulator for the Chip16 platform, which aims to make writing
+Mash16 is an emulator for the [Chip16](http;//github.com/tykel/chip16) platform, which aims to make writing
 emulators easier for beginners.
 
 It supports the full instruction set, and the user is encouraged to read the
 source code.
+
+## Screenshots
+
+![Screenshot #1](http://i.imgur.com/hIDyxMAm.png) _ ![Screenshot #2](http://i.imgur.com/v6Y9fg1m.png)    
+![Screenshot #3](http://i.imgur.com/ltCzAk4m.png) _ ![Screenshot #4](http://i.imgur.com/NJHhTKDm.png)
 
 ## Features
 
@@ -30,3 +35,8 @@ source code.
     --cpu-rec               : use (experimental) recompiler core
 
     --break@n               : add a breakpoint at address n
+    
+## More Screenshots
+
+![Screenshot #5](http://i.imgur.com/EpVg5Nbm.png) _ ![Screenshot #6](http://i.imgur.com/zIfy3mtm.png)
+![Screenshot #7](http://i.imgur.com/rVa3UKLm.png) _ ![Screenshot #8](http://i.imgur.com/KRpuCQem.png)
