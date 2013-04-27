@@ -23,6 +23,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Fallback values to remove warnings */
+#ifndef VERSION
+#define VERSION "version"
+#endif
+
+#ifndef BUILD
+#define BUILD "build"
+#endif
+
 extern int use_verbose;
 
 int read_palette(char const *filename, uint32_t *palette)
@@ -59,7 +68,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
     }
     else if(!strncmp(argv[1],"--version",MAX_STRING))
     {
-        printf("mash16 %d.%d.%d (#%s) -- the chip16 emulator\n",MAJOR,MINOR,REV,BUILD);
+        printf("mash16 %s (%s) -- the chip16 emulator\n",VERSION,BUILD);
         exit(0);
     }
     else if(argv[1][0] == '-')
@@ -213,7 +222,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--version",MAX_STRING))
             {
-                printf("mash16 %d.%d.%d (#%s) -- the chip16 emulator\n",MAJOR,MINOR,REV,BUILD);
+                printf("mash16 %s (%s) -- the chip16 emulator\n",VERSION,BUILD);
             }
             else
             {
