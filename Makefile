@@ -5,12 +5,16 @@
 # Common definitions
 
 CC = gcc
+WIN_CC = i486-mingw32-gcc
 VERSION = \"$(shell git describe --abbrev=0)\"
+VERSION_NQ = $(shell echo $(VERSION) | cut -c3- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse HEAD | cut -c-7)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl)
 CFLAGS = -O2 -std=c99 -Wall -Werror -s -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
+WIN_CFLAGS = $(CFLAGS) -mwindows
 SDL_LDFLAGS = $(shell pkg-config --libs sdl)
 LDFLAGS = $(SDL_LDFLAGS)
+WIN_LDFLAGS = -lmingw32 -lSDLmain $(LDFLAGS) 
 
 # Directories
 
@@ -21,13 +25,16 @@ DOC = doc
 
 SOURCES = $(shell find $(SRC) -type f -name '*.c')
 OBJECTS = $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SOURCES))
-TAR_SOURCES = $(SRC) $(DOC) vs2010 windows.sh INSTALL LICENSE Makefile README.md 
+WIN_OBJECTS = $(patsubst $(SRC)/%.c, $(OBJ)/%.obj, $(SOURCES))
+TAR_SOURCES = $(SRC) $(DOC) vs2010 INSTALL LICENSE Makefile README.md 
 
 # Targets
 
-.PHONY: all clean archive install uninstall
+.PHONY: all clean archive install uninstall windows win
 
 all: mash16 
+windows: mash16.exe
+win: mash16.exe
 
 mash16: $(OBJECTS)
 	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
@@ -35,11 +42,17 @@ mash16: $(OBJECTS)
 $(OBJ)/%.o: $(SRC)/%.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
+mash16.exe: $(WIN_OBJECTS)
+	$(WIN_CC) $(WIN_OBJECTS) $(WIN_LDFLAGS) -o $@
+
+$(OBJ)/%.obj: $(SRC)/%.c
+	$(WIN_CC) -c $(WIN_CFLAGS) $< -o $@
+
 archive: mash16
-	tar -czf $(ARCHIVE)/mash16-$(shell echo $(VERSION) | cut -c3- | rev | cut -c2- | rev)-src.tar.gz \
-		$(TAR_SOURCES)
-	tar -czf $(ARCHIVE)/mash16-$(shell echo $(VERSION) | cut -c3- | rev | cut -c2- | rev).tar.gz \
-		mash16 README.md
+	tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ)-src.tar.gz $(TAR_SOURCES)
+	tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ).tar.gz mash16 README.md
+	test -e mash16.exe && zip $(ARCHIVE)/mash16-$(VERSION_NQ).zip mash16.exe README.md
+
 
 install: mash16
 	@if test $(USER) != "root"; then \
@@ -62,5 +75,5 @@ uninstall:
 	fi
 
 clean:
-	rm -f $(OBJECTS)
-	rm -f mash16
+	rm -f $(OBJECTS) $(WIN_OBJECTS)
+	rm -f mash16 mash16.exe
