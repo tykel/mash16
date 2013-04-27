@@ -1,0 +1,6 @@
+# object files
+build/
+
+# tykel: local files
+c
+archive/
