@@ -30,6 +30,7 @@ extern int use_verbose;
 /* Initialise the CPU to safe values. */
 void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 {
+    int i;
     if(!(*state = (cpu_state*)calloc(1,sizeof(cpu_state))))
     {
         fprintf(stderr,"error: calloc failed (state)\n");
@@ -52,7 +53,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     srand(time(NULL));
 
     /* Ensure unused instructions return errors. */
-    for(int i=0; i<0x100; ++i)
+    for(i=0; i<0x100; ++i)
     {
         op_table[i] = &op_error;
     }
