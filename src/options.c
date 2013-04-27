@@ -36,18 +36,22 @@ extern int use_verbose;
 
 int read_palette(char const *filename, uint32_t *palette)
 {
+    int i;
     FILE *palf = fopen(filename,"r");
+    
     if(palf == NULL)
         return 0;
+    
     if(use_verbose)
         printf("palette loaded:\n>");
-    int i;
+    
     for(i = 0; i < 16; ++i)
     {
         fscanf(palf,"%x",&palette[i]);
         if(use_verbose)
             printf("%s%06x",(i && !(i%4)) ? "\n> " : " ",palette[i]);
     }
+    
     if(use_verbose)
         printf("\r\n\n");
 
@@ -56,6 +60,8 @@ int read_palette(char const *filename, uint32_t *palette)
 
 void options_parse(int argc, char** argv, program_opts* opts)
 {
+    int i;
+    
     if(argc < 2)
     {
         fprintf(stderr,"warning: no filename supplied, exiting...\n");
@@ -76,10 +82,11 @@ void options_parse(int argc, char** argv, program_opts* opts)
         fprintf(stderr,"warning: no filename supplied, exiting...\n");
         exit(0);
     }
+    
     opts->filename = argv[1];
     if(argc > 2)
     {
-        for(int i=2; i<argc; ++i)
+        for(i=2; i<argc; ++i)
         {
             if(!strncmp(argv[i],"--no-audio", MAX_STRING))
             {

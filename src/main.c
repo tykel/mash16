@@ -48,6 +48,7 @@ static int stop = 0, paused = 0;
 
 void print_state(cpu_state* state)
 {
+    int i;
     printf("state @ cycle %ld:",state->meta.target_cycles);
     printf("    [ %s%s ", str_ops[state->i.op], state->i.op==0x12 || state->i.op==0x17 ? str_cond[state->i.yx&0xf]:"");
     switch(state->meta.type)
@@ -91,7 +92,7 @@ void print_state(cpu_state* state)
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
     printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %08x |\n",state->sw,state->sh,state->bgc,state->i.dword);
     printf("--------------------------------------------------------------\n");
-    for(int i=0; i<4; ++i)
+    for(i=0; i<4; ++i)
         printf("| r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d |\n",
             i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
     printf("--------------------------------------------------------------\n");
@@ -159,6 +160,8 @@ void sanitize_options(program_opts* opts)
 /* Emulation loop. */
 void emulation_loop()
 { 
+    int i;
+    
     if(!paused)
     {
         /* If using strict emulation, limit to 1M cycles / sec. */
@@ -171,7 +174,7 @@ void emulation_loop()
                 /* Stop at breakpoint if necessary. */
                 if(opts.num_breakpoints > 0)
                 {
-                    for(int i=0; i<opts.num_breakpoints; ++i)
+                    for(i=0; i<opts.num_breakpoints; ++i)
                     {
                         if(state->pc == opts.breakpoints[i])
                             paused = 1;
@@ -194,7 +197,7 @@ void emulation_loop()
         {
             while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
             {
-                for(int i=0; i<600; ++i)
+                for(i=0; i<600; ++i)
                 {
                     cpu_step(state);
                     /* Don't forget to count our frames! */
@@ -273,6 +276,7 @@ void emulation_loop()
 
 int main(int argc, char* argv[])
 {
+    int i;
     /* Set up default options, then read them from the command line. */
     opts.filename = NULL;
     opts.pal_filename = NULL;
@@ -294,7 +298,7 @@ int main(int argc, char* argv[])
     if(use_verbose)
     {
         printf("total breakpoints: %d\n",opts.num_breakpoints);
-        for(int i=0; i<opts.num_breakpoints; ++i)
+        for(i=0; i<opts.num_breakpoints; ++i)
         {
             printf("> bp %d: 0x%x\n",i,opts.breakpoints[i]);
         }
@@ -363,6 +367,7 @@ int main(int argc, char* argv[])
         exit(1);
     }
     atexit(SDL_Quit);
+    
     int video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
     if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,video_flags)) == NULL)
     {

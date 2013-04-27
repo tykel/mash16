@@ -33,8 +33,8 @@ void init_pal(cpu_state* state)
 
 void load_pal(uint8_t* pal, int alpha, cpu_state* state)
 {
-    int b = 3 + alpha;
-    for(int i=0; i<16; ++i)
+    int i, b = 3 + alpha;
+    for(i=0; i<16; ++i)
     {
         uint32_t col = (pal[i*b] << 16) | (pal[i*b + 1] << 8) | (pal[i*b + 2]);
         *((uint32_t*)&state->pal[i]) = col;
@@ -55,12 +55,13 @@ inline void blit_screen(SDL_Surface* sfc, cpu_state* state, int scale)
 /* Internal blitters. */
 void blit_screen1x(SDL_Surface* sfc, cpu_state* state)
 {
+    int y, x;
     SDL_LockSurface(sfc);
 	uint32_t* dst = (uint32_t*)sfc->pixels;
     
-    for(int y=0; y<240; ++y)
+    for(y=0; y<240; ++y)
     {
-        for(int x=0; x<320; ++x)
+        for(x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
             dst[y*320 + x] = !rgb ? state->pal[state->bgc] : state->pal[rgb];
@@ -73,20 +74,21 @@ void blit_screen1x(SDL_Surface* sfc, cpu_state* state)
 
 void blit_screen2x(SDL_Surface* sfc, cpu_state* state)
 {
+    int y, x;
     SDL_LockSurface(sfc);
     uint32_t* dst = (uint32_t*)sfc->pixels;
     
-    for(int y=0; y<240; ++y)
+    for(y=0; y<240; ++y)
     {
         /* Access memory in rows for better cache usage. */
-        for(int x=0; x<320; ++x)
+        for(x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
             uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];
             dst[y*2*640 + x*2] = p;
             dst[y*2*640 + x*2+1] = p;
         }
-        for(int x=0; x<320; ++x)
+        for(x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
             uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];
@@ -101,13 +103,14 @@ void blit_screen2x(SDL_Surface* sfc, cpu_state* state)
 
 void blit_screen3x(SDL_Surface* sfc, cpu_state* state)
 {
+    int y, x;
     SDL_LockSurface(sfc);
     uint32_t* dst = (uint32_t*)sfc->pixels;
     
-    for(int y=0; y<240; ++y)
+    for(y=0; y<240; ++y)
     {
         /* Access memory in rows for better cache usage. */
-        for(int x=0; x<320; ++x)
+        for(x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
             uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];
@@ -115,7 +118,7 @@ void blit_screen3x(SDL_Surface* sfc, cpu_state* state)
             dst[y*3*960 + x*3+1] = p;
             dst[y*3*960 + x*3+2] = p;
         }
-        for(int x=0; x<320; ++x)
+        for(x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
             uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];
@@ -123,7 +126,7 @@ void blit_screen3x(SDL_Surface* sfc, cpu_state* state)
             dst[(y*3+1)*960 + x*3+1] = p;
             dst[(y*3+1)*960 + x*3+2] = p;
         }
-        for(int x=0; x<320; ++x)
+        for(x=0; x<320; ++x)
         {
             uint8_t rgb = state->vm[y*320 + x];
             uint32_t p = !rgb ? state->pal[state->bgc] : state->pal[rgb];

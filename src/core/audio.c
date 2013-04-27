@@ -152,14 +152,16 @@ void audio_update(cpu_state *state)
 /* Callback function provided to SDL for copying sound data. */
 void audio_callback(void* data, uint8_t* stream, int len)
 {
-	if(as.s_index >= as.s_total)
+	int i;
+
+    if(as.s_index >= as.s_total)
 		return;
 
 	int16_t *buffer = (int16_t*)stream;
 	/* We are dealing with 16 bit as.s_period_total. */
 	len /= 2;
 
-	for(int i=0; i<len; ++i, ++as.s_index)
+	for(i=0; i<len; ++i, ++as.s_index)
 		buffer[i] = (*f_sample)();
 }
 

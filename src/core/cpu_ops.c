@@ -88,6 +88,7 @@ void op_drw_r(cpu_state* state)
 
 int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 {
+    int iy, ix, i, j;
     /* If nothing will be on-screen, may as well exit. */
     if(x > 319 || y > 239 || !w || !h || y+h < 0 || x+w*2 < 0)
         return 0;
@@ -108,9 +109,9 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
         iy_inc = -1;
     }
     /* Start drawing... */
-    for(int iy=iy_st, j=0; iy!=iy_end; iy+=iy_inc, ++j)
+    for(iy=iy_st, j=0; iy!=iy_end; iy+=iy_inc, ++j)
     {
-        for(int ix=ix_st, i=0; ix!=ix_end; ix+=ix_inc, i+=2)
+        for(ix=ix_st, i=0; ix!=ix_end; ix+=ix_inc, i+=2)
         {
             /* Bounds checking for memory accesses. */
             if(i+x < 0 || i+x > 318 || j+y < 0 || j+y > 239)
@@ -637,7 +638,8 @@ void op_pop(cpu_state* state)
 
 void op_pushall(cpu_state* state)
 {
-    for(int i=0; i<16; ++i)
+    int i;
+    for(i=0; i<16; ++i)
     {
         state->m[state->sp] = (uint16_t)state->r[i] & 0x00ff;
         state->m[state->sp + 1] = (uint16_t)state->r[i] >> 8;
@@ -648,7 +650,8 @@ void op_pushall(cpu_state* state)
 
 void op_popall(cpu_state* state)
 {
-    for(int i=15; i>=0; --i)
+    int i;
+    for(i=15; i>=0; --i)
     {
         state->sp -= 2;
         state->r[i] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
