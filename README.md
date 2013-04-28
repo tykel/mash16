@@ -40,6 +40,7 @@ The user is encouraged to read the source code.
 
 Mash16 is officially supported on Linux and Windows. OS X testing is welcome.
 - On Linux, it has been tested with GCC and Clang. Build with the Makefile.
+  - Cross-compiling for Windows is possible from Linux; build the `windows` target (`make windows`).
 - On Windows, it has been tested with Visual Studio 2010. Build with the provided solution files.
 
 ## More Screenshots
