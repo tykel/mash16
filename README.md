@@ -36,6 +36,12 @@ The user is encouraged to read the source code.
 
     --break@n               : add a breakpoint at address n
     
+## Supported platforms
+
+Mash16 is officially supported on Linux and Windows. OS X testing is welcome.
+- On Linux, it has been tested with GCC and Clang. Build with the Makefile.
+- On Windows, it has been tested with Visual Studio 2010. Build with the provided solution files.
+
 ## More Screenshots
 
 ![Screenshot #5](http://i.imgur.com/EpVg5Nbm.png) _ ![Screenshot #6](http://i.imgur.com/zIfy3mtm.png)
