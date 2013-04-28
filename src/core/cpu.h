@@ -58,12 +58,21 @@ typedef union
                 union {
                     uint8_t z;
                     uint8_t n;
-                };
+                } ub;
                 uint8_t res;
-            };
-        };
-    };
+            } sw;
+        } uw;
+    } sdw;
 } instr;
+
+/* Macros for reduced tediousness of instruction field accessing. */
+#define i_dword(i) ((i).dword)
+#define i_op(i) ((i).sdw.op)
+#define i_yx(i) ((i).sdw.yx)
+#define i_hhll(i) ((i).sdw.uw.hhll)
+#define i_z(i) ((i).sdw.uw.sw.ub.z)
+#define i_n(i) ((i).sdw.uw.sw.ub.n)
+#define i_res(i) ((i).sdw.uw.sw.res)
 
 /* Instruction type (encoding) -- mainly used for disassembler. */
 typedef enum

@@ -37,8 +37,9 @@ extern int use_verbose;
 int read_palette(char const *filename, uint32_t *palette)
 {
     int i;
-    FILE *palf = fopen(filename,"r");
-    
+    FILE *palf = NULL;
+
+    palf = fopen(filename,"r");
     if(palf == NULL)
         return 0;
     
@@ -69,7 +70,8 @@ void options_parse(int argc, char** argv, program_opts* opts)
     }
     else if(!strncmp(argv[1],"--help",MAX_STRING))
     {
-        printf(str_help);
+        printf(str_help[0]);
+        printf(str_help[1]);
         exit(0);
     }
     else if(!strncmp(argv[1],"--version",MAX_STRING))
@@ -95,6 +97,8 @@ void options_parse(int argc, char** argv, program_opts* opts)
             else if(!strncmp(argv[i],"--audio-sample-rate",19))
             {
                 char *num;
+                long int rate;
+
                 if(strlen(argv[i]) > 20 && argv[i][19] == '=')
                     num = &argv[i][20];
                 else if(i+1 < argc)
@@ -105,7 +109,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     continue;
                 }
 
-                long int rate = strtol(num,NULL,0);
+                rate = strtol(num,NULL,0);
                 if(!rate)
                     fprintf(stderr,"error: invalid input '%s'\n",num);
                 else
@@ -113,7 +117,9 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--audio-buffer",14))
             {
+                long int size;
                 char *num;
+
                 if(strlen(argv[i]) > 15 && argv[i][14] == '=')
                     num = &argv[i][15];
                 else if(i+1 < argc)
@@ -124,7 +130,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     continue;
                 }
 
-                long int size = strtol(num,NULL,0);
+                size = strtol(num,NULL,0);
                 if(!size)
                     fprintf(stderr,"error: invalid input '%s'\n",num);
                 else
@@ -133,7 +139,9 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--audio-volume",14))
             {
+                long int vol;
                 char *num;
+
                 if(strlen(argv[i]) > 15 && argv[i][14] == '=')
                     num = &argv[i][15];
                 else if(i+1 < argc)
@@ -144,7 +152,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     continue;
                 }
 
-                long int vol = strtol(num,NULL,0);
+                vol = strtol(num,NULL,0);
                 if(!vol)
                     fprintf(stderr,"error: invalid input '%s'\n",num);
                 else
@@ -157,12 +165,14 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--break",7))
             {
+                char *n, *nums;
+                
                 if(!strncmp(argv[i],"--break-all",MAX_STRING))
                 {
                     opts->use_breakall = 1;
                     continue;
                 }
-                char *n, *nums;
+               
                 if(strlen(argv[i]) > 8 && argv[i][7] == '@')
                 {
                     nums = &argv[i][8];
@@ -186,7 +196,9 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--video-scaler",14))
             {
+                long int scale;
                 char *num;
+
                 if(strlen(argv[i]) > 15 && argv[i][14] == '=')
                     num = &argv[i][15];
                 else if(i+1 < argc)
@@ -197,7 +209,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     continue;
                 }
                 
-                long int scale = strtol(num,NULL,0);
+                scale = strtol(num,NULL,0);
                 if(!scale)
                     fprintf(stderr,"error: invalid input '%s'\n",num);
                 else
@@ -225,7 +237,8 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {
-                printf(str_help);
+                printf(str_help[0]);
+                printf(str_help[1]);
             }
             else if(!strncmp(argv[i],"--version",MAX_STRING))
             {

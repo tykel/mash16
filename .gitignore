@@ -1,6 +1,8 @@
 # object files
+mash16
 build/
 
 # tykel: local files
+tags
 c
 archive/

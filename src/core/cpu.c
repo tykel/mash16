@@ -31,6 +31,7 @@ extern int use_verbose;
 void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 {
     int i;
+
     if(!(*state = (cpu_state*)calloc(1,sizeof(cpu_state))))
     {
         fprintf(stderr,"error: calloc failed (state)\n");
@@ -48,7 +49,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
         exit(1);
     }
     (*state)->sp = STACK_ADDR;
-    (*state)->f = (flags){0};
+    memset(&(*state)->f,0,sizeof(flags));
     
     srand(time(NULL));
 
@@ -140,7 +141,7 @@ void cpu_step(cpu_state* state)
     state->i = *(instr*)(&state->m[state->pc]);
     state->pc += 4;
     /* Call function pointer table entry */
-    (*op_table[state->i.op])(state);
+    (*op_table[i_op(state->i)])(state);
     /* Update cycles. */
     ++state->meta.cycles;
     ++state->meta.target_cycles;

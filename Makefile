@@ -10,11 +10,11 @@ VERSION = \"$(shell git describe --abbrev=0)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c3- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse HEAD | cut -c-7)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl)
-CFLAGS = -O2 -Wall -Werror -s -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
+CFLAGS = -O2 -Wall -ansi -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
 WIN_CFLAGS = $(CFLAGS) -mwindows
-SDL_LDFLAGS = $(shell pkg-config --libs sdl)
+SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl)
 LDFLAGS = $(SDL_LDFLAGS)
-WIN_LDFLAGS = -lmingw32 -lSDLmain $(LDFLAGS) 
+WIN_LDFLAGS = -lmingw32 $(LDFLAGS) 
 
 # Directories
 
