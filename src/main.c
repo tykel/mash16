@@ -49,39 +49,41 @@ static int stop = 0, paused = 0;
 void print_state(cpu_state* state)
 {
     int i;
+
     printf("state @ cycle %ld:",state->meta.target_cycles);
-    printf("    [ %s%s ", str_ops[state->i.op], state->i.op==0x12 || state->i.op==0x17 ? str_cond[state->i.yx&0xf]:"");
+    printf("    [ %s%s ", str_ops[i_op(state->i)],
+            i_op(state->i)==0x12 || i_op(state->i)==0x17 ? str_cond[i_yx(state->i)&0xf]:"");
     switch(state->meta.type)
     {
         case OP_HHLL:
-            printf("$%04x",state->i.hhll);
+            printf("$%04x",i_hhll(state->i));
             break;
         case OP_N:
-            printf("%x",state->i.n);
+            printf("%x",i_n(state->i));
             break;
         case OP_R:
-            printf("r%x",state->i.yx&0xf);
+            printf("r%x",i_yx(state->i)&0xf);
             break;
         case OP_R_N:
-            printf("r%x, %x",state->i.yx&0xf,state->i.n);
+            printf("r%x, %x",i_yx(state->i)&0xf,i_n(state->i));
             break;
         case OP_R_R:
-            printf("r%x, r%x",state->i.yx&0xf, state->i.yx >> 4);
+            printf("r%x, r%x",i_yx(state->i)&0xf, i_yx(state->i) >> 4);
             break;
         case OP_R_R_R:
-            printf("r%x, r%x, r%x",state->i.yx&0xf, state->i.yx >> 4, state->i.z);
+            printf("r%x, r%x, r%x",i_yx(state->i)&0xf, i_yx(state->i) >> 4, i_z(state->i));
             break;
         case OP_N_N:
-            printf("%x, %x",state->i.yx&0xf, state->i.yx >> 4);
+            printf("%x, %x",i_yx(state->i)&0xf, i_yx(state->i) >> 4);
             break;
         case OP_R_HHLL:
-            printf("r%x, $%04x",state->i.yx&0xf, state->i.hhll);
+            printf("r%x, $%04x",i_yx(state->i)&0xf, i_hhll(state->i));
             break;
         case OP_HHLL_HHLL:
-            printf("$%02x, $%04x",state->i.yx,state->i.hhll);
+            printf("$%02x, $%04x",i_yx(state->i),i_hhll(state->i));
             break;
         case OP_SP_HHLL:
-            printf("sp, $%04x",state->i.hhll);
+            printf("sp, $%04x",i_hhll(state->i));
             break;
         case OP_NONE:
         default:
@@ -100,8 +102,11 @@ void print_state(cpu_state* state)
 
 int verify_header(uint8_t* bin, int len)
 {
-    ch16_header* header = (ch16_header*)bin;
-    uint8_t* data = (uint8_t*)(bin + sizeof(ch16_header));
+    ch16_header* header;
+    uint8_t *data;
+    
+    header = (ch16_header*)bin;
+    data = (uint8_t*)(bin + sizeof(ch16_header));
     if(read_header(header,len,data))
         return 1;
     return 0;
@@ -110,12 +115,15 @@ int verify_header(uint8_t* bin, int len)
 /* Return length of file if success; otherwise 0 */
 int read_file(char* fp, uint8_t* buf)
 {
-    FILE* romf = fopen(fp,"rb");
+    int len;
+    FILE* romf;
+    
+    romf = fopen(fp,"rb");
     if(romf == NULL)
         return 0;
     
     fseek(romf,0,SEEK_END);
-    int len = ftell(romf);
+    len = ftell(romf);
     fseek(romf,0,SEEK_SET);
 
     fread(buf,sizeof(uint8_t),len,romf);
@@ -127,6 +135,7 @@ int read_file(char* fp, uint8_t* buf)
 void sanitize_options(program_opts* opts)
 {
     int input_errors = 0;
+    
     if(opts->video_scaler <= 0 || opts->video_scaler > 3)
     {
         fprintf(stderr,"error: scaler %dx not supported\n",opts->video_scaler);
@@ -161,6 +170,7 @@ void sanitize_options(program_opts* opts)
 void emulation_loop()
 { 
     int i;
+    SDL_Event evt;
     
     if(!paused)
     {
@@ -219,8 +229,10 @@ void emulation_loop()
         if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
         {
             /* Output debug info. */
-            //if(opts.use_verbose)
-            //    printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
+#if 0
+            if(opts.use_verbose)
+                printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
+#endif
             /* Update the caption. */
             snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
             SDL_WM_SetCaption(strfps, NULL);
@@ -232,7 +244,6 @@ void emulation_loop()
     else
         SDL_Delay(FRAME_DT);
     /* Handle input. */
-    SDL_Event evt;
     while(SDL_PollEvent(&evt))
     {
         switch(evt.type)
@@ -276,7 +287,9 @@ void emulation_loop()
 
 int main(int argc, char* argv[])
 {
-    int i;
+    int i, len, use_header, sdl_flags, video_flags;
+    uint8_t *buf, *mem;
+
     /* Set up default options, then read them from the command line. */
     opts.filename = NULL;
     opts.pal_filename = NULL;
@@ -307,13 +320,13 @@ int main(int argc, char* argv[])
     sanitize_options(&opts);
 
     /* Read our rom file into memory */
-    uint8_t* buf = NULL;
+    buf = NULL;
     if(!(buf = calloc(MEM_SIZE+sizeof(ch16_header),1)))
     {
         fprintf(stderr,"error: calloc failed (buf)\n");
         exit(1);
     }
-    int len = read_file(opts.filename,buf);
+    len = read_file(opts.filename,buf);
     if(!len)
     {
         fprintf(stderr,"error: file could not be opened\n");
@@ -321,7 +334,7 @@ int main(int argc, char* argv[])
     }
 
     /* Check if a rom header is present; if so, verify it */
-    int use_header = 0;
+    use_header = 0;
     if((char)buf[0] == 'C' && (char)buf[1] == 'H' &&
        (char)buf[2] == '1' && (char)buf[3] == '6')
     {
@@ -347,7 +360,7 @@ int main(int argc, char* argv[])
     }
 
     /* Get a buffer without header. */
-    uint8_t* mem = NULL;
+    mem = NULL;
     if(!(mem = malloc(MEM_SIZE)))
     {
         fprintf(stderr,"error: malloc failed (mem)\n");
@@ -358,7 +371,7 @@ int main(int argc, char* argv[])
     free(buf);
 
     /* Initialise SDL target. */
-    int sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE;
+    sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE;
     if(opts.use_audio)
         sdl_flags |= SDL_INIT_AUDIO;
     if(SDL_Init(sdl_flags) < 0)
@@ -367,8 +380,8 @@ int main(int argc, char* argv[])
         exit(1);
     }
     atexit(SDL_Quit);
-    
-    int video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
+   
+    video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
     if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,video_flags)) == NULL)
     {
         fprintf(stderr,"error: failed to init. video mode (%d x %d x 32 bpp): %s\n",

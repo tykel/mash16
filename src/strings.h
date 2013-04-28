@@ -19,8 +19,8 @@
 #ifndef STRINGS_
 #define STRINGS_H
 
-extern const char* const str_ops[];
-extern const char* const str_cond[];
-extern const char* const str_help;
+extern const char* const str_ops[14*16];
+extern const char* const str_cond[16];
+extern const char* const str_help[2];
 
 #endif

@@ -16,7 +16,7 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const char* const str_ops[] =
+const char* const str_ops[14*16] =
 {
     /* 0x */
     "nop","cls","vblnk","bgc","spr","drw","drw","rnd","flip","snd0","snd1","snd2","snd3","snp","sng","___",
@@ -47,11 +47,12 @@ const char* const str_ops[] =
     /* Dx */
     "pal","pal","___","___","___","___","___","___","___","___","___","___","___","___","___","___"
 };
-const char* const str_cond[] =
+const char* const str_cond[16] =
 {
     "z","nz","n","nn","p","o","no","a","nc","c","be","g","ge","l","le","*"
 };
-const char* const str_help =
+const char* const str_help[2] =
+{
         "Usage: mash16 FILE [OPTION]...\n\n"
         "  Run FILE in the chip16 emulation.\n\n"
         "Options:\n"
@@ -61,7 +62,8 @@ const char* const str_help =
         "  --audio-volume=N       set audio volume to N (0-255)\n"
         "  --fullscreen           use fullscreen mode\n"
         "  --video-scaler=N       scale video N times (1,2,3)\n"
-        "  --palette=FILE         use the palette defined in FILE (text)\n"     
+        "  --palette=FILE         use the palette defined in FILE (text)\n",
+
         "  --no-cpu-limit         disable 1 MHz clock\n"
         "  --cpu-rec              use (experimental) recompiler core\n"
         "  --verbose              print debug information to standard output\n"
@@ -70,6 +72,7 @@ const char* const str_help =
         "  --help                 print this help text\n"
         "  --version              print version information\n"
         "\nCopyright (C) 2012-2013 tykel\n"
-        "http://code.google.com/p/mash16\n";
-
+        "http://github.com/tykel/mash16\n"
+        "http://code.google.com/p/mash16\n"
+};
 

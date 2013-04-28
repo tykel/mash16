@@ -28,9 +28,11 @@ fptr f_sample;
 /* Initialise the SDL audio system. */
 void audio_init(cpu_state *state, program_opts *opts)
 {
-	f_sample = NULL;
+	SDL_AudioSpec spec;
+	
+    f_sample = NULL;
 
-	as = (audio_state){0};
+	memset(&as,0,sizeof(audio_state));
 	as.wf = WF_TRIANGLE;
 	as.f = 100;
 	as.max_vol = opts->audio_volume << 7;
@@ -41,7 +43,6 @@ void audio_init(cpu_state *state, program_opts *opts)
 	if(!use_audio)
 		return;
 
-	SDL_AudioSpec spec;
 	spec.freq = as.sample_rate;
 	spec.format = AUDIO_S16SYS;
 	spec.channels = 1;
@@ -153,11 +154,12 @@ void audio_update(cpu_state *state)
 void audio_callback(void* data, uint8_t* stream, int len)
 {
 	int i;
+    int16_t *buffer;
 
     if(as.s_index >= as.s_total)
 		return;
 
-	int16_t *buffer = (int16_t*)stream;
+	buffer = (int16_t*)stream;
 	/* We are dealing with 16 bit as.s_period_total. */
 	len /= 2;
 
@@ -199,6 +201,8 @@ int16_t audio_gen_snd3_sample()
 /* Our more advanced envelope generators. */
 int16_t audio_gen_sample()
 {
+    double sample;
+
 	++as.s_period_index;
 	if((double)as.s_period_index >= as.s_period_total)
 		as.s_period_index = 0;
@@ -224,7 +228,8 @@ int16_t audio_gen_sample()
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", as.wf);
 			exit(1);
 	}
-	double sample = as.sample;
+	
+    sample = as.sample;
 	/* Scale the amplitude according to position in envelope. */
 	/* Attack */
 	if(as.s_index < as.atk_samples)
@@ -251,3 +256,4 @@ int16_t audio_gen_sample()
 		return (int16_t)-sample;
 	return (int16_t)sample;
 }
+

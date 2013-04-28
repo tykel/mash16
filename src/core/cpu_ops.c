@@ -31,7 +31,7 @@ extern int use_verbose;
  /* CPU instructions. */
 void op_error(cpu_state* state)
 {
-    fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",state->i.op);
+    fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",i_op(state->i));
     fprintf(stderr,"state: pc=%04x\n",state->pc);
     exit(1);
 }
@@ -55,22 +55,24 @@ void op_vblnk(cpu_state* state)
 
 void op_bgc(cpu_state* state)
 {
-    state->bgc = state->i.n;
+    state->bgc = i_n(state->i);
     state->meta.type = OP_N;
 }
 
 void op_spr(cpu_state* state)
 {
-    state->sw = state->i.hhll & 0x00ff;
-    state->sh = state->i.hhll >> 8;
+    state->sw = i_hhll(state->i) & 0x00ff;
+    state->sh = i_hhll(state->i) >> 8;
     state->meta.type = OP_HHLL;
 }
 
 void op_drw_imm(cpu_state* state)
 {
-    int16_t x = state->r[state->i.yx & 0x0f];
-    int16_t y = state->r[state->i.yx >> 4];
-    state->f.c = op_drw(&state->m[state->i.hhll],
+    int16_t x, y;
+    
+    x = state->r[i_yx(state->i) & 0x0f];
+    y = state->r[i_yx(state->i) >> 4];
+    state->f.c = op_drw(&state->m[i_hhll(state->i)],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
     state->meta.type = OP_R_HHLL;
@@ -78,9 +80,11 @@ void op_drw_imm(cpu_state* state)
 
 void op_drw_r(cpu_state* state)
 {
-    int16_t x = state->r[state->i.yx & 0x0f];
-    int16_t y = state->r[state->i.yx >> 4];
-    state->f.c = op_drw(&state->m[(uint16_t)state->r[state->i.z]],
+    int16_t x, y;
+    
+    x = state->r[i_yx(state->i) & 0x0f];
+    y = state->r[i_yx(state->i) >> 4];
+    state->f.c = op_drw(&state->m[(uint16_t)state->r[i_z(state->i)]],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
     state->meta.type = OP_R;
@@ -88,20 +92,23 @@ void op_drw_r(cpu_state* state)
 
 int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 {
-    int iy, ix, i, j;
+    int iy, iy_st, iy_end, iy_inc;
+    int ix, ix_st, ix_end, ix_inc;
+    int i, j, hit;
+
     /* If nothing will be on-screen, may as well exit. */
     if(x > 319 || y > 239 || !w || !h || y+h < 0 || x+w*2 < 0)
         return 0;
-    int hit = 0;
+    hit = 0;
     /* Sort out what direction the sprite will be drawn in. */
-    int ix_st = 0, ix_end = w*2, ix_inc = 2;
+    ix_st = 0, ix_end = w*2, ix_inc = 2;
     if(fx)
     {
         ix_st = w*2 - 2;
         ix_end = -2;
         ix_inc = -2;
     }
-    int iy_st = 0, iy_end = h, iy_inc = 1;
+    iy_st = 0, iy_end = h, iy_inc = 1;
     if(fy)
     {
         iy_st = h - 1;
@@ -113,12 +120,13 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
     {
         for(ix=ix_st, i=0; ix!=ix_end; ix+=ix_inc, i+=2)
         {
+            uint8_t p, hp, lp;
             /* Bounds checking for memory accesses. */
             if(i+x < 0 || i+x > 318 || j+y < 0 || j+y > 239)
                 continue;
-            uint8_t p  = m[w*iy + ix/2];
-            uint8_t hp = p >> 4;
-            uint8_t lp = p & 0x0f;
+            p  = m[w*iy + ix/2];
+            hp = p >> 4;
+            lp = p & 0x0f;
             /* Flip the pixel couple if necessary. */
             if(fx)
             {
@@ -144,14 +152,14 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 
 void op_rnd(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = rand() % (state->i.hhll + 1);
+    state->r[i_yx(state->i) & 0x0f] = rand() % (i_hhll(state->i) + 1);
     state->meta.type = OP_HHLL;
 }
 
 void op_flip(cpu_state* state)
 {
-    state->fx = state->i.hhll >> 9;
-    state->fy = (state->i.hhll >> 8) & 0x01;
+    state->fx = i_hhll(state->i) >> 9;
+    state->fy = (i_hhll(state->i) >> 8) & 0x01;
     state->meta.type = OP_N_N;
 }
 
@@ -163,49 +171,51 @@ void op_snd0(cpu_state* state)
 
 void op_snd1(cpu_state* state)
 {
-    int16_t dt = state->i.hhll;
+    int16_t dt = i_hhll(state->i);
     audio_play(500,dt,0);
     state->meta.type = OP_HHLL;
 }
 
 void op_snd2(cpu_state* state)
 {
-    int16_t dt = state->i.hhll;
+    int16_t dt = i_hhll(state->i);
     audio_play(1000,dt,0);
     state->meta.type = OP_HHLL;
 }
 
 void op_snd3(cpu_state* state)
 {
-    int16_t dt = state->i.hhll;
+    int16_t dt = i_hhll(state->i);
     audio_play(1500,dt,0);
     state->meta.type = OP_HHLL;
 }
 
 void op_snp(cpu_state* state)
 {
-    uint16_t f = state->m[(uint16_t)(state->r[state->i.yx & 0x0f])] |
-                ((uint16_t)state->m[(uint16_t)(state->r[state->i.yx & 0x0f]) + 1] << 8);
-    uint16_t dt = state->i.hhll;
+    uint16_t f, dt;
+
+    f = state->m[(uint16_t)(state->r[i_yx(state->i) & 0x0f])] |
+                ((uint16_t)state->m[(uint16_t)(state->r[i_yx(state->i) & 0x0f]) + 1] << 8);
+    dt = i_hhll(state->i);
     audio_play(f,dt,1);
     state->meta.type = OP_R_HHLL;
 }
 
 void op_sng(cpu_state* state)
 {
-    state->atk = state->i.yx >> 4;
-    state->dec = state->i.yx & 0x0f;
-    state->vol = (state->i.hhll >> 12) & 0x0f;
-    state->type = (state->i.hhll >> 8) & 0x0f;
-    state->sus = (state->i.hhll >> 4) & 0x0f;
-    state->rls = state->i.hhll & 0x0f;
+    state->atk = i_yx(state->i) >> 4;
+    state->dec = i_yx(state->i) & 0x0f;
+    state->vol = (i_hhll(state->i) >> 12) & 0x0f;
+    state->type = (i_hhll(state->i) >> 8) & 0x0f;
+    state->sus = (i_hhll(state->i) >> 4) & 0x0f;
+    state->rls = i_hhll(state->i) & 0x0f;
     audio_update(state);
     state->meta.type = OP_HHLL_HHLL;
 }
 
 void op_jmp_imm(cpu_state* state)
 {
-    state->pc = state->i.hhll;
+    state->pc = i_hhll(state->i);
     state->meta.type = OP_HHLL;
 }
 
@@ -214,7 +224,7 @@ void op_jmc(cpu_state* state)
 {
     if(state->f.c)
     {
-        state->pc = state->i.hhll;
+        state->pc = i_hhll(state->i);
     }
     state->meta.type = OP_HHLL;
 }
@@ -222,18 +232,20 @@ void op_jx(cpu_state* state)
 {
     if(test_cond(state))
     {
-        state->pc = state->i.hhll;
+        state->pc = i_hhll(state->i);
     }
     state->meta.type = OP_HHLL;
 }
 
 void op_jme(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     if(rx == ry)
     {
-        state->pc = state->i.hhll;
+        state->pc = i_hhll(state->i);
     }
     state->meta.type = OP_R_R;
 }
@@ -243,7 +255,7 @@ void op_call_imm(cpu_state* state)
     state->m[state->sp] = state->pc & 0x00ff;
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
-    state->pc = state->i.hhll;
+    state->pc = i_hhll(state->i);
     state->meta.type = OP_HHLL;
 }
 
@@ -256,7 +268,7 @@ void op_ret(cpu_state* state)
 
 void op_jmp_r(cpu_state* state)
 {
-    state->pc = (uint16_t)state->r[state->i.yx & 0x0f];
+    state->pc = (uint16_t)state->r[i_yx(state->i) & 0x0f];
     state->meta.type = OP_R;
 }
 
@@ -267,7 +279,7 @@ void op_cx(cpu_state* state)
         state->m[state->sp] = state->pc & 0x00ff;
         state->m[state->sp + 1] = state->pc >> 8;
         state->sp += 2;
-        state->pc = state->i.hhll;
+        state->pc = i_hhll(state->i);
     }
     state->meta.type = OP_HHLL;
 }
@@ -277,60 +289,62 @@ void op_call_r(cpu_state* state)
     state->m[state->sp] = state->pc & 0x00ff;
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
-    state->pc = (uint16_t)state->r[state->i.yx & 0x0f];
+    state->pc = (uint16_t)state->r[i_yx(state->i) & 0x0f];
     state->meta.type = OP_R;
 }
 
 void op_ldi_r(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = (int16_t)state->i.hhll;
+    state->r[i_yx(state->i) & 0x0f] = (int16_t)i_hhll(state->i);
     state->meta.type = OP_R_HHLL;
 }
 
 void op_ldi_sp(cpu_state* state)
 {
-    state->sp = state->i.hhll;
+    state->sp = i_hhll(state->i);
     state->meta.type = OP_SP_HHLL;
 }
 
 void op_ldm_imm(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->m[state->i.hhll] |
-                                  (state->m[state->i.hhll + 1] << 8);
+    state->r[i_yx(state->i) & 0x0f] = state->m[i_hhll(state->i)] |
+                                  (state->m[i_hhll(state->i) + 1] << 8);
     state->meta.type = OP_R_HHLL;
 }
 
 void op_ldm_r(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->m[(uint16_t)state->r[state->i.yx >> 4]] |
-                                  (state->m[(uint16_t)state->r[state->i.yx >> 4] + 1] << 8);
+    state->r[i_yx(state->i) & 0x0f] = state->m[(uint16_t)state->r[i_yx(state->i) >> 4]] |
+                                  (state->m[(uint16_t)state->r[i_yx(state->i) >> 4] + 1] << 8);
     state->meta.type = OP_R_R;
 }
 
 void op_mov(cpu_state* state)
 {
-    state->r[state->i.yx & 0x0f] = state->r[state->i.yx >> 4];
+    state->r[i_yx(state->i) & 0x0f] = state->r[i_yx(state->i) >> 4];
     state->meta.type = OP_R_R;
 }
 
 void op_stm_imm(cpu_state* state)
 {
-    state->m[state->i.hhll] = state->r[state->i.yx & 0x0f] & 0x00ff;
-    state->m[state->i.hhll + 1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->m[i_hhll(state->i)] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
+    state->m[i_hhll(state->i) + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
     state->meta.type = OP_R_HHLL;
 }
 
 void op_stm_r(cpu_state* state)
 {
-    state->m[(uint16_t)state->r[state->i.yx >> 4]] = state->r[state->i.yx & 0x0f] & 0x00ff;
-    state->m[(uint16_t)state->r[state->i.yx >> 4] + 1] = state->r[state->i.yx & 0x0f] >> 8;
+    state->m[(uint16_t)state->r[i_yx(state->i) >> 4]] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
+    state->m[(uint16_t)state->r[i_yx(state->i) >> 4] + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
     state->meta.type = OP_R_R;
 }
 
 void op_addi(cpu_state* state)
 {
-    int16_t* r = &state->r[state->i.yx & 0x0f];
-    int16_t imm = (int16_t)state->i.hhll;
+    int16_t *r, imm;
+
+    r = &state->r[i_yx(state->i) & 0x0f];
+    imm = (int16_t)i_hhll(state->i);
     flags_add(*r,imm,state);
     *r += imm;
     state->meta.type = OP_R_HHLL;
@@ -338,8 +352,10 @@ void op_addi(cpu_state* state)
 
 void op_add_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_add(*rx,ry,state);
     *rx += ry;
     state->meta.type = OP_R_R;
@@ -347,17 +363,21 @@ void op_add_r2(cpu_state* state)
 
 void op_add_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_add(rx,ry,state);
-    state->r[state->i.z] = rx + ry;
+    state->r[i_z(state->i)] = rx + ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_subi(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t *rx, imm;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_sub(*rx,imm,state);
     *rx -= imm;
     state->meta.type = OP_R_HHLL;
@@ -365,8 +385,10 @@ void op_subi(cpu_state* state)
 
 void op_sub_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_sub(*rx,ry,state);
     *rx -= ry;
     state->meta.type = OP_R_R;
@@ -374,33 +396,41 @@ void op_sub_r2(cpu_state* state)
 
 void op_sub_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_sub(rx,ry,state);
-    state->r[state->i.z] = rx - ry;
+    state->r[i_z(state->i)] = rx - ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_cmpi(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t rx, imm;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_sub(rx,imm,state);
     state->meta.type = OP_R_HHLL;
  }
 
 void op_cmp(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_sub(rx,ry,state);
     state->meta.type = OP_R_R;
 }
 
 void op_andi(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t *rx, imm;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_and(*rx,imm,state);
     *rx &= imm;
     state->meta.type = OP_R_HHLL;
@@ -408,8 +438,10 @@ void op_andi(cpu_state* state)
 
 void op_and_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_and(*rx,ry,state);
     *rx &= ry;
     state->meta.type = OP_R_R;
@@ -417,33 +449,41 @@ void op_and_r2(cpu_state* state)
 
 void op_and_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_and(rx,ry,state);
-    state->r[state->i.z] = rx & ry;
+    state->r[i_z(state->i)] = rx & ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_tsti(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t rx, imm;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_and(rx,imm,state);
     state->meta.type = OP_R_HHLL;
 }
 
 void op_tst(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_and(rx,ry,state);
     state->meta.type = OP_R_R;
 }
 
 void op_ori(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t *rx, imm;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_or(*rx,imm,state);
     *rx |= imm;
     state->meta.type = OP_R_HHLL;
@@ -451,8 +491,10 @@ void op_ori(cpu_state* state)
 
 void op_or_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_or(*rx,ry,state);
     *rx |= ry;
     state->meta.type = OP_R_R;
@@ -460,17 +502,21 @@ void op_or_r2(cpu_state* state)
 
 void op_or_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_or(rx,ry,state);
-    state->r[state->i.z] = rx | ry;
+    state->r[i_z(state->i)] = rx | ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_xori(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t *rx, imm;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_xor(*rx,imm,state);
     *rx ^= imm;
     state->meta.type = OP_R_HHLL;
@@ -478,8 +524,10 @@ void op_xori(cpu_state* state)
 
 void op_xor_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_xor(*rx,ry,state);
     *rx ^= ry;
     state->meta.type = OP_R_R;
@@ -487,17 +535,21 @@ void op_xor_r2(cpu_state* state)
 
 void op_xor_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_xor(rx,ry,state);
-    state->r[state->i.z] = rx ^ ry;
+    state->r[i_z(state->i)] = rx ^ ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_muli(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t *rx, imm;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     flags_mul(*rx,imm,state);
     *rx *= imm;
     state->meta.type = OP_R_HHLL;
@@ -505,8 +557,10 @@ void op_muli(cpu_state* state)
 
 void op_mul_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_mul(*rx,ry,state);
     *rx *= ry;
     state->meta.type = OP_R_R;
@@ -514,17 +568,21 @@ void op_mul_r2(cpu_state* state)
 
 void op_mul_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_mul(rx,ry,state);
-    state->r[state->i.z] = rx * ry;
+    state->r[i_z(state->i)] = rx * ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_divi(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t imm = state->i.hhll;
+    int16_t *rx, imm;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
     if(!imm)
     {
         fprintf(stderr,"error: attempted to divide by 0\n");
@@ -538,8 +596,10 @@ void op_divi(cpu_state* state)
 
 void op_div_r2(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     if(!ry)
     {
         fprintf(stderr,"error: attempted to divide by 0\n");
@@ -553,8 +613,10 @@ void op_div_r2(cpu_state* state)
 
 void op_div_r3(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t rx, ry;
+    
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     if(!ry)
     {
         fprintf(stderr,"error: attempted to divide by 0\n");
@@ -562,14 +624,16 @@ void op_div_r3(cpu_state* state)
         exit(1);
     }
     flags_div(rx,ry,state);
-    state->r[state->i.z] = rx / ry;
+    state->r[i_z(state->i)] = rx / ry;
     state->meta.type = OP_R_R_R;
 }
 
 void op_shl_n(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t n = state->i.n;
+    int16_t *rx, n;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    n = i_n(state->i);
     flags_shl(*rx,n,state);
     *rx <<= n;
     state->meta.type = OP_R_N;
@@ -577,8 +641,11 @@ void op_shl_n(cpu_state* state)
 
 void op_shr_n(cpu_state* state)
 {
-    uint16_t* rx = (uint16_t*)&state->r[state->i.yx & 0x0f];
-    int16_t n = state->i.n;
+    uint16_t *rx;
+    int16_t n;
+    
+    rx = (uint16_t*)&state->r[i_yx(state->i) & 0x0f];
+    n = i_n(state->i);
     flags_shr(*rx,n,state);
     *rx >>= n;
     state->meta.type = OP_R_N;
@@ -586,8 +653,10 @@ void op_shr_n(cpu_state* state)
 
 void op_sar_n(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t n = state->i.n;
+    int16_t *rx, n;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    n = i_n(state->i);
     flags_sar(*rx,n,state);
     *rx >>= n;
     state->meta.type = OP_R_N;
@@ -595,8 +664,10 @@ void op_sar_n(cpu_state* state)
 
 void op_shl_r(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_shl(*rx,ry,state);
     *rx <<= ry;
     state->meta.type = OP_R_R;
@@ -604,8 +675,11 @@ void op_shl_r(cpu_state* state)
 
 void op_shr_r(cpu_state* state)
 {
-    uint16_t* rx = (uint16_t*)&state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    uint16_t* rx;
+    int16_t ry;
+
+    rx = (uint16_t*)&state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_shr(*rx,ry,state);
     *rx >>= ry;
     state->meta.type = OP_R_R;
@@ -613,8 +687,10 @@ void op_shr_r(cpu_state* state)
 
 void op_sar_r(cpu_state* state)
 {
-    int16_t* rx = &state->r[state->i.yx & 0x0f];
-    int16_t ry = state->r[state->i.yx >> 4];
+    int16_t *rx, ry;
+    
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
     flags_sar(*rx,ry,state);
     *rx >>= ry;
     state->meta.type = OP_R_R;
@@ -622,7 +698,7 @@ void op_sar_r(cpu_state* state)
 
 void op_push(cpu_state* state)
 {
-    int16_t rx = state->r[state->i.yx & 0x0f];
+    int16_t rx = state->r[i_yx(state->i) & 0x0f];
     state->m[state->sp] = rx & 0x00ff;
     state->m[state->sp + 1] = rx >> 8;
     state->sp += 2;
@@ -632,7 +708,7 @@ void op_push(cpu_state* state)
 void op_pop(cpu_state* state)
 {
     state->sp -= 2;
-    state->r[state->i.yx & 0x0f] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
+    state->r[i_yx(state->i) & 0x0f] = (int16_t)(state->m[state->sp] | (state->m[state->sp + 1] << 8));
     state->meta.type = OP_R;
 }
 
@@ -680,21 +756,21 @@ void op_popf(cpu_state* state)
 
 void op_pal_imm(cpu_state* state)
 {
-    load_pal(&state->m[state->i.hhll],0,state);
+    load_pal(&state->m[i_hhll(state->i)],0,state);
     state->meta.type = OP_HHLL;
 }
 
 void op_pal_r(cpu_state* state)
 {
-    load_pal(&state->m[(uint16_t)state->r[state->i.yx & 0x0f]],0,state);
+    load_pal(&state->m[(uint16_t)state->r[i_yx(state->i) & 0x0f]],0,state);
     state->meta.type = OP_R;
 }
 
 /* Flag computing functions. */
 void flags_add(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint32_t res = (uint16_t)x + (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if(res > UINT16_MAX)
@@ -708,8 +784,8 @@ void flags_add(int16_t x, int16_t y, cpu_state* state)
 
 void flags_sub(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint32_t res = (uint16_t)x - (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if(res > UINT16_MAX)
@@ -723,8 +799,8 @@ void flags_sub(int16_t x, int16_t y, cpu_state* state)
 
 void flags_and(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint16_t res = (uint16_t)x & (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if((int16_t)res < 0)
@@ -733,8 +809,8 @@ void flags_and(int16_t x, int16_t y, cpu_state* state)
 
 void flags_or(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint16_t res = (uint16_t)x | (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if((int16_t)res < 0)
@@ -743,8 +819,8 @@ void flags_or(int16_t x, int16_t y, cpu_state* state)
 
 void flags_xor(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint16_t res = (uint16_t)x ^ (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if((int16_t)res < 0)
@@ -753,8 +829,8 @@ void flags_xor(int16_t x, int16_t y, cpu_state* state)
 
 void flags_mul(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint32_t res = (uint16_t)x * (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if(res > UINT16_MAX)
@@ -765,9 +841,11 @@ void flags_mul(int16_t x, int16_t y, cpu_state* state)
 
 void flags_div(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
-    uint16_t res = (uint16_t)x / (uint16_t)y;
-    uint16_t rem = (uint16_t)x % (uint16_t)y;
+    uint16_t res, rem;
+    
+    res = (uint16_t)x / (uint16_t)y;
+    rem = (uint16_t)x % (uint16_t)y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if(rem)
@@ -778,8 +856,8 @@ void flags_div(int16_t x, int16_t y, cpu_state* state)
 
 void flags_shl(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint16_t res = (uint16_t)x << y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if((int16_t)res < 0)
@@ -788,8 +866,8 @@ void flags_shl(int16_t x, int16_t y, cpu_state* state)
 
 void flags_shr(uint16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     uint16_t res = (uint16_t)x >> y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if((int16_t)res < 0)
@@ -798,8 +876,8 @@ void flags_shr(uint16_t x, int16_t y, cpu_state* state)
 
 void flags_sar(int16_t x, int16_t y, cpu_state* state)
 {
-    state->f = (flags){0};
     int16_t res = x >> y;
+    memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if(res < 0)
@@ -809,7 +887,7 @@ void flags_sar(int16_t x, int16_t y, cpu_state* state)
 /* Test a combination of flags depending on test code. */
 int test_cond(cpu_state* state)
 {
-    switch(state->i.yx & 0x0f)
+    switch(i_yx(state->i) & 0x0f)
     {
         /* Z   = 0x0 // [z==1]         Equal (Zero) */
         case C_Z:

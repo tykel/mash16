@@ -42,6 +42,16 @@
 #define AUDIO_RATE		48000
 #define AUDIO_SAMPLES   1024	
 
+/* Microsoft's C compiler does not include stdint.h */
+#ifdef _MSC_VER
+typedef	signed int			int32_t;
+typedef signed short int	int16_t;
+typedef signed char 		int8_t;
+typedef	unsigned int 		uint32_t;
+typedef unsigned short int	uint16_t;
+typedef unsigned char 		uint8_t;
+#else
 #include <stdint.h>
+#endif
 
 #endif

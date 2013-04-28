@@ -106,6 +106,16 @@ static const crc_t crc_table[256] = {
 };
 
 /**
+ * Calculate the initial crc value.
+ *
+ * \return     The initial crc value.
+ *****************************************************************************/
+crc_t crc_init(void)
+{
+    return 0xffffffff;
+}
+
+/**
  * Reflect all bits of a \a data word of \a data_len bytes.
  *
  * \param data         The data word to be reflected.
@@ -148,4 +158,14 @@ crc_t crc_update(crc_t crc, const unsigned char *data, size_t data_len)
 }
 
 
+/**
+ * Calculate the final crc value.
+ *
+ * \param crc  The current crc value.
+ * \return     The final crc value.
+ *****************************************************************************/
+crc_t crc_finalize(crc_t crc)
+{
+    return crc ^ 0xffffffff;
+}
 

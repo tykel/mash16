@@ -24,6 +24,8 @@
 
 int read_header(ch16_header* header, uint32_t size, uint8_t* data)
 {
+    crc_t crc;
+    
     if(header->magic != 0x36314843)
     {
         fprintf(stderr,"Invalid magic number\n");
@@ -43,7 +45,7 @@ int read_header(ch16_header* header, uint32_t size, uint8_t* data)
                 header->rom_size, (uint32_t)(size - sizeof(ch16_header)));
         return 0;
     }
-    crc_t crc = crc_init();
+    crc = crc_init();
     crc = crc_update(crc,data,size-sizeof(ch16_header));
     crc = crc_finalize(crc);
     if(header->crc32_sum != crc)
