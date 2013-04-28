@@ -6,9 +6,9 @@
 
 CC = gcc
 WIN_CC = i486-mingw32-gcc
-VERSION = \"$(shell git describe --abbrev=0)\"
+VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c3- | rev | cut -c2- | rev)
-TAG = \"$(shell git rev-parse HEAD | cut -c-7)\"
+TAG = \"$(shell git rev-parse --short HEAD)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl)
 CFLAGS = -O2 -Wall -ansi -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
 WIN_CFLAGS = $(CFLAGS) -mwindows
@@ -75,5 +75,7 @@ uninstall:
 	fi
 
 clean:
-	rm -f $(OBJECTS) $(WIN_OBJECTS)
-	rm -f mash16 mash16.exe
+	@echo "Removing object files..."
+	@rm -f $(OBJECTS) $(WIN_OBJECTS)
+	@echo "Removing executable..."
+	@rm -f mash16 mash16.exe
