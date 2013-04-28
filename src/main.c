@@ -38,7 +38,7 @@ int use_verbose;
 static program_opts opts;
 static cpu_state* state;
 static SDL_Surface* screen;
-static char strfps[100] = {0};
+static char strfps[256];
 
 
 /* Timing variables. */
@@ -234,7 +234,7 @@ void emulation_loop()
                 printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
 #endif
             /* Update the caption. */
-            snprintf(strfps,100,"mash16 (%d fps) - %s",fps,opts.filename);
+            sprintf(strfps,"mash16 (%d fps) - %s",fps,opts.filename);
             SDL_WM_SetCaption(strfps, NULL);
             /* Reset timing info. */
             lastsec = t;
@@ -321,7 +321,7 @@ int main(int argc, char* argv[])
 
     /* Read our rom file into memory */
     buf = NULL;
-    if(!(buf = calloc(MEM_SIZE+sizeof(ch16_header),1)))
+    if(!(buf = (uint8_t *)calloc(MEM_SIZE+sizeof(ch16_header),1)))
     {
         fprintf(stderr,"error: calloc failed (buf)\n");
         exit(1);
@@ -361,7 +361,7 @@ int main(int argc, char* argv[])
 
     /* Get a buffer without header. */
     mem = NULL;
-    if(!(mem = malloc(MEM_SIZE)))
+    if(!(mem = (uint8_t *)malloc(MEM_SIZE)))
     {
         fprintf(stderr,"error: malloc failed (mem)\n");
         exit(1);
@@ -394,7 +394,7 @@ int main(int argc, char* argv[])
                 screen->w,screen->h,screen->format->BitsPerPixel,
                 opts.use_fullscreen?" (fullscreen)":"");
 
-    snprintf(strfps,100,"mash16 - %s",opts.filename);
+    sprintf(strfps,"mash16 - %s",opts.filename);
     SDL_WM_SetCaption(strfps,NULL);
 
     /* Initialise the chip16 processor state. */

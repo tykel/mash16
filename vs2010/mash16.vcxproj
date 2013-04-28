@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>*</ProjectGuid>
+    <ProjectGuid>{CFA90349-59A3-4FA7-8BF2-8F2084BECD6C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>mash16</RootNamespace>
   </PropertyGroup>
@@ -44,6 +44,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <TargetName>mash16</TargetName>
+    <IncludePath>C:\SDL-1.2.15\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\SDL-1.2.15\lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -74,6 +76,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalDependencies>SDL.lib;SDLmain.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -85,6 +88,7 @@
     <ClCompile Include="..\src\core\cpu_ops.c" />
     <ClCompile Include="..\src\core\gpu.c" />
     <ClCompile Include="..\src\core\audio.c" />
+    <ClCompile Include="..\src\strings.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\consts.h" />
@@ -94,6 +98,7 @@
     <ClInclude Include="..\src\core\cpu.h" />
     <ClInclude Include="..\src\core\gpu.h" />
     <ClInclude Include="..\src\core\audio.h" />
+    <ClInclude Include="..\src\strings.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
