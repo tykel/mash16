@@ -39,6 +39,9 @@
     <ClCompile Include="..\src\core\audio.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\strings.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\consts.h">
@@ -50,17 +53,20 @@
     <ClInclude Include="..\src\header\header.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\header\crc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\src\core\cpu.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClCompile Include="..\src\core\gpu.h">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\core\audio.h">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <ClInclude Include="..\src\crc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\gpu.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\core\audio.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\strings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

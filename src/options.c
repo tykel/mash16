@@ -61,7 +61,7 @@ int read_palette(char const *filename, uint32_t *palette)
 
 void options_parse(int argc, char** argv, program_opts* opts)
 {
-    int i;
+    int i, len;
     
     if(argc < 2)
     {
@@ -85,7 +85,13 @@ void options_parse(int argc, char** argv, program_opts* opts)
         exit(0);
     }
     
-    opts->filename = argv[1];
+	len = strlen(argv[1]);
+    if(len > 235)
+	{
+		fprintf(stderr,"error: filename too long (%d chars., max. 235), exiting...\n",len);
+		exit(1);
+	}
+	opts->filename = argv[1];
     if(argc > 2)
     {
         for(i=2; i<argc; ++i)
