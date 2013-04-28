@@ -381,6 +381,11 @@ int main(int argc, char* argv[])
     }
     atexit(SDL_Quit);
    
+#ifdef _MSC_VER
+	freopen("CON","w",stdout);
+	freopen("CON","w",stderr);
+#endif
+
     video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
     if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,video_flags)) == NULL)
     {
