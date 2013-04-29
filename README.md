@@ -2,7 +2,7 @@
 
 ## Summary
 
-Mash16 is an emulator for the [Chip16](http;//github.com/tykel/chip16) platform, which aims to make writing
+Mash16 is an emulator for the [Chip16](http://github.com/tykel/chip16) platform, which aims to make writing
 emulators easier for beginners.
 
 It is one of the reference emulators, and hence supports the full instruction set.
