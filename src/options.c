@@ -70,8 +70,8 @@ void options_parse(int argc, char** argv, program_opts* opts)
     }
     else if(!strncmp(argv[1],"--help",MAX_STRING))
     {
-        printf(str_help[0]);
-        printf(str_help[1]);
+        printf("%s",str_help[0]);
+        printf("%s",str_help[1]);
         exit(0);
     }
     else if(!strncmp(argv[1],"--version",MAX_STRING))
@@ -243,8 +243,8 @@ void options_parse(int argc, char** argv, program_opts* opts)
             }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {
-                printf(str_help[0]);
-                printf(str_help[1]);
+                printf("%s",str_help[0]);
+                printf("%s",str_help[1]);
             }
             else if(!strncmp(argv[i],"--version",MAX_STRING))
             {

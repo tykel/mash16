@@ -7,10 +7,10 @@
 CC = gcc
 WIN_CC = i486-mingw32-gcc
 VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
-VERSION_NQ = $(shell echo $(VERSION) | cut -c3- | rev | cut -c2- | rev)
+VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl)
-CFLAGS = -O2 -Wall -ansi -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
+CFLAGS = -O2 -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
 WIN_CFLAGS = $(CFLAGS) 
 SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl)
 LDFLAGS = $(SDL_LDFLAGS)
@@ -49,9 +49,14 @@ $(OBJ)/%.obj: $(SRC)/%.c
 	$(WIN_CC) -c $(WIN_CFLAGS) $< -o $@
 
 archive: mash16
-	tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ)-src.tar.gz $(TAR_SOURCES)
-	tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ).tar.gz mash16 README.md
-	test -e mash16.exe && zip $(ARCHIVE)/mash16-$(VERSION_NQ).zip mash16.exe README.md
+	@echo "creating mash16-$(VERSION_NQ)-src.tar.gz"
+	@tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ)-src.tar.gz $(TAR_SOURCES)
+	@echo "creating mash16-$(VERSION_NQ).tar.gz"
+	@tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ).tar.gz mash16 README.md
+	@if test -e mash16.exe; then \
+		echo "creating mash16-$(VERSION_NQ).zip"; \
+		zip $(ARCHIVE)/mash16-$(VERSION_NQ).zip mash16.exe README.md; \
+	fi
 
 
 install: mash16
