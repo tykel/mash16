@@ -92,7 +92,8 @@ void print_state(cpu_state* state)
     printf(" ]\n--------------------------------------------------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
-    printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %08x |\n",state->sw,state->sh,state->bgc,state->i.dword);
+    printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %08x |\n",
+        state->sw,state->sh,state->bgc,state->i.dword);
     printf("--------------------------------------------------------------\n");
     for(i=0; i<4; ++i)
         printf("| r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d |\n",
@@ -172,7 +173,11 @@ void emulation_loop()
     int i;
     SDL_Event evt;
     
-    if(!paused)
+    if(paused)
+    {
+        SDL_Delay(FRAME_DT);
+    }
+    else
     {
         /* If using strict emulation, limit to 1M cycles / sec. */
         if(opts.use_cpu_limit)
@@ -241,8 +246,7 @@ void emulation_loop()
             fps = 0;
         }
     }
-    else
-        SDL_Delay(FRAME_DT);
+        
     /* Handle input. */
     while(SDL_PollEvent(&evt))
     {
