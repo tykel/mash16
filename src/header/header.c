@@ -51,7 +51,7 @@ int read_header(ch16_header* header, uint32_t size, uint8_t* data)
     if(header->crc32_sum != crc)
     {
         fprintf(stderr,"Incorrect CRC32 checksum\n");
-        fprintf(stderr,"Found: 0x%x, Expected: 0x%x\n",
+        fprintf(stderr,"Found: 0x%08x, Expected: 0x%08x\n",
                 header->crc32_sum, crc);
         return 0;
     }

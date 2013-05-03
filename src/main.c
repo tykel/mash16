@@ -351,7 +351,7 @@ int main(int argc, char* argv[])
             printf("> spec. version:  %d.%d\n",h->spec_ver>>4,h->spec_ver&0x0f);
             printf("> rom size:       %d B\n",h->rom_size);
             printf("> start address:  0x%04x\n",h->start_addr);
-            printf("> crc32 checksum: 0x%8x\n",h->crc32_sum);
+            printf("> crc32 checksum: 0x%08x\n",h->crc32_sum);
         }
     }
     else if(opts.use_verbose)
