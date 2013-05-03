@@ -10,7 +10,7 @@ VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl)
-CFLAGS = -O2 -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
+CFLAGS = -O0 -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
 WIN_CFLAGS = $(CFLAGS) 
 SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl)
 LDFLAGS = $(SDL_LDFLAGS)
