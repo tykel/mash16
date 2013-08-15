@@ -40,12 +40,14 @@ mash16: $(OBJECTS)
 	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
 
 $(OBJ)/%.o: $(SRC)/%.c
+	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 mash16.exe: $(WIN_OBJECTS)
 	$(WIN_CC) $(WIN_OBJECTS) $(WIN_LDFLAGS) -o $@
 
 $(OBJ)/%.obj: $(SRC)/%.c
+	@mkdir -p $(@D)
 	$(WIN_CC) -c $(WIN_CFLAGS) $< -o $@
 
 archive: mash16
