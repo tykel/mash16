@@ -45,6 +45,7 @@ void op_cls(cpu_state* state)
 {
     memset(state->vm,0,320*240);
     state->meta.type = OP_NONE;
+    state->bgc = 0;
 }
 
 void op_vblnk(cpu_state* state)
