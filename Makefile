@@ -5,7 +5,7 @@
 # Common definitions
 
 CC = gcc
-WIN_PREFIX = i486-mingw32
+WIN_PREFIX = $(shell ls /usr/bin | grep mingw32 | tail -1 | rev | cut -d- -f2- | rev)
 WIN_CC = $(WIN_PREFIX)-gcc
 VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
@@ -34,8 +34,8 @@ TAR_SOURCES = $(SRC) $(DOC) vs2010 INSTALL LICENSE Makefile README.md
 .PHONY: all clean archive install uninstall windows win
 
 all: mash16 
+win: windows 
 windows: mash16.exe
-win: mash16.exe
 
 mash16: $(OBJECTS)
 	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
@@ -48,6 +48,11 @@ mash16.exe: $(WIN_OBJECTS)
 	$(WIN_CC) $(WIN_OBJECTS) $(WIN_LDFLAGS) -o $@
 
 $(OBJ)/%.obj: $(SRC)/%.c
+ifeq ($(WIN_CC),-gcc)
+	@echo No MinGW installation found.
+	@echo Please specify the prefix with the WIN_PREFIX variable, or install MinGW on your system.
+	@false
+endif
 	@mkdir -p $(@D)
 	$(WIN_CC) -c $(WIN_CFLAGS) $< -o $@
 
