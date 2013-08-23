@@ -5,7 +5,8 @@
 # Common definitions
 
 CC = gcc
-WIN_CC = i486-mingw32-gcc
+WIN_PREFIX = i486-mingw32
+WIN_CC = $(WIN_PREFIX)-gcc
 VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
