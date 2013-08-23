@@ -51,7 +51,7 @@ void print_state(cpu_state* state)
     int i;
 
     printf("state @ cycle %ld:",state->meta.target_cycles);
-    printf("    [ %s%s ", str_ops[i_op(state->i)],
+    printf("   %04x [ %s%s ", state->pc-4, str_ops[i_op(state->i)],
             i_op(state->i)==0x12 || i_op(state->i)==0x17 ? str_cond[i_yx(state->i)&0xf]:"");
     switch(state->meta.type)
     {
@@ -191,7 +191,7 @@ void emulation_loop()
                 {
                     for(i=0; i<opts.num_breakpoints; ++i)
                     {
-                        if(state->pc == opts.breakpoints[i])
+                        if(state->pc-4 == opts.breakpoints[i])
                             paused = 1;
                     }
                 }
