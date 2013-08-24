@@ -294,6 +294,12 @@ int main(int argc, char* argv[])
     int i, len, use_header, sdl_flags, video_flags;
     uint8_t *buf, *mem;
 
+    /* Ensure STDIO goes to the terminal in Windows. */
+#ifdef _WIN32
+    freopen( "CON", "w", stdout );
+    freopen( "CON", "w", stderr );
+#endif
+
     /* Set up default options, then read them from the command line. */
     opts.filename = NULL;
     opts.pal_filename = NULL;
@@ -384,11 +390,6 @@ int main(int argc, char* argv[])
         exit(1);
     }
     atexit(SDL_Quit);
-   
-#ifdef _MSC_VER
-	freopen("CON","w",stdout);
-	freopen("CON","w",stderr);
-#endif
 
     video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
     if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,video_flags)) == NULL)
