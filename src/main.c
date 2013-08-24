@@ -116,7 +116,7 @@ int verify_header(uint8_t* bin, int len)
 /* Return length of file if success; otherwise 0 */
 int read_file(char* fp, uint8_t* buf)
 {
-    int len;
+    int len, read;
     FILE* romf;
     
     romf = fopen(fp,"rb");
@@ -127,9 +127,10 @@ int read_file(char* fp, uint8_t* buf)
     len = ftell(romf);
     fseek(romf,0,SEEK_SET);
 
-    fread(buf,sizeof(uint8_t),len,romf);
+    read = fread(buf,sizeof(uint8_t),len,romf);
     fclose(romf);
-    return len;
+    
+    return (read == len) ? len : 0;
 }
 
 /* Sanitize the input. */
@@ -233,11 +234,6 @@ void emulation_loop()
         /* Update the FPS counter after every second, or second's worth of frames. */
         if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
         {
-            /* Output debug info. */
-#if 0
-            if(opts.use_verbose)
-                printf("1 second processed in %d ms (%d fps)\n",t-lastsec,fps);
-#endif
             /* Update the caption. */
             sprintf(strfps,"mash16 (%d fps) - %s",fps,opts.filename);
             SDL_WM_SetCaption(strfps, NULL);
