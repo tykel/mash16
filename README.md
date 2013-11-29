@@ -15,7 +15,7 @@ The user is encouraged to read the source code.
 
 ## Features
 
-- Full support of the latest (1.2) Chip16 specification
+- Full support of the latest (1.3) Chip16 specification
 - Debugging functionality (breakpoints, stepping, state viewing)
 - Multiple video scalers
 - Unrestricted emulation speed possible
