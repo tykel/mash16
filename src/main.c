@@ -51,7 +51,7 @@ void print_state(cpu_state* state)
     int i;
 
     printf("state @ cycle %ld:",state->meta.target_cycles);
-    printf("   %04x [ %s%s ", state->pc-4, str_ops[i_op(state->i)],
+    printf("   %04x [ %s%s ", state->meta.old_pc, str_ops[i_op(state->i)],
             i_op(state->i)==0x12 || i_op(state->i)==0x17 ? str_cond[i_yx(state->i)&0xf]:"");
     switch(state->meta.type)
     {
@@ -283,6 +283,7 @@ void emulation_loop()
     /* Reset vblank flag. */
     state->meta.wait_vblnk = 0;
     state->meta.cycles = 0;
+    state->meta.old_pc = state->pc;
 }
 
 int main(int argc, char* argv[])

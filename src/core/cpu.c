@@ -37,6 +37,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
         fprintf(stderr,"error: calloc failed (state)\n");
         exit(1);
     }
+    (*state)->meta.old_pc = 0;
     (*state)->m = mem;
     if(!((*state)->vm = calloc(320*240,1)))
     {
@@ -115,6 +116,12 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     op_table[0xa0] = &op_divi;
     op_table[0xa1] = &op_div_r2;
     op_table[0xa2] = &op_div_r3;
+    op_table[0xa3] = &op_modi;
+    op_table[0xa4] = &op_mod_r2;
+    op_table[0xa5] = &op_mod_r3;
+    op_table[0xa6] = &op_remi;
+    op_table[0xa7] = &op_rem_r2;
+    op_table[0xa8] = &op_rem_r3;
     op_table[0xb0] = &op_shl_n;
     op_table[0xb1] = &op_shr_n;
     op_table[0xb2] = &op_sar_n;
@@ -129,6 +136,12 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     op_table[0xc5] = &op_popf;
     op_table[0xd0] = &op_pal_imm;
     op_table[0xd1] = &op_pal_r;
+    op_table[0xe0] = &op_noti;
+    op_table[0xe1] = &op_not_r;
+    op_table[0xe2] = &op_not_r2;
+    op_table[0xe3] = &op_negi;
+    op_table[0xe4] = &op_neg_r;
+    op_table[0xe5] = &op_neg_r2;
 
     /* Load default palette. */
     init_pal(*state);

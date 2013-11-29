@@ -96,6 +96,7 @@ typedef struct cpu_meta
     long target_cycles;
     int wait_vblnk;
     instr_type type;
+    uint16_t old_pc;
 
 } cpu_meta;
 
@@ -202,6 +203,12 @@ void op_mul_r3(cpu_state*);
 void op_divi(cpu_state*);
 void op_div_r2(cpu_state*);
 void op_div_r3(cpu_state*);
+void op_modi(cpu_state*);
+void op_mod_r2(cpu_state*);
+void op_mod_r3(cpu_state*);
+void op_remi(cpu_state*);
+void op_rem_r2(cpu_state*);
+void op_rem_r3(cpu_state*);
 void op_shl_n(cpu_state*);
 void op_shr_n(cpu_state*);
 void op_sar_n(cpu_state*);
@@ -216,6 +223,12 @@ void op_pushf(cpu_state*);
 void op_popf(cpu_state*);
 void op_pal_imm(cpu_state*);
 void op_pal_r(cpu_state*);
+void op_noti(cpu_state*);
+void op_not_r(cpu_state*);
+void op_not_r2(cpu_state*);
+void op_negi(cpu_state*);
+void op_neg_r(cpu_state*);
+void op_neg_r2(cpu_state*);
 /* Generate the flags for the arithmetic instructions. */
 void flags_add(int16_t,int16_t,cpu_state*);
 void flags_sub(int16_t,int16_t,cpu_state*);
@@ -224,9 +237,13 @@ void flags_or(int16_t,int16_t,cpu_state*);
 void flags_xor(int16_t,int16_t,cpu_state*);
 void flags_mul(int16_t,int16_t,cpu_state*);
 void flags_div(int16_t,int16_t,cpu_state*);
+void flags_mod(int16_t,int16_t,cpu_state*);
+void flags_rem(int16_t,int16_t,cpu_state*);
 void flags_shl(int16_t,int16_t,cpu_state*);
 void flags_shr(uint16_t,int16_t,cpu_state*);
 void flags_sar(int16_t,int16_t,cpu_state*);
+void flags_not(int16_t,cpu_state*);
+void flags_neg(int16_t,cpu_state*);
 /* Test the current jump/call conditional. */
 int test_cond(cpu_state*);
 

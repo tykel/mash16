@@ -629,6 +629,75 @@ void op_div_r3(cpu_state* state)
     state->meta.type = OP_R_R_R;
 }
 
+void op_modi(cpu_state* state)
+{
+    int16_t *rx, imm, rem;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
+    flags_mod(*rx,imm,state);
+    rem = *rx % imm;
+    *rx = (rem < 0) ? rem + imm : rem;
+    state->meta.type = OP_R_HHLL;
+}
+
+void op_mod_r2(cpu_state* state)
+{
+    int16_t *rx, ry, rem;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
+    flags_mod(*rx,ry,state);
+    rem = *rx % ry;
+    *rx = (rem < 0) ? rem + ry : rem;
+    state->meta.type = OP_R_R;
+}
+
+void op_mod_r3(cpu_state* state)
+{
+    int16_t rx, ry, rem;
+
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
+    flags_mod(rx,ry,state);
+    rem = rx % ry;
+    state->r[i_z(state->i)] = (rem < 0) ? rem + ry : rem;
+    state->meta.type = OP_R_R_R;
+}
+
+void op_remi(cpu_state* state)
+{
+    int16_t *rx, imm;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
+    flags_rem(*rx,imm,state);
+    *rx %= imm;
+    state->meta.type = OP_R_HHLL;
+}
+
+void op_rem_r2(cpu_state* state)
+{
+    int16_t *rx, ry;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
+    flags_rem(*rx,ry,state);
+    *rx %= ry;
+    state->meta.type = OP_R_R;
+}
+
+void op_rem_r3(cpu_state* state)
+{
+    int16_t rx, ry;
+
+    rx = state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
+    flags_rem(rx,ry,state);
+    state->r[i_z(state->i)] = rx % ry; 
+    state->meta.type = OP_R_R_R;
+}
+
 void op_shl_n(cpu_state* state)
 {
     int16_t *rx, n;
@@ -767,6 +836,70 @@ void op_pal_r(cpu_state* state)
     state->meta.type = OP_R;
 }
 
+void op_noti(cpu_state* state)
+{
+    int16_t *rx, imm;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
+    flags_not(imm,state);
+    *rx = ~imm;
+    state->meta.type = OP_R_HHLL;
+}
+
+void op_not_r(cpu_state* state)
+{
+    int16_t *rx;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    flags_not(*rx,state);
+    *rx = ~*rx;
+    state->meta.type = OP_R;
+}
+
+void op_not_r2(cpu_state* state)
+{
+    int16_t *rx, ry;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
+    flags_not(ry,state);
+    *rx = ~ry;
+    state->meta.type = OP_R_R;
+}
+
+void op_negi(cpu_state* state)
+{
+    int16_t *rx, imm;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    imm = i_hhll(state->i);
+    flags_neg(imm,state);
+    *rx = -imm;
+    state->meta.type = OP_R_HHLL;
+}
+
+void op_neg_r(cpu_state* state)
+{
+    int16_t *rx;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    flags_neg(*rx,state);
+    *rx = -*rx;
+    state->meta.type = OP_R;
+}
+
+void op_neg_r2(cpu_state* state)
+{
+    int16_t *rx, ry;
+
+    rx = &state->r[i_yx(state->i) & 0x0f];
+    ry = state->r[i_yx(state->i) >> 4];
+    flags_neg(ry,state);
+    *rx = -ry;
+    state->meta.type = OP_R_R;
+}
+
 /* Flag computing functions. */
 void flags_add(int16_t x, int16_t y, cpu_state* state)
 {
@@ -855,6 +988,29 @@ void flags_div(int16_t x, int16_t y, cpu_state* state)
         state->f.n = 1;
 }
 
+void flags_mod(int16_t x, int16_t y, cpu_state* state)
+{
+    int16_t res, rem;
+
+    rem = x % y;
+    res = rem < 0 ? rem + y : rem;
+    memset(&state->f,0,sizeof(flags));
+    if(!res)
+        state->f.z = 1;
+    if(res < 0)
+        state->f.n = 1;
+}
+
+void flags_rem(int16_t x, int16_t y, cpu_state* state)
+{
+    int16_t rem = x % y;
+    memset(&state->f,0,sizeof(flags));
+    if(!rem)
+        state->f.z = 1;
+    if(rem < 0)
+        state->f.n = 1;
+}
+
 void flags_shl(int16_t x, int16_t y, cpu_state* state)
 {
     uint16_t res = (uint16_t)x << y;
@@ -878,6 +1034,26 @@ void flags_shr(uint16_t x, int16_t y, cpu_state* state)
 void flags_sar(int16_t x, int16_t y, cpu_state* state)
 {
     int16_t res = x >> y;
+    memset(&state->f,0,sizeof(flags));
+    if(!res)
+        state->f.z = 1;
+    if(res < 0)
+        state->f.n = 1;
+}
+
+void flags_not(int16_t x, cpu_state* state)
+{
+    int16_t res = ~x;
+    memset(&state->f,0,sizeof(flags));
+    if(!res)
+        state->f.z = 1;
+    if(res < 0)
+        state->f.n = 1;
+}
+
+void flags_neg(int16_t x, cpu_state* state)
+{
+    int16_t res = -x;
     memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
