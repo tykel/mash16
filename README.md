@@ -8,6 +8,8 @@ emulators easier for beginners.
 It is one of the reference emulators, and hence supports the full instruction set.
 The user is encouraged to read the source code.
 
+[Download here!](https://github.com/tykel/mash16/releases/latest)
+
 ## Screenshots
 
 ![Screenshot #1](http://i.imgur.com/hIDyxMAm.png) _ ![Screenshot #2](http://i.imgur.com/v6Y9fg1m.png)    
