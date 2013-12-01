@@ -14,7 +14,7 @@ SDL_CFLAGS = $(shell pkg-config --cflags sdl)
 CFLAGS = -O2 -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
 WIN_CFLAGS = $(CFLAGS) 
 SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl)
-LDFLAGS = $(SDL_LDFLAGS)
+LDFLAGS = -lm $(SDL_LDFLAGS)
 WIN_LDFLAGS = -lmingw32 $(LDFLAGS) 
 
 # Directories
@@ -57,6 +57,7 @@ endif
 	$(WIN_CC) -c $(WIN_CFLAGS) $< -o $@
 
 archive: mash16
+	@mkdir -p $(ARCHIVE)
 	@echo "creating mash16-$(VERSION_NQ)-src.tar.gz"
 	@tar -czf $(ARCHIVE)/mash16-$(VERSION_NQ)-src.tar.gz $(TAR_SOURCES)
 	@echo "creating mash16-$(VERSION_NQ).tar.gz"

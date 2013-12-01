@@ -28,6 +28,8 @@ extern int use_verbose;
 #include <stdio.h>
 #include <time.h>
 
+#define mod(x, y) ((((x)%(y))+(y))%(y))
+
  /* CPU instructions. */
 void op_error(cpu_state* state)
 {
@@ -631,37 +633,34 @@ void op_div_r3(cpu_state* state)
 
 void op_modi(cpu_state* state)
 {
-    int16_t *rx, imm, rem;
+    int16_t *rx, imm;
 
     rx = &state->r[i_yx(state->i) & 0x0f];
     imm = i_hhll(state->i);
     flags_mod(*rx,imm,state);
-    rem = *rx % imm;
-    *rx = (rem < 0) ? rem + imm : rem;
+    *rx = mod(*rx,imm);
     state->meta.type = OP_R_HHLL;
 }
 
 void op_mod_r2(cpu_state* state)
 {
-    int16_t *rx, ry, rem;
+    int16_t *rx, ry;
 
     rx = &state->r[i_yx(state->i) & 0x0f];
     ry = state->r[i_yx(state->i) >> 4];
     flags_mod(*rx,ry,state);
-    rem = *rx % ry;
-    *rx = (rem < 0) ? rem + ry : rem;
+    *rx = mod(*rx,ry);
     state->meta.type = OP_R_R;
 }
 
 void op_mod_r3(cpu_state* state)
 {
-    int16_t rx, ry, rem;
+    int16_t rx, ry;
 
     rx = state->r[i_yx(state->i) & 0x0f];
     ry = state->r[i_yx(state->i) >> 4];
     flags_mod(rx,ry,state);
-    rem = rx % ry;
-    state->r[i_z(state->i)] = (rem < 0) ? rem + ry : rem;
+    state->r[i_z(state->i)] = mod(rx,ry);
     state->meta.type = OP_R_R_R;
 }
 
@@ -990,10 +989,9 @@ void flags_div(int16_t x, int16_t y, cpu_state* state)
 
 void flags_mod(int16_t x, int16_t y, cpu_state* state)
 {
-    int16_t res, rem;
+    int16_t res;
 
-    rem = x % y;
-    res = rem < 0 ? rem + y : rem;
+    res = mod(x,y);
     memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
