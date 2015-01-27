@@ -78,7 +78,7 @@ void op_drw_imm(cpu_state* state)
     state->f.c = op_drw(&state->m[i_hhll(state->i)],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
-    state->meta.type = OP_R_HHLL;
+    state->meta.type = OP_R_R_HHLL;
 }
 
 void op_drw_r(cpu_state* state)
@@ -90,7 +90,7 @@ void op_drw_r(cpu_state* state)
     state->f.c = op_drw(&state->m[(uint16_t)state->r[i_z(state->i)]],
         state->vm, x, y, state->sw, state->sh,
         state->fx, state->fy);
-    state->meta.type = OP_R;
+    state->meta.type = OP_R_R_R;
 }
 
 int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)

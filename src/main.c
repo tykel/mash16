@@ -79,6 +79,9 @@ void print_state(cpu_state* state)
         case OP_R_HHLL:
             printf("r%x, $%04x",i_yx(state->i)&0xf, i_hhll(state->i));
             break;
+        case OP_R_R_HHLL:
+            printf("r%x, r%x, $%04x",i_yx(state->i)&0xf, i_yx(state->i) >> 4, i_hhll(state->i));
+            break;
         case OP_HHLL_HHLL:
             printf("$%02x, $%04x",i_yx(state->i),i_hhll(state->i));
             break;
@@ -92,8 +95,8 @@ void print_state(cpu_state* state)
     printf(" ]\n--------------------------------------------------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
-    printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %08x |\n",
-        state->sw,state->sh,state->bgc,state->i.dword);
+    printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %02x%02x%02x%02x |\n",
+        state->sw,state->sh,state->bgc,i_op(state->i),i_yx(state->i),i_z(state->i),i_res(state->i));
     printf("--------------------------------------------------------------\n");
     for(i=0; i<4; ++i)
         printf("| r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d |\n",
