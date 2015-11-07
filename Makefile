@@ -5,17 +5,18 @@
 # Common definitions
 
 CC = gcc
-WIN_PREFIX = $(shell ls /usr/bin | grep mingw32 | tail -1 | rev | cut -d- -f2- | rev)
+WIN_PREFIX = $(shell ls /usr/bin | grep mingw32 | grep '86-' | tail -1 | rev | cut -d- -f2- | rev)
 WIN_CC = $(WIN_PREFIX)-gcc
 VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl)
-CFLAGS = -O2 -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
-WIN_CFLAGS = $(CFLAGS) 
+CFLAGS = -O0 -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
+#WIN_CFLAGS = $(CFLAGS) -I/home/tim/Downloads/SDL-1.2.15/include -I/usr/include 
+WIN_CFLAGS = -O0 -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) -I/usr/local/cross-tools/$(WIN_PREFIX)/include $(shell /usr/local/cross-tools/$(WIN_PREFIX)/bin/sdl-config --cflags)
 SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl)
 LDFLAGS = -lm $(SDL_LDFLAGS)
-WIN_LDFLAGS = -lmingw32 $(LDFLAGS) 
+WIN_LDFLAGS = $(shell /usr/local/cross-tools/$(WIN_PREFIX)/bin/sdl-config --libs)
 
 # Directories
 

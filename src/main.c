@@ -46,6 +46,9 @@ static int t = 0, oldt = 0;
 static int fps = 0, lastsec = 0;
 static int stop = 0, paused = 0;
 
+/* State printing options. */
+static int hex = 1;
+
 void print_state(cpu_state* state)
 {
     int i;
@@ -99,8 +102,17 @@ void print_state(cpu_state* state)
         state->sw,state->sh,state->bgc,i_op(state->i),i_yx(state->i),i_z(state->i),i_res(state->i));
     printf("--------------------------------------------------------------\n");
     for(i=0; i<4; ++i)
-        printf("| r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d |\n",
-            i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
+    {
+        if(hex)
+            printf("| r%x: 0x%04x   |  r%x: 0x%04x   |  r%x: 0x%04x   |  r%x: 0x%04x |\n",
+                   i,((uint16_t*)state->r)[i],
+                   i+4,((uint16_t*)state->r)[i+4],
+                   i+8,((uint16_t*)state->r)[i+8],
+                   i+12,((uint16_t*)state->r)[i+12]);
+        else
+            printf("| r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d   |  r%x: % 6d |\n",
+                   i,state->r[i],i+4,state->r[i+4],i+8,state->r[i+8],i+12,state->r[i+12]);
+    }
     printf("--------------------------------------------------------------\n");
 }
 
@@ -266,6 +278,11 @@ void emulation_loop()
                 else if(evt.key.keysym.sym == SDLK_n && paused)
                 {
                     cpu_step(state);
+                    print_state(state);
+                }
+                else if(evt.key.keysym.sym == SDLK_h && paused)
+                {
+                    hex = !hex;
                     print_state(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_ESCAPE)
