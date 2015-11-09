@@ -16,6 +16,9 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef _JIT_H_
+#define _JIT_H_
+
 #include <stdint.h>
 
 #define CACHE_BUFSZ (64*1024)
@@ -23,13 +26,13 @@
 
 typedef int (*recblk_fn)(void);
 
-typedef struct jit_cpu_state
+typedef struct jit_var
 {
-    int pc;
-    int wait_vblnk;
-    int sw, sh;
-    int bgc;
-} jit_cpu_state;
+    int in_reg;
+    int r;
+    uint16_t *p;
+    int age;
+} jit_var;
 
 typedef enum x64_regs
 {
@@ -43,27 +46,20 @@ typedef enum x64_rm
     disp32
 } x64_rm;
 
-uint8_t REX(uint8_t w, uint8_t r, uint8_t x, uint8_t b)
-{
-    return (0xc0 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b);
-}
+#define REX(w, r, x, b) (0xc0 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b)
 
-uint8_t REX_W() { return REX(1, 0, 0, 0); }
-uint8_t REX_WB() { return REX(1, 0, 0, 1); }
-uint8_t REX_WRB() { return REX(1, 1, 0, 1); }
-uint8_t REX_RB() { return REX(1, 0, 0, 1); }
-uint8_t REX_B() { return REX(0, 0, 0, 1); }
-
-uint8_t MODRM(uint8_t mod, uint8_t reg, uint8_t rm)
-{
-    return ((mod & 3) << 6) | ((reg & 7) << 3) | rm;
-}
+#define MODRM(mod, reg, rm) (((mod & 3) << 6) | ((reg & 7) << 3) | rm)
 
 void e_nop();
 void e_ret();
 void e_mov_r_r(uint8_t to, uint8_t from);
 void e_mov_r_imm32(uint8_t to, uint32_t from);
 void e_mov_m64_imm32(uint64_t to, uint32_t from);
+void e_mov_m64_imm16(uint64_t to, uint16_t from);
 void e_mov_r_m64(uint8_t to, uint64_t from);
 void e_mov_m64_r(uint64_t to, uint8_t from);
+void e_call(uint64_t addr);
+void e_and_r_imm32(uint8_t to, uint32_t from);
+
+#endif
 

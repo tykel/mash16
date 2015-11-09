@@ -50,11 +50,13 @@ typedef struct jit_buffer
  */
 jit_buffer bufmap[16*1024];
 
-jit_cpu_state s;
+jit_var vars[16];
+
+cpu_state s;
 
 void jit_init()
 {
-    memset(&s, 0, sizeof(jit_cpu_state));
+    memset(&s, 0, sizeof(cpu_state));
 }
 
 void jit_block_start()
@@ -79,15 +81,27 @@ void jit_block_end()
     // Calculate timing info now the block has been executed
 }
 
+int f_test(void) { return 321; }
+
+uint32_t dummy = 0x0000ffff;
+uint16_t canary = 0xffff;
+
 void jit_recompile()
 {
     int i;
+
     jit_block_start();
 
-    e_mov_r_imm32(rax, 123);
+    e_mov_m64_imm32((uint64_t)&dummy, 0xffff0000);
+    e_call((uint64_t)f_test);
     e_ret();
 
     jit_block_end();
+    
+    for(i = 0; i < (int)(p_cur - p_entry); i++)
+        printf("%02x ", p_entry[i]);
+    printf("\n");
+
     // Set PROT_EXEC on the memory pages so we can execute them.
     if(mprotect(p_entry, CACHE_BUFSZ, PROT_READ | PROT_EXEC) != 0) {
         fprintf(stderr, "error: failed to make JIT cache executable"
@@ -108,8 +122,10 @@ void jit_execute()
     entry = (recblk_fn) p_entry;
     // Begin executing code in JIT buffer.
     printf("result before: %d\n", result);
+    printf("dummy before: %08x, canary: %04x\n", dummy, canary);
     result = entry();
     printf("result after: %d\n", result);
+    printf("dummy before: %08x, canary: %04x\n", dummy, canary);
 }
 
 int main(int argc, char *argv[])
@@ -118,8 +134,51 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void jit_alloc_reg()
+void jit_inc_vages()
 {
+    int i;
+
+    for(i = 0; i < 16; i++) {
+        if(vars[i].in_reg)
+            vars[i].age++;
+        else
+            // Assume we allocate registers in order from 0..15
+            return;
+    }
+}
+
+jit_var* jit_get_loc(uint16_t *p)
+{
+    int i;
+    int age, ei;
+
+    for(i = 0; i < 16; i++) {
+        if(vars[i].p == p) {
+            return &vars[i];
+        }
+        // Unused register: make p use it and reset age
+        if(!vars[i].in_reg) {
+            vars[i].in_reg = 1;
+            vars[i].p = p;
+            vars[i].age = 0;
+            return &vars[i];
+        }
+    }
+    // p is not in a register: evict something and take its place
+    for(i = 0, age = -1, ei = 0; i < 16; i++) {
+        // Use a simple LRU scheme
+        if(vars[i].age > age) {
+            age = vars[i].age;
+            ei = i;
+        }
+    }
+    // Emit code to store the evicted register
+    e_mov_m64_r((uint64_t)vars[ei].p, vars[ei].r);
+    // Set the new pointer and reset age
+    vars[ei].p = p;
+    vars[ei].age = 0;
+    vars[ei].in_reg = 1;
+    return NULL;
 }
 
 void e_nop()
@@ -143,13 +202,25 @@ void e_mov_r_imm32(uint8_t to, uint32_t from)
 
 void e_mov_m64_imm32(uint64_t to, uint32_t from)
 {
-    *p_cur++ = REX(1, 0, 0, to & 0x8);        // REX
+    uint32_t dest = (uint32_t)(to - ((uint64_t)p_cur + 10));
     *p_cur++ = 0xc7;                           // MOV R64/imm16
     *p_cur++ = MODRM(0, 0, disp32);            // ModR/M
-    *(uint64_t *)p_cur = to;                 // m64
-    p_cur += sizeof(uint64_t);
+    *(uint32_t *)p_cur = dest;                 // m64
+    p_cur += sizeof(uint32_t);
     *(uint32_t *)p_cur = from;               // imm32
     p_cur += sizeof(uint32_t);
+}
+
+void e_mov_m64_imm16(uint64_t to, uint16_t from)
+{
+    uint32_t dest = (uint32_t)(to - ((uint64_t)p_cur + 9));
+    *p_cur++ = 0x66;
+    *p_cur++ = 0xc7;
+    *p_cur++ = MODRM(0, 0, disp32);
+    *(uint32_t *)p_cur = dest;
+    p_cur += sizeof(uint32_t);
+    *(uint16_t *)p_cur = from;
+    p_cur += sizeof(uint16_t);
 }
 
 void e_mov_r_m64(uint8_t to, uint64_t from)
@@ -170,7 +241,24 @@ void e_mov_m64_r(uint64_t to, uint8_t from)
     p_cur += sizeof(uint64_t);
 }
 
+void e_call(uint64_t addr)
+{
+    int32_t dest = (int32_t)(addr - ((uint64_t)p_cur + 5));
+    *p_cur++ = 0xe8;                            // CALL
+    *(int32_t *)p_cur = dest;                  // disp32
+    p_cur += sizeof(int32_t);
+}
+
 void e_ret()
 {
     *p_cur++ = 0xC3;                                        // RET
+}
+
+void e_and_r_imm32(uint8_t to, uint32_t from)
+{
+    *p_cur++ = REX(1, 0, 0, to & 0x8);
+    *p_cur++ = 0x81;
+    *p_cur++ = MODRM(3, 4, to);
+    *(uint32_t *)p_cur = from;
+    p_cur += sizeof(uint32_t);
 }
