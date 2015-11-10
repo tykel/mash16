@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <sys/mman.h>
 
+#include "../consts.h"
 #include "jit.h"
 #include "cpu.h"
 
@@ -35,7 +36,18 @@ static uint8_t* p_entry = NULL;
 /* Pointer to the next point in recompiled code buffer to emit to. */
 static uint8_t* p_cur = NULL;
 /* Counter for the number of instructions the block contains. */
-static int num_instrs = 0;
+static int num_insns = 0;
+/* Buffer of instruction structs for the block. */
+static jit_insn p_insns[16 * 1024];
+
+/* 
+ * We keep a copy of the value of rsp at the start of the recompiled block
+ * since it is used as a GPR.
+ */
+static uintptr_t preserved_rsp;
+
+typedef void (*jit_emit_fn)(cpu_state *s, jit_insn *i);
+jit_emit_fn jit_e[0x100];
 
 typedef struct jit_buffer
 {
@@ -57,6 +69,7 @@ cpu_state s;
 void jit_init()
 {
     memset(&s, 0, sizeof(cpu_state));
+    // TODO: Populate the jit_emit_fn table!!!
 }
 
 void jit_block_start()
@@ -72,13 +85,18 @@ void jit_block_start()
         ((uint64_t)(b->__unaligned_p + PAGESZ - 1) & ~(PAGESZ - 1));
     alloc_bytes += CACHE_BUFSZ;
     num_buffers += 1;
-    num_instrs = 0;
+    num_insns = 0;
     p_entry = p_cur = b->p;
 }
 
 void jit_block_end()
 {
     // Calculate timing info now the block has been executed
+}
+
+int jit_decode(uint8_t *p)
+{
+    return 0;
 }
 
 int f_test(void) { return 321; }
@@ -91,6 +109,16 @@ void jit_recompile()
     int i;
 
     jit_block_start();
+
+    jit_decode(s.m + s.pc);
+    jit_regs_alloc(p_insns, num_insns);
+    // Save the stack pointer so we can return 
+    e_mov_m64_r((uint64_t)&preserved_rsp, rsp);
+    //for(i = 0; i < num_insns; i++) {
+    //    jit_e[p_insns[i].op](&s, &p_insns[i]);
+    //}
+    // Restore the stack pointer
+    e_mov_r_m64(rsp, (uint64_t)&preserved_rsp);
 
     e_mov_m64_imm32((uint64_t)&dummy, 0xffff0000);
     e_call((uint64_t)f_test);
@@ -225,20 +253,24 @@ void e_mov_m64_imm16(uint64_t to, uint16_t from)
 
 void e_mov_r_m64(uint8_t to, uint64_t from)
 {
+    int32_t dest = (int32_t)(from - ((uint64_t)p_cur + 7));
+    printf("addr = %p, p_cur = %p, disp = %d\n", from, (p_cur+7), dest);
     *p_cur++ = REX(1, 0, 0, to & 0x8);        // REX
     *p_cur++ = 0x8b;                           // MOV R64/m64
     *p_cur++ = MODRM(0, to, disp32);           // ModR/M
-    *(uint64_t *)p_cur = from;               // imm64
-    p_cur += sizeof(uint64_t);
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(uint32_t);
 }
 
 void e_mov_m64_r(uint64_t to, uint8_t from)
 {
+    int32_t dest = (int32_t)(to - ((uint64_t)p_cur + 7));
+    printf("addr = %p, p_cur = %p, disp = %d\n", to, (p_cur+7), dest);
     *p_cur++ = REX(1, 0, 0, from & 0x8);      // REX
     *p_cur++ = 0x89;                           // MOV m64/R64
     *p_cur++ = MODRM(0, from, disp32);         // ModR/M
-    *(uint64_t *)p_cur = to;                 // imm64
-    p_cur += sizeof(uint64_t);
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(uint32_t);
 }
 
 void e_call(uint64_t addr)
@@ -261,4 +293,16 @@ void e_and_r_imm32(uint8_t to, uint32_t from)
     *p_cur++ = MODRM(3, 4, to);
     *(uint32_t *)p_cur = from;
     p_cur += sizeof(uint32_t);
+}
+
+void e_push(uint8_t to)
+{
+    *p_cur++ = REX(0, 0, 0, 1);
+    *p_cur++ = 0x50 + to;
+}
+
+void e_pop(uint8_t to)
+{
+    *p_cur++ = REX(0, 0, 0, 1);
+    *p_cur++ = 0x58 + to;
 }

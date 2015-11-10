@@ -26,6 +26,18 @@
 
 typedef int (*recblk_fn)(void);
 
+typedef struct jit_insn
+{
+    uint8_t op;
+    int has_regs;
+    uint8_t r_to;
+    int num_r_to;
+    int color_to;
+    uint8_t r_from[2];
+    int num_r_from;
+    int color_from[2];
+} jit_insn;
+
 typedef struct jit_var
 {
     int in_reg;
@@ -46,9 +58,12 @@ typedef enum x64_rm
     disp32
 } x64_rm;
 
-#define REX(w, r, x, b) (0xc0 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b)
+#define REX(w, r, x, b) (0x40 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b)
 
 #define MODRM(mod, reg, rm) (((mod & 3) << 6) | ((reg & 7) << 3) | rm)
+
+void jit_regs_init();
+void jit_regs_alloc(jit_insn *is, int num_insns);
 
 void e_nop();
 void e_ret();
@@ -60,6 +75,8 @@ void e_mov_r_m64(uint8_t to, uint64_t from);
 void e_mov_m64_r(uint64_t to, uint8_t from);
 void e_call(uint64_t addr);
 void e_and_r_imm32(uint8_t to, uint32_t from);
+void e_push(uint8_t to);
+void e_pop(uint8_t to);
 
 #endif
 
