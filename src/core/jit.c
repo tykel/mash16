@@ -215,6 +215,16 @@ void e_nop()
     *p_cur++ = 0x90;    // NOP op
 }
 
+void e_lea_r_m64(uint8_t to, uintptr_t from)
+{
+    int32_t dest = (int32_t)((uint64_t)from - (uint64_t)(p_cur + 6 + !!(to & 0x8)));
+    if(to & 0x8) *p_cur++ = REX(0, 0, 0, 1);
+    *p_cur++ = 0x8d;
+    *p_cur++ = MODRM(0, 0, disp32);
+    *(int32_t *)p_cur = dest;
+    p_cur += sizeof(int32_t);
+}
+
 void e_mov_r_r(uint8_t to, uint8_t from)
 {
     *p_cur++ = REX(1, 0, 0, to & 0x8);        // REX
@@ -246,27 +256,38 @@ void e_mov_r_imm32(uint8_t to, uint32_t from)
     p_cur += sizeof(uint32_t);
 }
 
-void e_mov_m64_imm32(uint64_t to, uint32_t from)
+void e_mov_m64_imm32(uint32_t *to, uint32_t from)
 {
-    uint32_t dest = (uint32_t)(to - ((uint64_t)p_cur + 10));
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 10));
     *p_cur++ = 0xc7;                           // MOV R64/imm16
     *p_cur++ = MODRM(0, 0, disp32);            // ModR/M
-    *(uint32_t *)p_cur = dest;                 // m64
+    *(int32_t *)p_cur = dest;                 // m64
     p_cur += sizeof(uint32_t);
     *(uint32_t *)p_cur = from;               // imm32
     p_cur += sizeof(uint32_t);
 }
 
-void e_mov_m64_imm16(uint64_t to, uint16_t from)
+void e_mov_m64_imm16(uint16_t *to, uint16_t from)
 {
-    uint32_t dest = (uint32_t)(to - ((uint64_t)p_cur + 9));
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 9));
     *p_cur++ = 0x66;
     *p_cur++ = 0xc7;
     *p_cur++ = MODRM(0, 0, disp32);
-    *(uint32_t *)p_cur = dest;
+    *(int32_t *)p_cur = dest;
     p_cur += sizeof(uint32_t);
     *(uint16_t *)p_cur = from;
     p_cur += sizeof(uint16_t);
+}
+
+void e_mov_r_m8(uint8_t to, uint8_t *from)
+{
+    int32_t dest = (int32_t)((uint64_t)from -
+                             ((uint64_t)p_cur + 6 + !!(to & 0x80)));
+    if(to & 0x8) *p_cur++ = REX(0, 1, 0, 0);
+    *p_cur++ = 0x8a;                           // MOV R64/m64
+    *p_cur++ = MODRM(0, to, disp32);           // ModR/M
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(uint32_t);
 }
 
 void e_mov_r_m16(uint8_t to, uint16_t *from)
@@ -292,9 +313,9 @@ void e_mov_r_m32(uint8_t to, uint32_t *from)
     p_cur += sizeof(uint32_t);
 }
 
-void e_mov_r_m64(uint8_t to, uint64_t from)
+void e_mov_r_m64(uint8_t to, uint64_t *from)
 {
-    int32_t dest = (int32_t)(from -
+    int32_t dest = (int32_t)((uint64_t)from -
                              ((uint64_t)p_cur + 6 + !!(to + 0x80)));
     if(to & 0x8) *p_cur++ = REX(1, 1, 0, 0);
     *p_cur++ = 0x8b;                           // MOV R64/m64
@@ -303,19 +324,40 @@ void e_mov_r_m64(uint8_t to, uint64_t from)
     p_cur += sizeof(uint32_t);
 }
 
-void e_mov_m64_r(uint64_t to, uint8_t from)
+void e_mov_m8_r(uint8_t* to, uint8_t from)
 {
-    int32_t dest = (int32_t)(to - ((uint64_t)p_cur + 7));
-    *p_cur++ = REX(1, 0, 0, from & 0x8);      // REX
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 6 + !!(from & 0x80)));
+    if(from & 0x8) *p_cur++ = REX(0, 1, 0, 0);      // REX
+    *p_cur++ = 0x88;                           // MOV m64/R64
+    *p_cur++ = MODRM(0, from, disp32);         // ModR/M
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(int32_t);
+}
+
+void e_mov_m16_r(uint16_t *to, uint8_t from)
+{
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 6 + !!(from & 0x80)));
+    *p_cur++ = 0x66;
+    if(from & 0x8) *p_cur++ = REX(0, 1, 0, 0);      // REX
+    *p_cur++ = 0x8b;                           // MOV m64/R64
+    *p_cur++ = MODRM(0, from, disp32);         // ModR/M
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(int32_t);
+}
+
+void e_mov_m64_r(uint64_t* to, uint8_t from)
+{
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 6 + !!(from & 0x80)));
+    if(from & 0x8) *p_cur++ = REX(1, 1, 0, 0);      // REX
     *p_cur++ = 0x89;                           // MOV m64/R64
     *p_cur++ = MODRM(0, from, disp32);         // ModR/M
     *(int32_t *)p_cur = dest;               // imm32
-    p_cur += sizeof(uint32_t);
+    p_cur += sizeof(int32_t);
 }
 
-void e_call(uint64_t addr)
+void e_call(uintptr_t addr)
 {
-    int32_t dest = (int32_t)(addr - ((uint64_t)p_cur + 5));
+    int32_t dest = (int32_t)((uint64_t)addr - ((uint64_t)p_cur + 5));
     *p_cur++ = 0xe8;                            // CALL
     *(int32_t *)p_cur = dest;                  // disp32
     p_cur += sizeof(int32_t);
@@ -328,21 +370,21 @@ void e_ret()
 
 void e_and_r_imm32(uint8_t to, uint32_t from)
 {
-    *p_cur++ = REX(1, 0, 0, to & 0x8);
+    if(to & 0x8) *p_cur++ = REX(1, 0, 0, 1);
     *p_cur++ = 0x81;
     *p_cur++ = MODRM(3, 4, to);
     *(uint32_t *)p_cur = from;
     p_cur += sizeof(uint32_t);
 }
 
-void e_push(uint8_t to)
+void e_push(uint8_t from)
 {
-    *p_cur++ = REX(0, 0, 0, 1);
-    *p_cur++ = 0x50 + to;
+    if(from & 0x8) *p_cur++ = REX(0, 0, 0, 1);
+    *p_cur++ = 0x50 + (from & 0x7);
 }
 
 void e_pop(uint8_t to)
 {
-    *p_cur++ = REX(0, 0, 0, 1);
-    *p_cur++ = 0x58 + to;
+    if(to & 0x8) *p_cur++ = REX(0, 0, 0, 1);
+    *p_cur++ = 0x58 + (to & 0x7);
 }

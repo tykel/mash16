@@ -31,27 +31,31 @@ void o_nop()
 
 void o_cls()
 {
-    e_mov_r_m64(rdi, (uint64_t)s.vm);
+    e_lea_r_m64(rdi, (uintptr_t)&s.vm);
     e_mov_r_imm32(rsi, 0);
     e_mov_r_imm32(rdx, 320*240);
     e_call((uint64_t)memset); // memset(s.vm, 0, 320*240);
-    e_mov_m64_imm32((uint64_t)&s.bgc, 0);
+    e_mov_r_imm8(rdi, 0);
+    e_mov_m8_r((uint8_t *)&s.bgc, rdi);
 }
 
 void o_vblnk()
 {
-    e_mov_m64_imm32((uint64_t)&s.meta.wait_vblnk, 0);
+    e_mov_m32_imm32((uint32_t *)&s.meta.wait_vblnk, 0);
 }
 
-void o_bgc(uint32_t i)
+void o_bgc()
 {
-    e_mov_m64_imm32((uint64_t)&s.bgc, i);
+    e_mov_r_m8(rax, (uint8_t *)&s.i + 3);
+    e_mov_m8_r((uint8_t *)&s.bgc, rax);
 }
 
-void o_spr(uint32_t sw, uint32_t sh)
+void o_spr()
 {
-    e_mov_m64_imm32((uint64_t)&s.sw, sw);
-    e_mov_m64_imm32((uint64_t)&s.sh, sh);
+    // Assuming the structures are packed, sw and sh are adjacent
+    // in memory and can be read/written in one go.
+    e_mov_r_m16(rax, (uint16_t *)&s.i + 2);
+    e_mov_m16_r((uint16_t *)&s.sw, rax);
 }
 
 void o_drw_imm(uint32_t x, uint32_t y)
@@ -59,7 +63,21 @@ void o_drw_imm(uint32_t x, uint32_t y)
 //    state->f.c = op_drw(&state->m[i_hhll(state->i)],
 //        state->vm, x, y, state->sw, state->sh,
 //        state->fx, state->fy);
-    e_mov_r_m64(rax, (uint64_t)(&s.i + 2*sizeof(uint8_t)));
+    e_lea_r_m64(rdi, (uint64_t)(&s.i + 2));
+    e_lea_r_m64(rbx, (uint64_t)s.m);
+    //TODO: e_lea_r_r_r(rdi, rbx, rdi);
+    e_lea_r_m64(rsi, (uintptr_t)s.vm);
+    e_mov_r_m8(rdx, (uint8_t *)&s.i + 1);
+    //TODO: e_and_r_imm16(rdx, 0x00ff);
+    //TODO: e_mov deref register
+    e_mov_r_m8(rcx, (uint8_t *)&s.i + 1);
+    //TODO: e_shr_r_imm8(rcx, 8);
+    //TODO: e_mov deref register
+    e_mov_r_m8(r8, &s.sw);
+    e_mov_r_m8(r9, &s.sh);
+    // s.fx goes on stack
+    // s.fy goes on stack
+    e_call((uintptr_t)op_drw);
 }
 
 

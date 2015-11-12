@@ -67,19 +67,24 @@ void jit_regs_alloc(jit_insn *is, int num_insns);
 
 void e_nop();
 void e_ret();
+void e_lea_r_m64(uint8_t to, uintptr_t from);
 void e_mov_r_r(uint8_t to, uint8_t from);
 void e_mov_r_imm8(uint8_t to, uint8_t from);
 void e_mov_r_imm16(uint8_t to, uint16_t from);
 void e_mov_r_imm32(uint8_t to, uint32_t from);
-void e_mov_m64_imm32(uint64_t to, uint32_t from);
-void e_mov_m64_imm16(uint64_t to, uint16_t from);
+void e_mov_m16_imm16(uint16_t *to, uint16_t from);
+void e_mov_m32_imm32(uint32_t *to, uint32_t from);
+void e_mov_m64_imm64(uint64_t *to, uint64_t from);
+void e_mov_r_m8(uint8_t to, uint8_t *from);
 void e_mov_r_m16(uint8_t to, uint16_t *from);
 void e_mov_r_m32(uint8_t to, uint32_t *from);
-void e_mov_r_m64(uint8_t to, uint64_t from);
-void e_mov_m64_r(uint64_t to, uint8_t from);
-void e_call(uint64_t addr);
+void e_mov_r_m64(uint8_t to, uint64_t *from);
+void e_mov_m8_r(uint8_t *to, uint8_t from);
+void e_mov_m16_r(uint16_t *to, uint8_t from);
+void e_mov_m64_r(uint64_t *to, uint8_t from);
+void e_call(uintptr_t addr);
 void e_and_r_imm32(uint8_t to, uint32_t from);
-void e_push(uint8_t to);
+void e_push(uint8_t from);
 void e_pop(uint8_t to);
 
 #endif
