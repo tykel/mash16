@@ -31,7 +31,11 @@ void o_nop()
 
 void o_cls()
 {
-    // TODO: wipe 320*240 bytes to 0
+    e_mov_r_m64(rdi, (uint64_t)s.vm);
+    e_mov_r_imm32(rsi, 0);
+    e_mov_r_imm32(rdx, 320*240);
+    e_call((uint64_t)memset); // memset(s.vm, 0, 320*240);
+    e_mov_m64_imm32((uint64_t)&s.bgc, 0);
 }
 
 void o_vblnk()
@@ -55,6 +59,7 @@ void o_drw_imm(uint32_t x, uint32_t y)
 //    state->f.c = op_drw(&state->m[i_hhll(state->i)],
 //        state->vm, x, y, state->sw, state->sh,
 //        state->fx, state->fy);
+    e_mov_r_m64(rax, (uint64_t)(&s.i + 2*sizeof(uint8_t)));
 }
 
 

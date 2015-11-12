@@ -58,9 +58,9 @@ typedef enum x64_rm
     disp32
 } x64_rm;
 
-#define REX(w, r, x, b) (0x40 | (!!w << 3) | (!!r << 2) | (!!x << 1) | !!b)
+#define REX(w, r, x, b) (0x40 | (!!(w) << 3) | (!!(r) << 2) | (!!(x) << 1) | !!(b))
 
-#define MODRM(mod, reg, rm) (((mod & 3) << 6) | ((reg & 7) << 3) | rm)
+#define MODRM(mod, reg, rm) ((((mod) & 3) << 6) | (((reg) & 7) << 3) | (rm))
 
 void jit_regs_init();
 void jit_regs_alloc(jit_insn *is, int num_insns);
@@ -68,9 +68,13 @@ void jit_regs_alloc(jit_insn *is, int num_insns);
 void e_nop();
 void e_ret();
 void e_mov_r_r(uint8_t to, uint8_t from);
+void e_mov_r_imm8(uint8_t to, uint8_t from);
+void e_mov_r_imm16(uint8_t to, uint16_t from);
 void e_mov_r_imm32(uint8_t to, uint32_t from);
 void e_mov_m64_imm32(uint64_t to, uint32_t from);
 void e_mov_m64_imm16(uint64_t to, uint16_t from);
+void e_mov_r_m16(uint8_t to, uint16_t *from);
+void e_mov_r_m32(uint8_t to, uint32_t *from);
 void e_mov_r_m64(uint8_t to, uint64_t from);
 void e_mov_m64_r(uint64_t to, uint8_t from);
 void e_call(uint64_t addr);

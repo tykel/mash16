@@ -101,8 +101,12 @@ int jit_decode(uint8_t *p)
 
 int f_test(void) { return 321; }
 
-uint32_t dummy = 0x0000ffff;
-uint16_t canary = 0xffff;
+uint64_t d64 = 0xffffffffffffffff;
+uint64_t c64 = 0x6464646464646464;
+uint32_t d32 = 0xffffffff;
+uint32_t c32 = 0x32323232;
+uint16_t d16 = 0xffff;
+uint16_t c16 = 0x1616;
 
 void jit_recompile()
 {
@@ -113,15 +117,16 @@ void jit_recompile()
     jit_decode(s.m + s.pc);
     jit_regs_alloc(p_insns, num_insns);
     // Save the stack pointer so we can return 
-    e_mov_m64_r((uint64_t)&preserved_rsp, rsp);
+    //e_mov_m64_r((uint64_t)&preserved_rsp, rsp);
     //for(i = 0; i < num_insns; i++) {
     //    jit_e[p_insns[i].op](&s, &p_insns[i]);
     //}
     // Restore the stack pointer
-    e_mov_r_m64(rsp, (uint64_t)&preserved_rsp);
+    //e_mov_r_m64(rsp, (uint64_t)&preserved_rsp);
 
-    e_mov_m64_imm32((uint64_t)&dummy, 0xffff0000);
-    e_call((uint64_t)f_test);
+    e_mov_r_m64(r8, (uint64_t)&d64);
+    e_mov_r_m32(r8, &d32);
+    e_mov_r_m16(r8, &d16);
     e_ret();
 
     jit_block_end();
@@ -149,11 +154,7 @@ void jit_execute()
 
     entry = (recblk_fn) p_entry;
     // Begin executing code in JIT buffer.
-    printf("result before: %d\n", result);
-    printf("dummy before: %08x, canary: %04x\n", dummy, canary);
     result = entry();
-    printf("result after: %d\n", result);
-    printf("dummy before: %08x, canary: %04x\n", dummy, canary);
 }
 
 int main(int argc, char *argv[])
@@ -221,9 +222,26 @@ void e_mov_r_r(uint8_t to, uint8_t from)
     *p_cur++ = MODRM(3, to, from);             // ModR/M
 }
 
+void e_mov_r_imm8(uint8_t to, uint8_t from)
+{
+    if(to & 0x8) *p_cur++ = REX(0, 0, 0, to & 0x8);
+    *p_cur++ = 0xb0 + (to & 0x7);
+    *p_cur++ = from;
+}
+
+void e_mov_r_imm16(uint8_t to, uint16_t from)
+{
+    *p_cur++ = 0x66;
+    if(to & 0x8) *p_cur++ = REX(0, 0, 0, to & 0x8);
+    *p_cur++ = 0xb8 + (to & 0x7);
+    *(uint16_t *)p_cur = from;
+    p_cur += sizeof(uint16_t);
+}
+
 void e_mov_r_imm32(uint8_t to, uint32_t from)
 {
-    *p_cur++ = 0xb8 + to;                      // MOV R64/imm32
+    if(to & 0x8) *p_cur++ = REX(0, 0, 0, to & 0x8);
+    *p_cur++ = 0xb8 + (to & 0x7);            // MOV R64/imm32
     *(uint32_t *)p_cur = from;               // imm32
     p_cur += sizeof(uint32_t);
 }
@@ -251,11 +269,34 @@ void e_mov_m64_imm16(uint64_t to, uint16_t from)
     p_cur += sizeof(uint16_t);
 }
 
+void e_mov_r_m16(uint8_t to, uint16_t *from)
+{
+    int32_t dest = (int32_t)((uint64_t)from -
+                             ((uint64_t)p_cur + 7 + !!(to & 0x80)));
+    *p_cur++ = 0x66;
+    if(to & 0x8) *p_cur++ = REX(0, 1, 0, 0);
+    *p_cur++ = 0x8b;                           // MOV R64/m64
+    *p_cur++ = MODRM(0, to, disp32);           // ModR/M
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(uint32_t);
+}
+
+void e_mov_r_m32(uint8_t to, uint32_t *from)
+{
+    int32_t dest = (int32_t)((uint64_t)from - 
+                             ((uint64_t)p_cur + 6 + !!(to & 0x80)));
+    if(to & 0x8) *p_cur++ = REX(0, 1, 0, 0);
+    *p_cur++ = 0x8b;                           // MOV R64/m64
+    *p_cur++ = MODRM(0, to, disp32);           // ModR/M
+    *(int32_t *)p_cur = dest;               // imm32
+    p_cur += sizeof(uint32_t);
+}
+
 void e_mov_r_m64(uint8_t to, uint64_t from)
 {
-    int32_t dest = (int32_t)(from - ((uint64_t)p_cur + 7));
-    printf("addr = %p, p_cur = %p, disp = %d\n", from, (p_cur+7), dest);
-    *p_cur++ = REX(1, 0, 0, to & 0x8);        // REX
+    int32_t dest = (int32_t)(from -
+                             ((uint64_t)p_cur + 6 + !!(to + 0x80)));
+    if(to & 0x8) *p_cur++ = REX(1, 1, 0, 0);
     *p_cur++ = 0x8b;                           // MOV R64/m64
     *p_cur++ = MODRM(0, to, disp32);           // ModR/M
     *(int32_t *)p_cur = dest;               // imm32
@@ -265,7 +306,6 @@ void e_mov_r_m64(uint8_t to, uint64_t from)
 void e_mov_m64_r(uint64_t to, uint8_t from)
 {
     int32_t dest = (int32_t)(to - ((uint64_t)p_cur + 7));
-    printf("addr = %p, p_cur = %p, disp = %d\n", to, (p_cur+7), dest);
     *p_cur++ = REX(1, 0, 0, from & 0x8);      // REX
     *p_cur++ = 0x89;                           // MOV m64/R64
     *p_cur++ = MODRM(0, from, disp32);         // ModR/M
