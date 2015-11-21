@@ -435,6 +435,7 @@ int main(int argc, char* argv[])
         if(!read_palette(opts.pal_filename, state->pal))
             fprintf(stderr,"error: palette in %s could not be read, potential corruption\n",opts.pal_filename);
 
+    cpu_jit_compile_block(state, 0);
     while(!stop)
         emulation_loop();
 
