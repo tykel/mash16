@@ -24,6 +24,7 @@ int use_verbose;
 #include "strings.h"
 #include "header/header.h"
 #include "core/cpu.h"
+#include "core/cpu_jit.h"
 #include "core/gpu.h"
 #include "core/audio.h"
 
@@ -176,8 +177,9 @@ void sanitize_options(program_opts* opts)
         ++input_errors;
     }
     /* Temporary warning. */
-    if(opts->use_cpu_rec)
-        printf("warning: recompiler core not available, falling back to interpreter\n");
+    if(opts->use_cpu_rec) {
+        fprintf(stderr, "warning: recompiler unfinished; will fall back to interpreter at execution\n"); 
+    }
     
     if(input_errors)
         exit(1);
@@ -219,7 +221,7 @@ void emulation_loop()
             }
             /* Avoid hogging the CPU... */
             while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
-                SDL_Delay(1);
+                SDL_Delay(FRAME_DT - (t - oldt));
             oldt = t;
             ++fps;
         }
@@ -426,6 +428,8 @@ int main(int argc, char* argv[])
 
     /* Initialise the chip16 processor state. */
     cpu_init(&state,mem,&opts);
+    if(opts.use_cpu_rec)
+        cpu_jit_init(state);
     audio_init(state,&opts);
     init_pal(state);
     if(opts.use_verbose)
@@ -435,12 +439,15 @@ int main(int argc, char* argv[])
         if(!read_palette(opts.pal_filename, state->pal))
             fprintf(stderr,"error: palette in %s could not be read, potential corruption\n",opts.pal_filename);
 
-    cpu_jit_compile_block(state, 0);
+    if(opts.use_cpu_rec)
+        cpu_jit_compile_block(state, 0);
     while(!stop)
         emulation_loop();
 
     /* Tidy up before exit. */
     audio_free();
+    if(opts.use_cpu_rec)
+        cpu_jit_destroy(state);
     cpu_free(state);
     free(mem); 
     SDL_FreeSurface(screen);

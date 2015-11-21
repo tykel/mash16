@@ -130,8 +130,8 @@ typedef struct cpu_state
     uint8_t  type;
     
     /* Other */
-    struct jit_state *j;
     cpu_meta meta;
+    struct jit_state *j;
 
 } cpu_state;
 
@@ -247,8 +247,6 @@ void flags_not(int16_t,cpu_state*);
 void flags_neg(int16_t,cpu_state*);
 /* Test the current jump/call conditional. */
 int test_cond(cpu_state*);
-
-void* cpu_jit_compile_block(cpu_state *, uint16_t);
 
 #endif
 

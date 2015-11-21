@@ -1,19 +1,58 @@
+/*
+ *   mash16 - the chip16 emulator
+ *   Copyright (C) 2012-2015 tykel
+ *
+ *   mash16 is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   mash16 is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <sys/mman.h>
+
 #include <libjit.h>
 
 #include "cpu.h"
+#include "cpu_jit.h"
 #include "audio.h"
 
-static void** gp_blockmap[0x10000 >> 2];
+static pfn_jit_op gpfn_jit_ops[0x100];
+
+void cpu_jit_translate(cpu_state *state)
+{
+    /*gpfn_jit_ops[i_op(state->i)](state);*/
+}
+
+void cpu_jit_init(cpu_state *state)
+{
+    jit_create(&state->j, JIT_FLAG_NONE);
+}
+
+void cpu_jit_destroy(cpu_state *state)
+{
+    jit_destroy(state->j);
+    state->j = NULL;
+}
 
 void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
 {
     uint16_t start = a;
     uint16_t end = start;
     uint16_t furthest = end;
+    size_t n_instrs = 0, n, pc;
+    void *p_unaligned = NULL, *p;
 
-    for(; end <= 0xfffc; end = end + 4) {
+    for(; end <= 0xfffc; n_instrs++, end = end + 4) {
         uint8_t op = state->m[end];
-        uint16_t hhll = *(uint16_t *)&state->m[end];
+        uint16_t hhll = *(uint16_t *)&state->m[end + 2];
         /* A RET with no branch dests. after it means we're done. */
         if(op == 0x15 && end >= furthest) { /* RET */
             break;
@@ -29,10 +68,37 @@ void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
             }
         }
     }
+    /* Make end the first address that is out of bounds. */
+    end = end + 4;
+    printf("basic block found: 0x%04x - 0x%04x\n", start, end);
 
-    printf("[jit] basic block found: 0x%04x - 0x%04x\n", start, end);
+    /* Make room for at least 16 bytes per Chip16 instruction, be safe. */
+    p_unaligned = malloc(BYTES_TO_PAGESZ(16 * n_instrs) + PAGESZ);
+    if(p_unaligned == NULL) {
+        fprintf(stderr, "error: failed to allocate %zu byte cache block\n",
+                BYTES_TO_PAGESZ(16 * n_instrs));
+        return NULL;
+    }
+    p = (void *)(((uint64_t)p_unaligned + PAGESZ-1) & ~(PAGESZ-1));
+    printf("allocated %zu bytes for jit block\n",
+        BYTES_TO_PAGESZ(16 * n_instrs));
 
-    return NULL;
+    /* Iterate through the instructions, translating them one at a time. */
+    for(n = 0, pc = start; n < n_instrs && pc < end; n++, pc += 4) {
+        state->i = *(instr*)(&state->m[pc]);
+        cpu_jit_translate(state);
+    }
+
+    /* Emit the generated instructions to the buffer. */
+    jit_begin_block(state->j, p);
+    jit_emit_all(state->j);
+    jit_end_block(state->j);
+
+    /* Ensure we can execute the code. */
+    mprotect(p, PAGESZ, PROT_READ | PROT_WRITE | PROT_EXEC);
+    free(p_unaligned);
+
+    return p; 
 }
 
 void* cpu_jit_get_block(cpu_state *state, uint16_t a)
@@ -52,6 +118,11 @@ void* cpu_jit_get_block(cpu_state *state, uint16_t a)
 int cpu_jit_op_drw(cpu_state *state, size_t moffs, int x, int y)
 {
     return op_drw(&state->m[moffs], state->vm, x, y, state->sw, state->sh, state->fx, state->fy);
+}
+
+void cpu_emit__error(cpu_state *s)
+{
+    fprintf(stderr, "warning: unknown op encountered\n");
 }
 
 void cpu_emit_nop(cpu_state *s)
