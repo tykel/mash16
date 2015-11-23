@@ -28,7 +28,10 @@ typedef void (*pfn_jit_op)(cpu_state *);
 
 void cpu_jit_init(cpu_state *);
 void cpu_jit_destroy(cpu_state *);
+void* cpu_jit_get_block(cpu_state *, uint16_t);
 void* cpu_jit_compile_block(cpu_state *, uint16_t);
+void cpu_jit_run(cpu_state *);
+void cpu_jit_emit_cyclecount(cpu_state *);
 
 void cpu_emit__error(cpu_state *state);
 /* 0x */
@@ -48,15 +51,15 @@ void cpu_emit_snd3(cpu_state *state);
 void cpu_emit_snp(cpu_state *state);
 void cpu_emit_sng(cpu_state *state);
 /* 1x */
-void cpu_emit_jmp(cpu_state *state);
+void cpu_emit_jmp_i(cpu_state *state);
 void cpu_emit_jmc(cpu_state *state);
 void cpu_emit_jx(cpu_state *state);
 void cpu_emit_jme(cpu_state *state);
-void cpu_emit_call(cpu_state *state);
+void cpu_emit_call_i(cpu_state *state);
 void cpu_emit_ret(cpu_state *state);
-void cpu_emit_jmp(cpu_state *state);
+void cpu_emit_jmp_r(cpu_state *state);
 void cpu_emit_cx(cpu_state *state);
-void cpu_emit_call(cpu_state *state);
+void cpu_emit_call_r(cpu_state *state);
 /* 2x */
 void cpu_emit_ldi(cpu_state *state);
 void cpu_emit_ldi_sp(cpu_state *state);

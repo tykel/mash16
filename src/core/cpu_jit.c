@@ -24,22 +24,108 @@
 #include "cpu_jit.h"
 #include "audio.h"
 
-static pfn_jit_op gpfn_jit_ops[0x100];
+typedef void (*pfn_jitblock)(void);
+
+static pfn_jit_op gpfn_jit_ops[0x100] = { NULL };
 
 void cpu_jit_translate(cpu_state *state)
 {
-    /*gpfn_jit_ops[i_op(state->i)](state);*/
+    gpfn_jit_ops[i_op(state->i)](state);
 }
 
 void cpu_jit_init(cpu_state *state)
 {
     jit_create(&state->j, JIT_FLAG_NONE);
+
+    gpfn_jit_ops[0x00] = cpu_emit_nop;
+    gpfn_jit_ops[0x01] = cpu_emit_cls;
+    gpfn_jit_ops[0x02] = cpu_emit_vblnk;
+    gpfn_jit_ops[0x03] = cpu_emit_bgc;
+    gpfn_jit_ops[0x04] = cpu_emit_spr;
+    gpfn_jit_ops[0x05] = cpu_emit_drw_i;
+    gpfn_jit_ops[0x06] = cpu_emit_drw_r;
+    gpfn_jit_ops[0x07] = cpu_emit_rnd;
+    gpfn_jit_ops[0x08] = cpu_emit_flip;
+    gpfn_jit_ops[0x09] = cpu_emit_snd0;
+    gpfn_jit_ops[0x0a] = cpu_emit_snd1;
+    gpfn_jit_ops[0x0b] = cpu_emit_snd2;
+    gpfn_jit_ops[0x0c] = cpu_emit_snd3;
+    gpfn_jit_ops[0x0d] = cpu_emit_snp;
+    gpfn_jit_ops[0x0e] = cpu_emit_sng;
+    gpfn_jit_ops[0x10] = cpu_emit_jmp_i;
+    gpfn_jit_ops[0x11] = cpu_emit_jmc;
+    gpfn_jit_ops[0x12] = cpu_emit_jx;
+    gpfn_jit_ops[0x13] = cpu_emit_jme;
+    gpfn_jit_ops[0x14] = cpu_emit_call_i;
+    gpfn_jit_ops[0x15] = cpu_emit_ret;
+    gpfn_jit_ops[0x16] = cpu_emit_jmp_r;
+    gpfn_jit_ops[0x17] = cpu_emit_cx;
+    gpfn_jit_ops[0x18] = cpu_emit_call_r;
+    gpfn_jit_ops[0x20] = cpu_emit_ldi;
+    gpfn_jit_ops[0x21] = cpu_emit_ldi_sp;
+    gpfn_jit_ops[0x22] = cpu_emit_ldm_i;
+    gpfn_jit_ops[0x23] = cpu_emit_ldm_r;
+    gpfn_jit_ops[0x24] = cpu_emit_mov;
+    gpfn_jit_ops[0x30] = cpu_emit_stm_i;
+    gpfn_jit_ops[0x31] = cpu_emit_stm_r;
+    gpfn_jit_ops[0x40] = cpu_emit_addi;
+    gpfn_jit_ops[0x41] = cpu_emit_add_r2;
+    gpfn_jit_ops[0x42] = cpu_emit_add_r3;
+    gpfn_jit_ops[0x50] = cpu_emit_subi;
+    gpfn_jit_ops[0x51] = cpu_emit_sub_r2;
+    gpfn_jit_ops[0x52] = cpu_emit_sub_r3;
+    gpfn_jit_ops[0x53] = cpu_emit_cmpi;
+    gpfn_jit_ops[0x54] = cpu_emit_cmp;
+    gpfn_jit_ops[0x60] = cpu_emit_andi;
+    gpfn_jit_ops[0x61] = cpu_emit_and_r2;
+    gpfn_jit_ops[0x62] = cpu_emit_and_r3;
+    gpfn_jit_ops[0x63] = cpu_emit_tsti;
+    gpfn_jit_ops[0x64] = cpu_emit_tst;
+    gpfn_jit_ops[0x70] = cpu_emit_ori;
+    gpfn_jit_ops[0x71] = cpu_emit_or_r2;
+    gpfn_jit_ops[0x72] = cpu_emit_or_r3;
+    gpfn_jit_ops[0x80] = cpu_emit_xori;
+    gpfn_jit_ops[0x81] = cpu_emit_xor_r2;
+    gpfn_jit_ops[0x82] = cpu_emit_xor_r3;
+    gpfn_jit_ops[0x90] = cpu_emit_muli;
+    gpfn_jit_ops[0x91] = cpu_emit_mul_r2;
+    gpfn_jit_ops[0x92] = cpu_emit_mul_r3;
+    gpfn_jit_ops[0xa0] = cpu_emit_divi;
+    gpfn_jit_ops[0xa1] = cpu_emit_div_r2;
+    gpfn_jit_ops[0xa2] = cpu_emit_div_r3;
+    gpfn_jit_ops[0xb0] = cpu_emit_shl_n;
+    gpfn_jit_ops[0xb1] = cpu_emit_shr_n;
+    gpfn_jit_ops[0xb2] = cpu_emit_sar_n;
+    gpfn_jit_ops[0xb3] = cpu_emit_shl_r;
+    gpfn_jit_ops[0xb4] = cpu_emit_shr_r;
+    gpfn_jit_ops[0xb5] = cpu_emit_sar_r;
+    gpfn_jit_ops[0xc0] = cpu_emit_push;
+    gpfn_jit_ops[0xc1] = cpu_emit_pop;
+    gpfn_jit_ops[0xc2] = cpu_emit_pushall;
+    gpfn_jit_ops[0xc3] = cpu_emit_popall;
+    gpfn_jit_ops[0xc4] = cpu_emit_pushf;
+    gpfn_jit_ops[0xc5] = cpu_emit_popf;
+    gpfn_jit_ops[0xd0] = cpu_emit_pal_i;
+    gpfn_jit_ops[0xd1] = cpu_emit_pal_r;
+    gpfn_jit_ops[0xe0] = cpu_emit_noti;
+    gpfn_jit_ops[0xe1] = cpu_emit_not_r1;
+    gpfn_jit_ops[0xe2] = cpu_emit_not_r2;
+    gpfn_jit_ops[0xe3] = cpu_emit_negi;
+    gpfn_jit_ops[0xe4] = cpu_emit_neg_r1;
+    gpfn_jit_ops[0xe5] = cpu_emit_neg_r2;
 }
 
 void cpu_jit_destroy(cpu_state *state)
 {
     jit_destroy(state->j);
     state->j = NULL;
+}
+
+void cpu_jit_run(cpu_state *state)
+{
+    uint16_t start = state->pc;
+    void *b = cpu_jit_get_block(state, start);
+    ((pfn_jitblock)b)();
 }
 
 void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
@@ -87,6 +173,7 @@ void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
     for(n = 0, pc = start; n < n_instrs && pc < end; n++, pc += 4) {
         state->i = *(instr*)(&state->m[pc]);
         cpu_jit_translate(state);
+        cpu_jit_emit_cyclecount(state);
     }
 
     /* Emit the generated instructions to the buffer. */
@@ -114,199 +201,16 @@ void* cpu_jit_get_block(cpu_state *state, uint16_t a)
     return p_block;
 }
 
-#if 0
-int cpu_jit_op_drw(cpu_state *state, size_t moffs, int x, int y)
+void cpu_jit_emit_cyclecount(cpu_state *state)
 {
-    return op_drw(&state->m[moffs], state->vm, x, y, state->sw, state->sh, state->fx, state->fy);
+    struct jit_instr *i0, *i1, *i2, *i3;
+    i0 = jit_instr_new(state->j);
+    i1 = jit_instr_new(state->j);
+    i2 = jit_instr_new(state->j);
+    i3 = jit_instr_new(state->j);
+    MOVE_M_R(i0, &state->meta.jit_blk_is, jit_reg_new(state->j), JIT_32BIT);
+    MOVE_M_R(i1, &state->meta.cycles, jit_reg_new(state->j), JIT_64BIT);
+    ADD_R_R_R(i2, i0->out.reg, i1->out.reg, i1->out.reg, JIT_32BIT);
+    MOVE_R_M(i3, i1->out.reg, &state->meta.cycles, JIT_64BIT);
 }
 
-void cpu_emit__error(cpu_state *s)
-{
-    fprintf(stderr, "warning: unknown op encountered\n");
-}
-
-void cpu_emit_nop(cpu_state *s)
-{
-}
-
-void cpu_emit_cls(cpu_state *s)
-{
-    struct jit_instr *i = NULL;
-    i = jit_instr_new(s->j);
-    CALL_M(i, op_cls, JIT_32BIT);
-}
-
-void cpu_emit_vblnk(cpu_state *s)
-{
-    struct jit_instr *i = NULL;
-    i = jit_instr_new(s->j);
-    CALL_M(i, op_vblnk, JIT_32BIT);
-}
-
-void cpu_emit_bgc(cpu_state *s)
-{
-    struct jit_instr *i0, *i1;
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
-    MOVE_I_R(i0, i_n(s->i), jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_M(i1, i0->out.reg, &s->bgc, JIT_8BIT);
-}
-
-void cpu_emit_spr(cpu_state *s)
-{
-    struct jit_instr *i0, *i1, *i2, *i3, *i4, *i5;
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
-    i2 = jit_instr_new(s->j);
-    i3 = jit_instr_new(s->j);
-    i4 = jit_instr_new(s->j);
-    i5 = jit_instr_new(s->j);
-    MOVE_I_R(i0, i_hhll(s->i), jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_R(i1, i0->out.reg, jit_reg_new(s->j), JIT_32BIT);
-    AND_I_R_R(i2, 0x00ff, i0->out.reg, i0->out.reg, JIT_32BIT);
-    SHR_I_R(i3, 8, i1->out.reg, JIT_32BIT);
-    MOVE_R_M(i4, i0->out.reg, &s->sw, JIT_8BIT);
-    MOVE_R_M(i5, i1->out.reg, &s->sh, JIT_8BIT);
-}
-
-void cpu_emit_drw_i(cpu_state *s)
-{
-    struct jit_instr *i0, *i1, *i2, *i3, *i4, *i5;
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg x = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg y = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-    jit_reg c = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_RET);
-    
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
-    i2 = jit_instr_new(s->j);
-    i3 = jit_instr_new(s->j);
-    i4 = jit_instr_new(s->j);
-    i5 = jit_instr_new(s->j);
-    
-    MOVE_I_R(i0, i_hhll(s->i), a, JIT_32BIT);
-    MOVE_ID_R(i1, &s->r, y, JIT_32BIT);
-    MOVE_RP_R(i2, y, JIT_REG_INVALID, 0, i_yx(s->i) & 0x0f, x, JIT_32BIT);
-    MOVE_RP_R(i3, y, JIT_REG_INVALID, 0, i_yx(s->i) >> 4, y, JIT_32BIT);
-    CALL_M(i4, op_drw, JIT_32BIT);
-    MOVE_R_M(i5, c, &s->f.c, JIT_32BIT);
-}
-
-void cpu_emit_drw_r(cpu_state *s)
-{
-    /* TODO: We assume a simplified op_drw(x, y, m) */
-    int n;
-    struct jit_instr *i[7];
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg x = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg y = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-    jit_reg c = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_RET);
-    
-    for(n = 0; n < 7; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_ID_R(i[0], &s->r, y, JIT_32BIT);
-    MOVE_RP_R(i[3], y, JIT_REG_INVALID, 0, i_z(s->i) & 0x0f, a, JIT_32BIT);
-    MOVE_RP_R(i[1], y, JIT_REG_INVALID, 0, i_yx(s->i) & 0x0f, x, JIT_32BIT);
-    MOVE_RP_R(i[2], y, JIT_REG_INVALID, 0, i_yx(s->i) >> 4, y, JIT_32BIT);
-    CALL_M(i[4], op_drw, JIT_32BIT);
-    MOVE_R_M(i[5], c, &s->f.c, JIT_32BIT);
-}
-
-void cpu_emit_rnd(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[5];
-    jit_reg x = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg r = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_RET);
-    
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-
-    XOR_R_R_R(i[0], x, x, x, JIT_32BIT);
-    CALL_M(i[1], rand, JIT_32BIT);
-    AND_I_R_R(i[2], i_hhll(s->i), r, r, JIT_32BIT);
-    MOVE_ID_R(i[3], &s->r, x, JIT_32BIT);
-    MOVE_R_RP(i[4], x, x, JIT_REG_INVALID, 0, i_yx(s->i) & 0x0f, JIT_32BIT);
-}
-
-void cpu_emit_flip(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[5];
-    jit_reg a = jit_reg_new(s->j);
-    jit_reg b = jit_reg_new(s->j);
-
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_I_R(i[0], i_hhll(s->i), a, JIT_32BIT);
-    SHL_I_R_R(i[1], 1, a, b, JIT_32BIT);
-    AND_I_R_R(i[2], 1, a, a, JIT_32BIT);
-    OR_R_R_R(i[3], b, a, a, JIT_32BIT);
-    MOVE_R_M(i[4], a, (int16_t *)&s->fx, JIT_16BIT);
-}
-
-void cpu_emit_snd0(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[1];
-
-    for(n = 0; n < 1; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    CALL_M(i[0], (int32_t *)audio_stop, JIT_32BIT);
-}
-
-void cpu_emit_snd1(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg d = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_I_R(i[0], 500, f, JIT_32BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), d, JIT_32BIT);
-    MOVE_I_R(i[2], 0, a, JIT_32BIT);
-    CALL_M(i[3], (int32_t *)audio_play, JIT_32BIT);
-}
-
-void cpu_emit_snd2(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg d = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_I_R(i[0], 1000, f, JIT_32BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), d, JIT_32BIT);
-    MOVE_I_R(i[2], 0, a, JIT_32BIT);
-    CALL_M(i[3], (int32_t *)audio_play, JIT_32BIT);
-}
-
-void cpu_emit_snd3(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg d = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_I_R(i[0], 1500, f, JIT_32BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), d, JIT_32BIT);
-    MOVE_I_R(i[2], 0, a, JIT_32BIT);
-    CALL_M(i[3], (int32_t *)audio_play, JIT_32BIT);
-}
-
-#endif

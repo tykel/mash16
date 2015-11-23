@@ -185,6 +185,130 @@ void sanitize_options(program_opts* opts)
         exit(1);
 }
 
+/* Emulation loop using the dynamic recompiler core. */
+void emulation_loop_jit()
+{ 
+    int i;
+    SDL_Event evt;
+    
+    if(paused)
+    {
+        SDL_Delay(FRAME_DT);
+    }
+    else
+    {
+        /* If using strict emulation, limit to 1M cycles / sec. */
+        if(opts.use_cpu_limit)
+        {
+            while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
+            {
+                cpu_jit_run(state);
+                paused = opts.use_breakall;
+                /* Stop at breakpoint if necessary. */
+                if(opts.num_breakpoints > 0)
+                {
+                    for(i=0; i<opts.num_breakpoints; ++i)
+                    {
+                        if(state->pc-4 == opts.breakpoints[i])
+                            paused = 1;
+                    }
+                }
+                if(paused)
+                {
+                    print_state(state);
+                    break;
+                }
+            }
+            /* Avoid hogging the CPU... */
+            while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
+                SDL_Delay(FRAME_DT - (t - oldt));
+            oldt = t;
+            ++fps;
+        }
+        /* Otherwise, max out in 1/60th sec. */
+        else
+        {
+            while((t = SDL_GetTicks()) - oldt <= FRAME_DT )
+            {
+                for(i=0; i<600; ++i)
+                {
+                    cpu_jit_run(state);
+                    /* Don't forget to count our frames! */
+                    if(state->meta.wait_vblnk)
+                    {
+                        state->meta.wait_vblnk = 0;
+                        ++fps;
+                    }
+                    else if(state->meta.cycles >= FRAME_CYCLES)
+                    {
+                        state->meta.cycles = 0;
+                        ++fps;
+                    }
+                }
+            }
+            oldt = t;
+        }
+        /* Update the FPS counter after every second, or second's worth of frames. */
+        if((fps >= 60 && opts.use_cpu_limit) || t > lastsec + 1000)
+        {
+            /* Update the caption. */
+            sprintf(strfps,"mash16 (%d fps) - %s",fps,opts.filename);
+            SDL_WM_SetCaption(strfps, NULL);
+            /* Reset timing info. */
+            lastsec = t;
+            fps = 0;
+        }
+    }
+        
+    /* Handle input. */
+    while(SDL_PollEvent(&evt))
+    {
+        switch(evt.type)
+        {
+            case SDL_KEYDOWN:
+                cpu_io_update(&evt.key,state);
+                if(evt.key.keysym.sym == SDLK_SPACE)
+                {
+                    if(!paused)
+                    {
+                        print_state(state);
+                        paused = 1;
+                    }
+                    else
+                        paused = 0;
+                }
+                else if(evt.key.keysym.sym == SDLK_n && paused)
+                {
+                    cpu_step(state);
+                    print_state(state);
+                }
+                else if(evt.key.keysym.sym == SDLK_h && paused)
+                {
+                    hex = !hex;
+                    print_state(state);
+                }
+                else if(evt.key.keysym.sym == SDLK_ESCAPE)
+                    stop = 1;
+                break;
+            case SDL_KEYUP:
+                cpu_io_update(&evt.key,state);
+                break;
+            case SDL_QUIT:
+                stop = 1;
+                break;
+            default:
+                break;
+        }
+    }
+    /* Draw. */
+    blit_screen(screen,state,opts.video_scaler);
+    /* Reset vblank flag. */
+    state->meta.wait_vblnk = 0;
+    state->meta.cycles = 0;
+    state->meta.old_pc = state->pc;
+}
+
+
 /* Emulation loop. */
 void emulation_loop()
 { 
@@ -439,10 +563,13 @@ int main(int argc, char* argv[])
         if(!read_palette(opts.pal_filename, state->pal))
             fprintf(stderr,"error: palette in %s could not be read, potential corruption\n",opts.pal_filename);
 
-    if(opts.use_cpu_rec)
-        cpu_jit_compile_block(state, 0);
-    while(!stop)
-        emulation_loop();
+    if(opts.use_cpu_rec) {
+        while(!stop)
+            emulation_loop_jit();
+    } else {
+        while(!stop)
+            emulation_loop();
+    }
 
     /* Tidy up before exit. */
     audio_free();

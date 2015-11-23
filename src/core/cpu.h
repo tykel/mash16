@@ -98,6 +98,7 @@ typedef struct cpu_meta
     instr_type type;
     uint16_t old_pc;
 
+    size_t jit_blk_is;
 } cpu_meta;
 
 /* Holds CPU functionality. */
