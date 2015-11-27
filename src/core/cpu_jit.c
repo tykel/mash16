@@ -26,6 +26,9 @@
 
 typedef void (*pfn_jitblock)(void);
 
+static void* gp_blockmap[0x10000 >> 2];
+static void* gp_unaligned_blockmap[0x10000 >> 2];
+
 static pfn_jit_op gpfn_jit_ops[0x100] = { NULL };
 
 void cpu_jit_translate(cpu_state *state)
@@ -35,7 +38,14 @@ void cpu_jit_translate(cpu_state *state)
 
 void cpu_jit_init(cpu_state *state)
 {
+    int n;
+    
     jit_create(&state->j, JIT_FLAG_NONE);
+    
+    for(n = 0; n < (0x10000>>2); n++) {
+        gp_unaligned_blockmap[n] = NULL;
+        gp_blockmap[n] = NULL;
+    }
 
     gpfn_jit_ops[0x00] = cpu_emit_nop;
     gpfn_jit_ops[0x01] = cpu_emit_cls;
@@ -117,8 +127,18 @@ void cpu_jit_init(cpu_state *state)
 
 void cpu_jit_destroy(cpu_state *state)
 {
+    int n;
+    
     jit_destroy(state->j);
     state->j = NULL;
+    
+    for(n = 0; n < (0x10000>>2); n++) {
+        if(gp_unaligned_blockmap[n] != NULL) {
+            free(gp_unaligned_blockmap[n]);
+            gp_unaligned_blockmap[n] = NULL;
+        }
+        gp_blockmap[n] = NULL;
+    }
 }
 
 void cpu_jit_run(cpu_state *state)
@@ -126,6 +146,8 @@ void cpu_jit_run(cpu_state *state)
     uint16_t start = state->pc;
     void *b = cpu_jit_get_block(state, start);
     ((pfn_jitblock)b)();
+    printf(".");
+    fflush(stdout);
 }
 
 void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
@@ -169,12 +191,16 @@ void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
     printf("allocated %zu bytes for jit block\n",
         BYTES_TO_PAGESZ(16 * n_instrs));
 
+    /* Block the stack pointer so we don't need to restore it. */
+    jit_reg_new_fixed(state->j, JIT_REGMAP_SP);
+    cpu_jit_emit_zeroregs(state);
     /* Iterate through the instructions, translating them one at a time. */
     for(n = 0, pc = start; n < n_instrs && pc < end; n++, pc += 4) {
         state->i = *(instr*)(&state->m[pc]);
         cpu_jit_translate(state);
-        cpu_jit_emit_cyclecount(state);
     }
+    cpu_jit_emit_cyclecount(state, n_instrs);
+    cpu_jit_emit_ret(state);
 
     /* Emit the generated instructions to the buffer. */
     jit_begin_block(state->j, p);
@@ -183,7 +209,16 @@ void* cpu_jit_compile_block(cpu_state *state, uint16_t a)
 
     /* Ensure we can execute the code. */
     mprotect(p, PAGESZ, PROT_READ | PROT_WRITE | PROT_EXEC);
-    free(p_unaligned);
+
+    /* Add this block to the cache. */
+    gp_blockmap[a>>2] = p;
+    gp_unaligned_blockmap[a>>2] = p_unaligned;
+
+    {
+        FILE *f = fopen("./block.o", "wb");
+        fwrite(p, 1, state->j->blk_nb, f);
+        fclose(f);
+    }
 
     return p; 
 }
@@ -201,16 +236,33 @@ void* cpu_jit_get_block(cpu_state *state, uint16_t a)
     return p_block;
 }
 
-void cpu_jit_emit_cyclecount(cpu_state *state)
+void cpu_jit_emit_zeroregs(cpu_state *state)
 {
-    struct jit_instr *i0, *i1, *i2, *i3;
+    int n;
+    struct jit_instr *i[1];
+    jit_reg rrax = jit_reg_new_fixed(state->j, JIT_REGMAP_CALL_RET);
+
+    for(n = 0; n < 1; n++) {
+        i[n] = jit_instr_new(state->j);
+    }
+
+    XOR_R_R_R(i[0], rrax, rrax, rrax, JIT_32BIT);
+}
+
+void cpu_jit_emit_ret(cpu_state *state)
+{
+    struct jit_instr *i = jit_instr_new(state->j);
+    RET(i);
+}
+
+void cpu_jit_emit_cyclecount(cpu_state *state, size_t ni)
+{
+    struct jit_instr *i0, *i1, *i2;
     i0 = jit_instr_new(state->j);
     i1 = jit_instr_new(state->j);
     i2 = jit_instr_new(state->j);
-    i3 = jit_instr_new(state->j);
-    MOVE_M_R(i0, &state->meta.jit_blk_is, jit_reg_new(state->j), JIT_32BIT);
-    MOVE_M_R(i1, &state->meta.cycles, jit_reg_new(state->j), JIT_64BIT);
-    ADD_R_R_R(i2, i0->out.reg, i1->out.reg, i1->out.reg, JIT_32BIT);
-    MOVE_R_M(i3, i1->out.reg, &state->meta.cycles, JIT_64BIT);
+    MOVE_M_R(i0, &state->meta.cycles, jit_reg_new(state->j), JIT_64BIT);
+    ADD_I_R_R(i1, ni, i0->out.reg, i0->out.reg, JIT_32BIT);
+    MOVE_R_M(i2, i0->out.reg, &state->meta.cycles, JIT_64BIT);
 }
 

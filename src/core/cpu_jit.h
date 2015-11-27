@@ -19,8 +19,6 @@
 #ifndef CPU_JIT_H
 #define CPU_JIT_H
 
-static void** gp_blockmap[0x10000 >> 2];
-
 #define PAGESZ 4096
 #define BYTES_TO_PAGESZ(b) (((b)+4095) & ~4095)
 
@@ -31,9 +29,12 @@ void cpu_jit_destroy(cpu_state *);
 void* cpu_jit_get_block(cpu_state *, uint16_t);
 void* cpu_jit_compile_block(cpu_state *, uint16_t);
 void cpu_jit_run(cpu_state *);
-void cpu_jit_emit_cyclecount(cpu_state *);
+void cpu_jit_emit_ret(cpu_state *state);
+void cpu_jit_emit_zeroregs(cpu_state *state);
+void cpu_jit_emit_cyclecount(cpu_state *state, size_t ni);
 
 void cpu_emit__error(cpu_state *state);
+void cpu_emit__flags(cpu_state *state, uint32_t flags);
 /* 0x */
 void cpu_emit_nop(cpu_state *state);
 void cpu_emit_cls(cpu_state *state);

@@ -99,6 +99,7 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
     int ix, ix_st, ix_end, ix_inc;
     int i, j, hit;
 
+    printf("\ndrawing at (%d,%d) dimensions %dx%d\n", x, y, w, h);
     /* If nothing will be on-screen, may as well exit. */
     if(x > 319 || y > 239 || !w || !h || y+h < 0 || x+w*2 < 0)
         return 0;
