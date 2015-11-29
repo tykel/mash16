@@ -22,6 +22,7 @@
 #include "../consts.h"
 #include "../options.h"
 #include <SDL/SDL.h>
+#include <libjit.h>
 
 #define FLAG_C 2
 #define FLAG_Z 4
@@ -68,11 +69,24 @@ typedef union
 /* Macros for reduced tediousness of instruction field accessing. */
 #define i_dword(i) ((i).dword)
 #define i_op(i) ((i).sdw.op)
+#define I_OP(i) i_op(i)
 #define i_yx(i) ((i).sdw.yx)
+#define I_X(i) (i_yx(i) & 0x0f)
+#define I_Y(i) (i_yx(i) >> 4)
 #define i_hhll(i) ((i).sdw.uw.hhll)
+#define I_HHLL(i) i_hhll(i)
 #define i_z(i) ((i).sdw.uw.sw.ub.z)
+#define I_Z(i) i_z(i)
 #define i_n(i) ((i).sdw.uw.sw.ub.n)
+#define I_N(i) i_n(i)
 #define i_res(i) ((i).sdw.uw.sw.res)
+
+
+#define MEMPTR32(a) ((int32_t *)&s->m[(a)])
+#define MEMPTR16(a) ((int16_t *)&s->m[(a)])
+#define MEMPTR8(a) ((int8_t *)&s->m[(a)])
+
+#define MAKEFLAGS(s) (((s)->f.c << 1) | ((s)->f.z << 2) | ((s)->f.o << 6) | ((s)->f.n << 7))
 
 /* Instruction type (encoding) -- mainly used for disassembler. */
 typedef enum
@@ -132,9 +146,17 @@ typedef struct cpu_state
     
     /* Other */
     cpu_meta meta;
-    struct jit_state *j;
+    j_state *j;
 
 } cpu_state;
+
+inline void UNPACK_WRITE_FLAGS(cpu_state *s, uint16_t f)
+{
+    s->f.c = !!(f&2);
+    s->f.z = !!(f&4);
+    s->f.o = !!(f&64);
+    s->f.n = !!(f&128);
+}
 
 /* Instruction function pointer table. */
 typedef void (*cpu_op)(cpu_state*);

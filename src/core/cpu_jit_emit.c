@@ -16,6 +16,7 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdbool.h>
 #include <libjit.h>
 
 #include "cpu.h"
@@ -27,1116 +28,933 @@ int cpu_jit_op_drw(cpu_state *state, size_t moffs, int x, int y)
     return op_drw(&state->m[moffs], state->vm, x, y, state->sw, state->sh, state->fx, state->fy);
 }
 
-void cpu_emit__error(cpu_state *s)
+void translate_none(cpu_state *s)
 {
     fprintf(stderr, "warning: unknown op encountered\n");
 }
 
-void cpu_emit__flags(cpu_state *s, uint32_t flags)
+void emit_flags_update(cpu_state *s, uint32_t flags)
 {
     // TODO!
 }
 
 
-void cpu_emit_nop(cpu_state *s)
+void translate_NOP(cpu_state *s)
 {
 }
 
-void cpu_emit_cls(cpu_state *s)
+void translate_CLS(cpu_state *s)
 {
-    struct jit_instr *i = NULL;
-    i = jit_instr_new(s->j);
-    CALL_M(i, op_cls, JIT_32BIT);
+    CALL_MEM(s, op_cls);
 }
 
-void cpu_emit_vblnk(cpu_state *s)
+void translate_VBLNK(cpu_state *s)
 {
-    struct jit_instr *i0, *i1;
+    MOV_IMM8_TO_MEM(s, 1, &s->meta.wait_vblnk);
+}
+
+void translate_BGC(cpu_state *s)
+{
+    MOV_IMM8_TO_MEM(s, I_N(s->i), &s->bgc);
+}
+
+void translate_SPR(cpu_state *s)
+{
+    MOV_IMM8_TO_MEM(s, I_HHLL(s->i)&0xff, &s->sw);
+    MOV_IMM8_TO_MEM(s, I_HHLL(s->i)>>8, &s->sh);
+}
+
+void translate_DRW_I(cpu_state *s)
+{
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+    j_reg *rrsi = j_get_reg(s->j, RDI);
+    j_reg *rrdx = j_reg_containing_creg_choose(s->j, I_X(s->i), RSI);
+    j_reg *rrcx = j_reg_containing_creg_choose(s->j, I_Y(s->i), RDX);
+    j_reg *rrax = j_get_reg_readonly(s->j, RAX);
+
+    LEA_MEM_TO_REG(s, s, rrdi);
+    MOV_IMM16_TO_REG(s, I_HHLL(s->i), rrsi);
+    CALL_MEM(s, cpu_jit_op_drw);
+    MOV_REG32_TO_MEM(s, rrax, &s->f.c);
+}
+
+void translate_DRW_R(cpu_state *s)
+{
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+    j_reg *rrsi = j_reg_containing_creg_choose(s->j, I_Z(s->i), RDI);
+    j_reg *rrdx = j_reg_containing_creg_choose(s->j, I_X(s->i), RSI);
+    j_reg *rrcx = j_reg_containing_creg_choose(s->j, I_Y(s->i), RDX);
+    j_reg *rrax = j_get_reg_readonly(s->j, RAX);
+
+    j_reg *rbase = j_get_free_reg(s->j);
+
+    LEA_MEM_TO_REG(s, s, rrdi);
+    LEA_MEM_TO_REG(s, &s->m, rbase);
+    MOV_SIB16_TO_REG(s, 0, rrsi, rbase, rrsi);
+    CALL_MEM(s, cpu_jit_op_drw);
+    MOV_REG32_TO_MEM(s, rrax, &s->f.c);
+}
+
+void translate_RND(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *rrax = j_get_reg_readonly(s->j, RAX);
+    CALL_MEM(s, rand);
+    MOV_REG16_TO_REG(s, rrax, rx);
+    AND_IMM32_TO_REG(s, I_HHLL(s->i), rx);
+}
+
+void translate_FLIP(cpu_state *s)
+{
+    MOV_IMM8_TO_MEM(s, (I_HHLL(s->i)&2)>>1, &s->fx);
+    MOV_IMM8_TO_MEM(s, (I_HHLL(s->i)&1), &s->fy);
+}
+
+void translate_SND0(cpu_state *s)
+{
+    CALL_MEM(s, audio_stop);
+}
+
+void translate_SND1(cpu_state *s)
+{
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+    j_reg *rrsi = j_get_reg(s->j, RSI);
+    j_reg *rrdx = j_get_reg(s->j, RDX);
+
+    MOV_IMM32_TO_REG(s, 500, rrdi);
+    MOV_IMM32_TO_REG(s, I_HHLL(s->i), rrsi);
+    MOV_IMM32_TO_REG(s, 0, rrdx);
+    CALL_MEM(s, audio_play);
+}
+
+void translate_SND2(cpu_state *s)
+{
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+    j_reg *rrsi = j_get_reg(s->j, RSI);
+    j_reg *rrdx = j_get_reg(s->j, RDX);
+
+    MOV_IMM32_TO_REG(s, 1000, rrdi);
+    MOV_IMM32_TO_REG(s, I_HHLL(s->i), rrsi);
+    MOV_IMM32_TO_REG(s, 0, rrdx);
+    CALL_MEM(s, audio_play);
+}
+
+void translate_SND3(cpu_state *s)
+{
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+    j_reg *rrsi = j_get_reg(s->j, RSI);
+    j_reg *rrdx = j_get_reg(s->j, RDX);
+
+    MOV_IMM32_TO_REG(s, 1500, rrdi);
+    MOV_IMM32_TO_REG(s, I_HHLL(s->i), rrsi);
+    MOV_IMM32_TO_REG(s, 0, rrdx);
+    CALL_MEM(s, audio_play);
+}
+
+void translate_SNP(cpu_state *s)
+{
+    j_reg *rrdi = j_reg_containing_creg_choose(s->j, I_X(s->i), RDI);
+    j_reg *rrsi = j_get_reg(s->j, RSI);
+    j_reg *rrdx = j_get_reg(s->j, RDX);
+
+    MOV_IMM32_TO_REG(s, I_HHLL(s->i), rrsi);
+    MOV_IMM32_TO_REG(s, 1, rrdx);
+    CALL_MEM(s, audio_play);
+}
+
+void translate_SNG(cpu_state *s)
+{
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+
+    em2(mov_imm8_to_mem, P(s), I_Y(s->i), &s->atk);
+    em2(mov_imm8_to_mem, P(s), I_X(s->i), &s->dec);
+    em2(mov_imm8_to_mem, P(s), (I_HHLL(s->i)>>12)&0x0f, &s->vol);
+    em2(mov_imm8_to_mem, P(s), (I_HHLL(s->i)>>8)&0x0f, &s->type);
+    em2(mov_imm8_to_mem, P(s), (I_HHLL(s->i)>>4)&0x0f, &s->sus);
+    em2(mov_imm8_to_mem, P(s), I_HHLL(s->i)&0x0f, &s->rls);
+    LEA_MEM_TO_REG(s, s, rrdi);
+    CALL_MEM(s, audio_update);
+}
+
+void translate_JMP_I(cpu_state *s)
+{
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+}
+
+void translate_JMC(cpu_state *s)
+{
+    j_label *l0 = NULL, *l1 = NULL;
+
+    CMP_IMM8_TO_MEM(s, 1, &s->f.c);
+    JNZ_MEML(s, l0);
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+LABEL(s, l0);
+}
+
+void translate_Jx(cpu_state *s)
+{
+    j_label *l0 = NULL, *l1 = NULL;
+
+    CMP_IMM8_TO_MEM(s, 1, &s->f.c);
+    JNZ_MEML(s, l0);
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+LABEL(s, l0);
+}
+
+void translate_JME(cpu_state *s)
+{
+    j_label *l0 = NULL, *l1 = NULL;
+
+    CMP_IMM8_TO_MEM(s, 1, &s->f.z);
+    JNZ_MEML(s, l0);
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+LABEL(s, l0);
+}
+
+void translate_CALL_I(cpu_state *s)
+{
+    j_reg *rtemp = j_get_free_reg(s->j);
+    j_reg *rbase = j_get_free_reg(s->j);
+    MOV_MEM16_TO_REG(s, &s->pc, rtemp);
+    MOV_REG_TO_REGIND16_DISP32(s, rtemp, rbase, &s->sp);
+    ADD_IMM16_TO_MEM(s, 2, &s->sp);
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+}
+
+void translate_RET(cpu_state *s)
+{
+    j_reg *rtemp = j_get_free_reg(s->j);
+    j_reg *rbase = j_get_free_reg(s->j);
+    MOV_MEM16_TO_REG(s, &s->pc, rtemp);
+    SUB_IMM16_TO_MEM(s, 2, &s->sp);
+    MOV_REG_TO_REGIND16_DISP32(s, rtemp, rbase, &s->sp);
+}
+
+void translate_JMP_R(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    if(rx->isconst) {
+        MOV_IMM16_TO_MEM(s, rx->value.w, &s->pc);
+    } else {
+        MOV_REG16_TO_MEM(s, rx, &s->pc);
+    }
+}
+
+void translate_Cx(cpu_state *s)
+{
+    // TODO: change this
+    j_reg *rtemp = j_get_free_reg(s->j);
+    j_reg *rbase = j_get_free_reg(s->j);
+    MOV_MEM16_TO_REG(s, &s->pc, rtemp);
+    MOV_REG_TO_REGIND16_DISP32(s, rtemp, rbase, &s->sp);
+    ADD_IMM16_TO_MEM(s, 2, &s->sp);
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+}
+
+void translate_CALL_R(cpu_state *s)
+{
+    // TODO: change this
+    j_reg *rtemp = j_get_free_reg(s->j);
+    j_reg *rbase = j_get_free_reg(s->j);
+    MOV_MEM16_TO_REG(s, &s->pc, rtemp);
+    MOV_REG_TO_REGIND16_DISP32(s, rtemp, rbase, &s->sp);
+    ADD_IMM16_TO_MEM(s, 2, &s->sp);
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->pc);
+}
+
+void translate_LDI(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    MOV_IMM16_TO_REG(s, I_HHLL(s->i), rx);
+}
+
+void translate_LDI_SP(cpu_state *s)
+{
+    MOV_IMM16_TO_MEM(s, I_HHLL(s->i), &s->sp);
+}
+
+void translate_LDM_I(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    MOV_MEM16_TO_REG(s, MEMPTR16(I_HHLL(s->i)), rx);
+}
+
+void translate_LDM_R(cpu_state *s)
+{
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *rfrom = j_reg_containing_creg(s->j, I_Y(s->i));
+    // We need the register to actually contain the value
+    if(rfrom->isconst) {
+        MOV_IMM16_TO_REG(s, rfrom->value.w, rfrom);
+    }
+    j_reg *rbase = j_get_free_reg(s->j);
+    LEA_MEM_TO_REG(s, &s->m, rbase);
+    MOV_SIB16_TO_REG(s, 0, rfrom, rbase, rto);
+    rto->dirty = true;
+    rto->isconst = false;
+}
+
+void translate_MOV(cpu_state *s)
+{
+    j_reg *rfrom = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    if(rfrom->isconst) {
+        rto->value.w = rfrom->value.w;
+        rto->isconst = true;
+    } else {
+        MOV_REG16_TO_REG(s, rfrom, rto);
+    }
+    rto->dirty = true;
+}
+
+void translate_STM_I(cpu_state *s)
+{
+    j_reg *rfrom = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
+    if(rfrom->isconst) {
+        MOV_IMM16_TO_MEM(s, rfrom->value.w, MEMPTR16(imm));
+    } else {
+        MOV_REG16_TO_MEM(s, rfrom, MEMPTR16(imm));
+    }
+}
+
+void translate_STM_R(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rbase = j_get_free_reg(s->j);
+    LEA_MEM_TO_REG(s, &s->m, rbase);
+    MOV_SIB16_TO_MEM(s, 1, ry, rbase, rx);
+}
+
+void translate_ADDI(cpu_state *s)
+{
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
     
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
+    if(rto->isconst && rto->value.w == 0) {
+        rto->value.w = imm;
+    } else {
+        if(rto->isconst) {
+            rto->value.w += imm;
+        } else {
+            ADD_IMM16_TO_REG(s, imm, rto);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+}
+
+void translate_ADD_R2(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
     
-    MOVE_I_R(i0, 1, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_M(i1, i0->out.reg, &s->meta.wait_vblnk, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w += ry->value.w;
+    } else if(ry->isconst) {
+        ADD_IMM16_TO_REG(s, ry->value.w, rx);
+    } else {
+        ADD_REG16_TO_REG(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_bgc(cpu_state *s)
+void translate_ADD_R3(cpu_state *s)
 {
-    struct jit_instr *i0, *i1;
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
-    MOVE_I_R(i0, i_n(s->i), jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_M(i1, i0->out.reg, &s->bgc, JIT_8BIT);
-}
-
-void cpu_emit_spr(cpu_state *s)
-{
-    struct jit_instr *i0, *i1, *i2, *i3, *i4, *i5;
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
-    i2 = jit_instr_new(s->j);
-    i3 = jit_instr_new(s->j);
-    i4 = jit_instr_new(s->j);
-    i5 = jit_instr_new(s->j);
-    MOVE_I_R(i0, i_hhll(s->i), jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_R(i1, i0->out.reg, jit_reg_new(s->j), JIT_32BIT);
-    AND_I_R_R(i2, 0x00ff, i0->out.reg, i0->out.reg, JIT_32BIT);
-    SHR_R_I_R(i3, i1->out.reg, 8, i1->out.reg, JIT_32BIT);
-    MOVE_R_M(i4, i0->out.reg, &s->sw, JIT_8BIT);
-    MOVE_R_M(i5, i1->out.reg, &s->sh, JIT_8BIT);
-}
-
-void cpu_emit_drw_i(cpu_state *s)
-{
-    struct jit_instr *i0, *i1, *i2, *i3, *i4, *i5;
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg x = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg y = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-    jit_reg c = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_RET);
-    int16_t *p_regx = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regy = &s->r[i_yx(s->i)>>4];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
     
-    i0 = jit_instr_new(s->j);
-    i1 = jit_instr_new(s->j);
-    i2 = jit_instr_new(s->j);
-    i3 = jit_instr_new(s->j);
-    i4 = jit_instr_new(s->j);
+    if(rx->isconst && ry->isconst) {
+        rz->value.w = rx->value.w + ry->value.w;
+        rz->isconst = true;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s, rx);
+        if(ry->isconst)
+            j_reg_unconst(s, ry);
+        // LEA_SIB_TO_REG(s, 0, rz, ry, rx);
+        MOV_REG16_TO_REG(s, ry, rx);
+        ADD_REG16_TO_REG(s, rz, rx);
+    }
+    rz->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+}
+
+void translate_SUBI(cpu_state *s)
+{
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
     
-    MOVE_I_R(i0, i_hhll(s->i), a, JIT_32BIT);
-    MOVE_M_R(i1, p_regx, x, JIT_16BIT);
-    MOVE_M_R(i2, p_regy, y, JIT_16BIT);
-    CALL_M(i3, op_drw, JIT_32BIT);
-    MOVE_R_M(i4, c, &s->f.c, JIT_32BIT);
+    if(rto->isconst && rto->value.w == 0) {
+        rto->value.w = -imm;
+    } else {
+        if(rto->isconst) {
+            rto->value.w -= imm;
+        } else {
+            SUB_IMM16_TO_REG(s, imm, rto);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_drw_r(cpu_state *s)
+void translate_SUB_R2(cpu_state *s)
 {
-    /* TODO: We assume a simplified op_drw(x, y, m) */
-    int n;
-    struct jit_instr *i[7];
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg x = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg y = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-    jit_reg c = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_RET);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
     
-    for(n = 0; n < 7; n++)
-        i[n] = jit_instr_new(s->j);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w -= ry->value.w;
+    } else if(ry->isconst) {
+        SUB_IMM16_TO_REG(s, ry->value.w, rx);
+    } else {
+        SUB_REG16_TO_REG(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+}
+
+void translate_SUB_R3(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
     
-    MOVE_ID_R(i[0], &s->r, y, JIT_32BIT);
-    MOVE_RP_R(i[3], y, JIT_REG_INVALID, 0, 2*(i_z(s->i)&0x0f), a, JIT_16BIT);
-    MOVE_RP_R(i[1], y, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), x, JIT_16BIT);
-    MOVE_RP_R(i[2], y, JIT_REG_INVALID, 0, 2*(i_yx(s->i)>>4), y, JIT_16BIT);
-    CALL_M(i[4], op_drw, JIT_32BIT);
-    MOVE_R_M(i[5], c, &s->f.c, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+        rz->value.w = rx->value.w - ry->value.w;
+        rz->isconst = true;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s, rx);
+        if(ry->isconst)
+            j_reg_unconst(s, ry);
+        // LEA_SIB_TO_REG(s, 0, rz, ry, rx);
+        MOV_REG16_TO_REG(s, ry, rx);
+        SUB_REG16_TO_REG(s, rz, rx);
+    }
+    rz->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_rnd(cpu_state *s)
+void translate_CMPI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[5];
-    jit_reg x = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg r = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_RET);
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
     
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-
-    XOR_R_R_R(i[0], x, x, x, JIT_32BIT);
-    CALL_M(i[1], rand, JIT_32BIT);
-    AND_I_R_R(i[2], i_hhll(s->i), r, r, JIT_32BIT);
-    MOVE_ID_R(i[3], &s->r, x, JIT_32BIT);
-    MOVE_R_RP(i[4], x, x, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), JIT_32BIT);
+    if(rto->isconst && rto->value.w == 0) {
+    } else {
+        if(rto->isconst) {
+            rto->value.w -= imm;
+        } else {
+            CMP_IMM16_TO_REG(s, imm, rto);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_flip(cpu_state *s)
+void translate_CMP(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[5];
-    jit_reg a = jit_reg_new(s->j);
-    uint16_t imm = i_hhll(s->i);
-
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_I_R(i[0], ((imm&2) << 8) | (imm&1), a, JIT_32BIT);
-    MOVE_R_M(i[1], a, (int16_t *)&s->fx, JIT_16BIT);
-}
-
-void cpu_emit_snd0(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[1];
-
-    for(n = 0; n < 1; n++)
-        i[n] = jit_instr_new(s->j);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
     
-    CALL_M(i[0], audio_stop, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+    } else if(ry->isconst) {
+        CMP_IMM16_TO_REG(s, ry->value.w, rx);
+    } else {
+        CMP_REG16_TO_REG(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_snd1(cpu_state *s)
+void translate_ANDI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg d = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
     
-    MOVE_I_R(i[0], 500, f, JIT_32BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), d, JIT_32BIT);
-    MOVE_I_R(i[2], 0, a, JIT_32BIT);
-    CALL_M(i[3], audio_play, JIT_32BIT);
+    if(rto->isconst && rto->value.w == 0) {
+        rto->value.w = 0;
+    } else {
+        if(rto->isconst) {
+            rto->value.w &= imm;
+        } else {
+            AND_IMM16_TO_REG(s, imm, rto);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_snd2(cpu_state *s)
+void translate_AND_R2(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg d = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
     
-    MOVE_I_R(i[0], 1000, f, JIT_32BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), d, JIT_32BIT);
-    MOVE_I_R(i[2], 0, a, JIT_32BIT);
-    CALL_M(i[3], audio_play, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w &= ry->value.w;
+    } else if(ry->isconst) {
+        AND_IMM16_TO_REG(s, ry->value.w, rx);
+    } else {
+        AND_REG16_TO_REG(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_snd3(cpu_state *s)
+void translate_AND_R3(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg d = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg a = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
     
-    MOVE_I_R(i[0], 1500, f, JIT_32BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), d, JIT_32BIT);
-    MOVE_I_R(i[2], 0, a, JIT_32BIT);
-    CALL_M(i[3], audio_play, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+        rz->value.w = rx->value.w & ry->value.w;
+        rz->isconst = true;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s, rx);
+        if(ry->isconst)
+            j_reg_unconst(s, ry);
+        if(rz->isconst)
+            rz->isconst = false;
+        // LEA_SIB_TO_REG(s, 0, rz, ry, rx);
+        MOV_REG16_TO_REG(s, ry, rx);
+        AND_REG16_TO_REG(s, rz, rx);
+    }
+    rz->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_snp(cpu_state *s)
+void translate_TSTI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[5];
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *rtemp = j_get_free_reg(s->j);
+    int16_t imm = I_HHLL(s->i);
     
-    jit_reg f = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg dt = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG1);
-    jit_reg one = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG2);
-
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_ID_R(i[0], &s->m, f, JIT_32BIT);
-    MOVE_RP_R(i[1], f, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0xf), f, JIT_16BIT);
-    MOVE_I_R(i[2], i_hhll(s->i), dt, JIT_32BIT);
-    MOVE_I_R(i[3], 1, one, JIT_32BIT);
-    CALL_M(i[4], audio_play, JIT_32BIT); 
+    if(rto->isconst && rto->value.w == 0) {
+    } else {
+        if(rto->isconst) {
+        } else {
+            MOV_REG16_TO_REG(s, rto, rtemp);
+            AND_IMM16_TO_REG(s, imm, rtemp);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_sng(cpu_state *s)
+void translate_TST(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[14];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rtemp = j_get_free_reg(s->j);
     
-    jit_reg rs = jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0);
-    jit_reg rt = jit_reg_new(s->j);
-
-    for(n = 0; n < 14; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_I_R(i[0], (i_yx(s->i))>>4, rt, JIT_8BIT);
-    MOVE_R_M(i[1], rt, &s->atk, JIT_32BIT);
-    MOVE_I_R(i[2], (i_yx(s->i))&0x0f, rt, JIT_8BIT);
-    MOVE_R_M(i[3], rt, &s->dec, JIT_32BIT);
-    MOVE_I_R(i[4], (i_hhll(s->i)>>12)&0x0f, rt, JIT_8BIT);
-    MOVE_R_M(i[5], rt, &s->vol, JIT_32BIT);
-    MOVE_I_R(i[6], (i_hhll(s->i)>>8)&0x0f, rt, JIT_8BIT);
-    MOVE_R_M(i[7], rt, &s->type, JIT_32BIT);
-    MOVE_I_R(i[8], (i_hhll(s->i)>>4)&0x0f, rt, JIT_8BIT);
-    MOVE_R_M(i[9], rt, &s->sus, JIT_32BIT);
-    MOVE_I_R(i[10], (i_hhll(s->i))&0x0f, rt, JIT_8BIT);
-    MOVE_R_M(i[11], rt, &s->rls, JIT_32BIT);
-    MOVE_ID_R(i[12], s, rs, JIT_32BIT);
-    CALL_M(i[13], audio_update, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+    } else if(ry->isconst) {
+    } else {
+        MOV_REG16_TO_REG(s, rx, rtemp);
+        AND_REG16_TO_REG(s, ry, rtemp);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_jmp_i(cpu_state *s)
+void translate_ORI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
-
-    jit_reg x =  jit_reg_new(s->j);
-    for(n = 0; n < 8; n++)
-        i[n] = jit_instr_new(s->j);
-
-    i[0] = jit_instr_new(s->j);
-    i[1] = jit_instr_new(s->j);
-
-    MOVE_I_R(i[0], i_hhll(s->i), x, JIT_32BIT);
-    MOVE_R_M(i[1], x, &s->pc, JIT_16BIT);
-}
-
-void cpu_emit_jmc(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[2];
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
     
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
+    if(rto->isconst && rto->value.w == 0) {
+        rto->value.w = imm;
+    } else {
+        if(rto->isconst) {
+            rto->value.w |= imm;
+        } else {
+            OR_IMM16_TO_REG(s, imm, rto);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
+}
+
+void translate_OR_R2(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
     
-    MOVE_ID_R(i[0], s, jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0), JIT_32BIT);
-    CALL_M(i[1], op_jmc, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w |= ry->value.w;
+    } else if(ry->isconst) {
+        OR_IMM16_TO_REG(s, ry->value.w, rx);
+    } else {
+        OR_REG16_TO_REG(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_jx(cpu_state *s)
+void translate_OR_R3(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
     
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
+    if(rx->isconst && ry->isconst) {
+        rz->value.w = rx->value.w | ry->value.w;
+        rz->isconst = true;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s, rx);
+        if(ry->isconst)
+            j_reg_unconst(s, ry);
+        if(rz->isconst)
+            rz->isconst = false;
+        // LEA_SIB_TO_REG(s, 0, rz, ry, rx);
+        MOV_REG16_TO_REG(s, ry, rx);
+        OR_REG16_TO_REG(s, rz, rx);
+    }
+    rz->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
+}
+
+void translate_XORI(cpu_state *s)
+{
+    j_reg *rto = j_reg_containing_creg(s->j, I_X(s->i));
+    int16_t imm = I_HHLL(s->i);
     
-    MOVE_ID_R(i[0], s, jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0), JIT_32BIT);
-    CALL_M(i[1], op_jx, JIT_32BIT);
+    if(rto->isconst && rto->value.w == 0) {
+        rto->value.w = imm ^ 0;
+    } else {
+        if(rto->isconst) {
+            rto->value.w ^= imm;
+        } else {
+            XOR_IMM16_TO_REG(s, imm, rto);
+        }
+    }
+    rto->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_jme(cpu_state *s)
+void translate_XOR_R2(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
     
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w ^= ry->value.w;
+    } else if(ry->isconst) {
+        XOR_IMM16_TO_REG(s, ry->value.w, rx);
+    } else {
+        XOR_REG16_TO_REG(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
+}
+
+void translate_XOR_R3(cpu_state *s)
+{
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
     
-    MOVE_ID_R(i[0], s, jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0), JIT_32BIT);
-    CALL_M(i[1], op_jme, JIT_32BIT);
+    if(rx->isconst && ry->isconst) {
+        rz->value.w = rx->value.w ^ ry->value.w;
+        rz->isconst = true;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s, rx);
+        if(ry->isconst)
+            j_reg_unconst(s, ry);
+        if(rz->isconst)
+            rz->isconst = false;
+        // LEA_SIB_TO_REG(s, 0, rz, ry, rx);
+        MOV_REG16_TO_REG(s, ry, rx);
+        XOR_REG16_TO_REG(s, rz, rx);
+    }
+    rz->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_call_i(cpu_state *s)
+void translate_MULI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[8];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
 
-    for(n = 0; n < 8; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_M_R(i[0], &s->pc, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[1], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_M_R(i[2], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    // rzx := chip16.pc
-    // rzy := &chip16.m
-    // rzz := chip16.sp
-    // movw %rzx, (%rzy, %rzz, 1) i.e.: chip16.m[chip16.sp] = chip16.pc
-    MOVE_R_RP(i[3], i[0]->out.reg, i[1]->out.reg, i[2]->out.reg, 1, 0, JIT_16BIT);
-    MOVE_M_R(i[4], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    // chip16.sp += 2
-    ADD_I_R_R(i[5], 2, i[4]->out.reg, i[4]->out.reg, JIT_16BIT);
-    // chip16.pc = i.hhll
-    MOVE_I_R(i[6], i_hhll(s->i), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_M(i[7], i[6]->out.reg, &s->pc, JIT_16BIT);
+    if(rx->isconst) {
+        rx->value.w *= I_HHLL(s->i);
+    } else {
+        IMUL_IMM32_REG32_TO_REG32(s, I_HHLL(s->i), rx, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_ret(cpu_state *s)
+void translate_MUL_R2(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[6];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
 
-    for(n = 0; n < 6; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // chip16.sp -= 2
-    MOVE_M_R(i[0], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    SUB_I_R_R(i[1], 2, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->sp, JIT_16BIT);
-    // chip16.pc = chip16.m[chip16.sp]
-    MOVE_ID_R(i[3], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[4], i[3]->out.reg, i[0]->out.reg, 1, 0, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_M(i[5], i[4]->out.reg, &s->pc, JIT_16BIT);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w *= ry->value.w;
+    } else if(ry->isconst) {
+        IMUL_IMM32_REG32_TO_REG32(s, ry->value.w, rx, rx);
+    } else {
+        if(rx->isconst)
+            rx->isconst = false;
+        IMUL_REG32_TO_REG32(s, ry, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_jmp_r(cpu_state *s)
+void translate_MUL_R3(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
 
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-   
-    // chip16.pc = chip16.r[i.x]
-    MOVE_ID_R(i[0], &s->r, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[1], i[0]->out.reg, JIT_REG_INVALID, 1, 2*(i_yx(s->i)&0x0f), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_M(i[2], i[1]->out.reg, &s->pc, JIT_16BIT);
+    if(rx->isconst && ry->isconst && rz->isconst) {
+        rz->value.w = rx->value.w * ry->value.w;
+    } else if(rx->isconst && ry->isconst) {
+        MOV_IMM16_TO_REG(s, rx->value.w * ry->value.w, rz);
+    } else if(ry->isconst) {
+        IMUL_IMM32_REG32_TO_REG32(s, ry->value.w, rx, rz);
+    } else if(rx->isconst) {
+        IMUL_IMM32_REG32_TO_REG32(s, rx->value.w, ry, rz);
+    } else {
+        if(rz->isconst)
+            rz->isconst = false;
+        IMUL_REG32_REG32_TO_REG32(s, rx, ry, rz);
+    }
+    rz->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_cx(cpu_state *s)
+void translate_DIVI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
-
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_ID_R(i[0], s, jit_reg_new_fixed(s->j, JIT_REGMAP_CALL_ARG0), JIT_32BIT);
-    CALL_M(i[1], op_cx, JIT_32BIT);
+    j_reg *rx = j_reg_containing_creg_choose(s->j, I_X(s->i), RAX);
+    j_reg *rdiv = j_get_free_reg(s->j);
+    if(rx->isconst) {
+        rx->value.w *= I_HHLL(s->i);
+    } else {
+        MOV_IMM16_TO_REG(s, I_HHLL(s->i), rdiv);
+        IDIV_EAX_TO_REG32(s, rdiv);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_call_r(cpu_state *s)
+void translate_DIV_R2(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[9];
-
-    for(n = 0; n < 9; n++)
-        i[n] = jit_instr_new(s->j);
-
-    MOVE_M_R(i[0], &s->pc, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[1], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_M_R(i[2], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    // rzx := chip16.pc
-    // rzy := &chip16.m
-    // rzz := chip16.sp
-    // movw %rzx, (%rzy, %rzz, 1) i.e.: chip16.m[chip16.sp] = chip16.pc
-    MOVE_R_RP(i[3], i[0]->out.reg, i[1]->out.reg, i[2]->out.reg, 1, 0, JIT_16BIT);
-    MOVE_M_R(i[4], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    // chip16.sp += 2
-    ADD_I_R_R(i[5], 2, i[4]->out.reg, i[4]->out.reg, JIT_16BIT);
-    // chip16.pc = chip16.r[i.x]
-    MOVE_ID_R(i[6], &s->r, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_RP_R(i[7], i[6]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_M(i[8], i[7]->out.reg, &s->pc, JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg_choose(s->j, I_X(s->i), RAX);
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    if(rx->isconst && ry->isconst) {
+        rx->value.w /= ry->value.w;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s->j, rx);
+        else if(ry->isconst)
+            j_reg_unconst(s->j, ry);
+        IDIV_EAX_TO_REG32(s, ry);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_ldi(cpu_state *s)
+void translate_DIV_R3(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_I_R(i[0], i_hhll(s->i), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[1], &s->r, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_RP(i[2], i[0]->out.reg, i[1]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg_choose(s->j, I_X(s->i), RAX);
+    j_reg *ry = j_reg_containing_creg(s->j, I_Y(s->i));
+    j_reg *rz = j_reg_containing_creg(s->j, I_Z(s->i));
+    if(rx->isconst && ry->isconst) {
+        rz->value.w = rx->value.w / ry->value.w;
+        rz->isconst = true;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s->j, rx);
+        else if(ry->isconst)
+            j_reg_unconst(s->j, ry);
+        if(rz->isconst)
+            rz->isconst = false;
+        IDIV_EAX_TO_REG32(s, ry);
+        MOV_REG32_TO_REG(s, rx, rz);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_C | FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_ldi_sp(cpu_state *s)
+void translate_SHL_N(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
-
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_I_R(i[0], i_hhll(s->i), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_M(i[1], i[0]->out.reg, &s->sp, JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    if(rx->isconst) {
+        rx->value.w <<= I_N(s->i);
+    } else {
+        SHL_IMM8_TO_REG(s, I_N(s->i), rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_ldm_i(cpu_state *s)
+void translate_SHR_N(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] = state.m[i.hhll]
-    MOVE_ID_R(i[0], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[1], i[0]->out.reg, JIT_REG_INVALID, 0, i_hhll(s->i), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[2], &s->r, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_RP(i[3], i[1]->out.reg, i[2]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    if(rx->isconst) {
+        rx->value.uw >>= I_N(s->i);
+    } else {
+        SHR_IMM8_TO_REG(s, I_N(s->i), rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_ldm_r(cpu_state *s)
+void translate_SAR_N(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[5];
-
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] = state.m[state.r[i.y]]
-    MOVE_ID_R(i[0], &s->r, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[1], i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[2], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[3], i[2]->out.reg, i[1]->out.reg, 2, 0, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_RP(i[4], i[3]->out.reg, i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    if(rx->isconst) {
+        rx->value.uw >>= I_N(s->i);
+    } else {
+        SAR_IMM8_TO_REG(s, I_N(s->i), rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_mov(cpu_state *s)
+void translate_SHL_R(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] = state.r[i.y]
-    MOVE_ID_R(i[0], &s->r, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[1], i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)>>4), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_R_RP(i[2], i[1]->out.reg, i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg_choose(s->j, I_Y(s->i), RCX);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w <<= ry->value.w;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s->j, rx);
+        else if(ry->isconst)
+            j_reg_unconst(s->j, ry);
+        SHL_CL_TO_REG(s, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_stm_i(cpu_state *s)
+void translate_SHR_R(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.m[i.hhll] = state.r[i.x]
-    MOVE_ID_R(i[0], &s->r, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[1], i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[2], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_RP(i[3], i[1]->out.reg, i[2]->out.reg, JIT_REG_INVALID, 0, i_hhll(s->i), JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg_choose(s->j, I_Y(s->i), RCX);
+    if(rx->isconst && ry->isconst) {
+        rx->value.uw >>= ry->value.w;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s->j, rx);
+        else if(ry->isconst)
+            j_reg_unconst(s->j, ry);
+        SHR_CL_TO_REG(s, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_stm_r(cpu_state *s)
+void translate_SAR_R(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[5];
-
-    for(n = 0; n < 5; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.m[state.r[i.y]] = state.r[i.x]
-    MOVE_ID_R(i[0], &s->r, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[1], i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)&0x0f), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_RP_R(i[2], i[0]->out.reg, JIT_REG_INVALID, 0, 2*(i_yx(s->i)>>4), jit_reg_new(s->j), JIT_16BIT);
-    MOVE_ID_R(i[3], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_R_RP(i[4], i[1]->out.reg, i[3]->out.reg, i[2]->out.reg, 1, 0, JIT_16BIT);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *ry = j_reg_containing_creg_choose(s->j, I_Y(s->i), RCX);
+    if(rx->isconst && ry->isconst) {
+        rx->value.w >>= ry->value.w;
+    } else {
+        if(rx->isconst)
+            j_reg_unconst(s->j, rx);
+        else if(ry->isconst)
+            j_reg_unconst(s->j, ry);
+        SAR_CL_TO_REG(s, rx);
+    }
+    rx->dirty = true;
+    emit_flags_update(s, FLAG_Z | FLAG_N);
 }
 
-void cpu_emit_addi(cpu_state *s)
+void translate_PUSH(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    ADD_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *rmem = j_get_free_reg(s->j);
+    MOV_MEM16_TO_REG(s, &s->sp, rmem);
+    if(rx->isconst) {
+        MOV_IMM16_TO_REGIND16_DISP32(s, rx->value.w, rmem, &s->m);
+    } else {
+        MOV_REG16_TO_REGIND16_DISP32(s, rx, rmem, &s->m);
+    }
+    ADD_IMM16_TO_MEM(s, 2, &s->sp);
 }
 
-void cpu_emit_add_r2(cpu_state *s)
+void translate_POP(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
+    j_reg *rx = j_reg_containing_creg(s->j, I_X(s->i));
+    j_reg *rmem = j_get_free_reg(s->j);
 
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    ADD_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+    SUB_IMM16_TO_MEM(s, 2, &s->sp);
+    MOV_MEM16_TO_REG(s, &s->sp, rmem);
+    if(rx->isconst)
+        rx->isconst = false;
+    MOV_REGIND16_DISP32_TO_REG(s, rmem, &s->m, rx);
 }
 
-void cpu_emit_add_r3(cpu_state *s)
+void translate_PUSHF(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    ADD_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_z(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+    j_reg *rmem = j_get_free_reg(s->j);
+    MOV_MEM16_TO_REG(s, &s->sp, rmem);
+    MOV_IMM16_TO_REGIND16_DISP32(s, MAKEFLAGS(s), rmem, &s->m);
+    ADD_IMM16_TO_MEM(s, 2, &s->sp);
 }
 
-void cpu_emit_subi(cpu_state *s)
+void translate_POPF(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    SUB_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
+    j_reg *rrdi = j_get_reg(s->j, RDI);
+    j_reg *rrsi = j_get_reg(s->j, RSI);
+    j_reg *rmem = j_get_free_reg(s->j);
+    SUB_IMM16_TO_MEM(s, 2, &s->sp);
+    MOV_MEM16_TO_REG(s, &s->sp, rmem);
+    MOV_REGIND16_DISP32_TO_REG(s, rmem, &s->m, rrsi);
+    LEA_MEM_TO_REG(s, s, rrdi);
+    CALL_MEM(s, UNPACK_WRITE_FLAGS);
 }
 
-void cpu_emit_sub_r2(cpu_state *s)
+void translate_PUSHALL(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    SUB_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_sub_r3(cpu_state *s)
+void translate_POPALL(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    SUB_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_z(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_cmpi(cpu_state *s)
+void translate_PAL_I(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
-
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    SUB_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_cmp(cpu_state *s)
+void translate_PAL_R(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    SUB_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_andi(cpu_state *s)
+void translate_NOTI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    AND_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_and_r2(cpu_state *s)
+void translate_NOT_R1(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    AND_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_tsti(cpu_state *s)
+void translate_NOT_R2(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[2];
-
-    for(n = 0; n < 2; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    AND_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_tst(cpu_state *s)
+void translate_NEGI(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    AND_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_and_r3(cpu_state *s)
+void translate_NEG_R1(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    AND_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_z(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
 }
 
-void cpu_emit_ori(cpu_state *s)
+void translate_NEG_R2(cpu_state *s)
 {
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    OR_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-}
-
-void cpu_emit_or_r2(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    OR_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-}
-
-void cpu_emit_or_r3(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    OR_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_z(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-}
-
-void cpu_emit_xori(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[3];
-
-    for(n = 0; n < 3; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    // state.r[i.x] += i.hhll
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    XOR_I_R_R(i[1], i_hhll(s->i), i[0]->out.reg, i[0]->out.reg, JIT_16BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-}
-
-void cpu_emit_xor_r2(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    XOR_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_yx(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-}
-
-void cpu_emit_xor_r3(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.r[i.x] += state.r[i.y]
-    MOVE_M_R(i[0], &s->r[i_yx(s->i)&0x0f], jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], &s->r[i_yx(s->i)>>4], jit_reg_new(s->j), JIT_16BIT);
-    XOR_R_R_R(i[2], i[1]->out.reg, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, &s->r[i_z(s->i)&0x0f], JIT_16BIT);
-    // state.f <- update
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_O | FLAG_N);
-}
-
-void cpu_emit_muli(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new_fixed(s->j, JIT_REGMAP_MULTIPLICAND), JIT_16BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), jit_reg_new(s->j), JIT_16BIT);
-    MUL_R_R_R(i[2], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_mul_r2(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new_fixed(s->j, JIT_REGMAP_MULTIPLICAND), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    MUL_R_R_R(i[2], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_mul_r3(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-    int16_t *p_regout = &s->r[i_z(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new_fixed(s->j, JIT_REGMAP_MULTIPLICAND), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    MUL_R_R_R(i[2], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, p_regout, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_divi(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new_fixed(s->j, JIT_REGMAP_DIVIDEND), JIT_16BIT);
-    MOVE_I_R(i[1], i_hhll(s->i), jit_reg_new(s->j), JIT_16BIT);
-    DIV_R_R_R(i[2], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_div_r2(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new_fixed(s->j, JIT_REGMAP_DIVIDEND), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    DIV_R_R_R(i[2], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_div_r3(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-    int16_t *p_regout = &s->r[i_z(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new_fixed(s->j, JIT_REGMAP_DIVIDEND), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    DIV_R_R_R(i[2], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[3], i[0]->out.reg, p_regout, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_C | FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_shl_n(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    SHL_R_I_R(i[1], i[0]->out.reg, i_z(s->i)&0x0f, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_shr_n(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    SHR_R_I_R(i[1], i[0]->out.reg, i_z(s->i)&0x0f, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_sar_n(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    SAR_R_I_R(i[1], i[0]->out.reg, i_z(s->i)&0x0f, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_shl_r(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    SHL_R_R_R(i[1], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_shr_r(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    SHR_R_R_R(i[1], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_sar_r(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[4];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-    int16_t *p_regarg = &s->r[i_yx(s->i)>>4];
-
-    for(n = 0; n < 4; n++)
-        i[n] = jit_instr_new(s->j);
-    
-    MOVE_M_R(i[0], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[1], p_regarg, jit_reg_new(s->j), JIT_16BIT);
-    SAR_R_R_R(i[1], i[0]->out.reg, i[1]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, p_reg, JIT_16BIT);
-    cpu_emit__flags(s, FLAG_Z | FLAG_N);
-}
-
-void cpu_emit_push(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[6];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 6; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.m[state.sp] = state.r[i.x]
-    MOVE_ID_R(i[0], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_M_R(i[1], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[2], p_reg, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_RP_R(i[3], i[2]->out.reg, i[0]->out.reg, i[1]->out.reg, 1, 0, JIT_16BIT);
-    // state.sp += 2
-    ADD_I_R_R(i[4], 2, i[1]->out.reg, i[1]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[5], i[1]->out.reg, &s->sp, JIT_16BIT);
-}
-
-void cpu_emit_pop(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[6];
-    int16_t *p_reg = &s->r[i_yx(s->i)&0x0f];
-
-    for(n = 0; n < 6; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.sp -= 2
-    MOVE_M_R(i[0], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    SUB_I_R_R(i[1], 2, i[0]->out.reg, i[0]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[2], i[0]->out.reg, &s->sp, JIT_16BIT);
-    // state.r[i.x] = state.m[state.sp]
-    MOVE_ID_R(i[3], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_RP_R(i[4], i[0]->out.reg, i[3]->out.reg, jit_reg_new(s->j), 1, 0, JIT_16BIT);
-    MOVE_R_M(i[5], i[4]->out.reg, p_reg, JIT_16BIT);
-}
-
-void cpu_emit_pushf(cpu_state *s)
-{
-    int n;
-    struct jit_instr *i[6];
-    uint16_t *f = malloc(sizeof(uint16_t));
-    *f =(s->f.c << 1) | (s->f.z << 2) | (s->f.o << 6) | (s->f.n << 7);
-
-    for(n = 0; n < 6; n++)
-        i[n] = jit_instr_new(s->j);
-
-    // state.m[state.sp] = state.f
-    MOVE_ID_R(i[0], &s->m, jit_reg_new(s->j), JIT_32BIT);
-    MOVE_M_R(i[1], &s->sp, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_M_R(i[2], f, jit_reg_new(s->j), JIT_16BIT);
-    MOVE_RP_R(i[3], i[2]->out.reg, i[0]->out.reg, i[1]->out.reg, 1, 0, JIT_16BIT);
-    // state.sp += 2
-    ADD_I_R_R(i[4], 2, i[1]->out.reg, i[1]->out.reg, JIT_32BIT);
-    MOVE_R_M(i[5], i[1]->out.reg, &s->sp, JIT_16BIT);
-
-    free(f);
-}
-
-void cpu_emit_popf(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_pushall(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_popall(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_pal_i(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_pal_r(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_noti(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_not_r1(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_not_r2(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_negi(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_neg_r1(cpu_state *s)
-{
-    // Fuck this
-}
-
-void cpu_emit_neg_r2(cpu_state *s)
-{
-    // Fuck this
 }
 
