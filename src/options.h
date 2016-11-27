@@ -26,19 +26,21 @@
 
 typedef struct program_opts
 {
-	char *filename;
+    char *filename;
     char *pal_filename;
-	int use_audio;
-	int audio_sample_rate;
-	int audio_buffer_size;
-	int audio_volume;
-	int use_verbose;
-	int video_scaler;
+    char *sym_filename;
+    int use_audio;
+    int audio_sample_rate;
+    int audio_buffer_size;
+    int audio_volume;
+    int use_verbose;
+    int video_scaler;
     int use_fullscreen;
-	int use_cpu_limit;
-	int use_cpu_rec;
-	int breakpoints[BREAKPOINTS];
-	int num_breakpoints;
+    int use_cpu_limit;
+    int use_cpu_rec;
+    char *breakpoints[BREAKPOINTS];
+    int bpoffs[BREAKPOINTS];
+    int num_breakpoints;
     int use_breakall;
 } program_opts;
 

@@ -40,7 +40,7 @@
 #define PAD_B           0x80
 
 #define AUDIO_RATE		48000
-#define AUDIO_SAMPLES   16384
+#define AUDIO_SAMPLES   512 
 
 /* Microsoft's C compiler does not include stdint.h */
 #ifdef _MSC_VER

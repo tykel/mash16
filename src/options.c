@@ -185,8 +185,7 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     n = strtok(nums,", ");
                     while(n != NULL)
                     {
-                        int i = opts->num_breakpoints++;
-                        opts->breakpoints[i] = strtol(n,NULL,0);
+                        opts->breakpoints[opts->num_breakpoints++] = n;
                         n = strtok(NULL,", ");
                     }
                 }
@@ -230,6 +229,18 @@ void options_parse(int argc, char** argv, program_opts* opts)
                 else
                 {
                     fprintf(stderr,"error: no palette file provided\n");
+                    continue;
+                }
+            }
+            else if(!strncmp(argv[i],"--symbols",9))
+            {
+                if(strlen(argv[i]) > 10 && argv[i][9] == '=')
+                    opts->sym_filename = &argv[i][10];
+                else if(i+1 < argc)
+                    opts->sym_filename = argv[++i];
+                else
+                {
+                    fprintf(stderr,"error: no symbol file provided\n");
                     continue;
                 }
             }

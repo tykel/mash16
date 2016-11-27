@@ -34,9 +34,19 @@ int use_verbose;
 #include <stdio.h>
 #include <string.h>
 
+#pragma pack(push,1)
+typedef struct sym_entry
+{
+    uint16_t addr;
+    uint16_t str_offs;
+} sym_entry_t;
+#pragma pack(pop)
+
 /* Globals used within the file. */
 static program_opts opts;
 static cpu_state* state;
+static char *symbol_strs;
+static char *symbols[0x10000];
 static SDL_Surface* screen;
 static char strfps[256];
 
@@ -95,7 +105,11 @@ void print_state(cpu_state* state)
         default:
             break;
     }
-    printf(" ]\n--------------------------------------------------------------\n");
+    printf(" ]      %c%s%c\n",
+            symbols[state->meta.old_pc] ? '(' : ' ',
+            symbols[state->meta.old_pc] ? symbols[state->meta.old_pc] : "",
+            symbols[state->meta.old_pc] ? ')' : ' ');
+    printf("--------------------------------------------------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
     printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %02x%02x%02x%02x |\n",
@@ -146,6 +160,81 @@ int read_file(char* fp, uint8_t* buf)
     fclose(romf);
     
     return (read == len) ? len : 0;
+}
+
+/* Populate the symbol list. */
+int read_symbols(char *fp)
+{
+    FILE *symf;
+    uint32_t stroffs;
+    size_t strblksz;
+    int i;
+
+    memset(symbols, 0, sizeof(symbols));
+
+    symf = fopen(fp, "rb");
+    if(symf == NULL)
+    {
+        fprintf(stderr, "error: could not open \"%s\"\n", fp);
+        return 0;
+    }
+
+    fread(&stroffs, sizeof(stroffs), 1, symf);
+    fseek(symf, 0, SEEK_END);
+    strblksz = ftell(symf) - stroffs;
+    symbol_strs = malloc(strblksz);
+    fseek(symf, stroffs, SEEK_SET);
+    fread(symbol_strs, strblksz, 1, symf);
+
+    fseek(symf, sizeof(stroffs), SEEK_SET);
+    if(use_verbose)
+        printf("found string table offset: %d bytes\n", stroffs);
+    for(i = 0; i < stroffs - sizeof(sym_entry_t); i += sizeof(sym_entry_t))
+    {
+        sym_entry_t sym;
+        fread(&sym, sizeof(sym), 1, symf);
+        symbols[sym.addr] = &symbol_strs[sym.str_offs];
+        if(use_verbose)
+            printf("> found symbol: %s -> 0x%04x\n",
+                    symbols[sym.addr], sym.addr);
+    }
+
+    return 1;
+}
+
+int parse_breakpoints(program_opts* opts)
+{
+    int i;
+   
+    for(i = 0; i < opts->num_breakpoints; i++) {
+        char *s = opts->breakpoints[i];
+        int v = strtol(s, NULL, 0);
+        /* If strtol returns 0 from a string which isn't some form of 0, it is
+         * relatively safe to say it must be a symbol. */
+        if(v == 0 &&
+            strncmp(s, "0", 6) &&
+            strncmp(s, "0x0", 6) &&
+            strncmp(s, "0x00", 6) &&
+            strncmp(s, "0x0000", 6))
+        {
+            int j;
+            for(j = 0; j < 0x10000; j++)
+            {
+                if(symbols[j] && !strncmp(s, symbols[j], 100))
+                {
+                    v = j;
+                    break;
+                }
+            }
+            if(j == 0x10000)
+            {
+                fprintf(stderr, "error: symbol \"%s\" not found in exports\n", s); 
+                return 0;
+            }
+        }
+        opts->bpoffs[i] = v;
+    }
+    return 1;
 }
 
 /* Sanitize the input. */
@@ -207,8 +296,10 @@ void emulation_loop()
                 {
                     for(i=0; i<opts.num_breakpoints; ++i)
                     {
-                        if(state->pc-4 == opts.breakpoints[i])
+                        if(state->meta.old_pc == opts.bpoffs[i])
+                        {
                             paused = 1;
+                        }
                     }
                 }
                 if(paused)
@@ -320,6 +411,7 @@ int main(int argc, char* argv[])
     /* Set up default options, then read them from the command line. */
     opts.filename = NULL;
     opts.pal_filename = NULL;
+    opts.sym_filename = NULL;
     opts.use_audio = 1;
     opts.audio_sample_rate = AUDIO_RATE;
     opts.audio_buffer_size = AUDIO_SAMPLES;
@@ -334,17 +426,27 @@ int main(int argc, char* argv[])
 
     options_parse(argc,argv,&opts);
     use_verbose = opts.use_verbose;
+    
+    sanitize_options(&opts);
+    if(opts.sym_filename)
+    {
+        read_symbols(opts.sym_filename);
+        if(use_verbose)
+            printf("loaded symbols from %s.\n", opts.sym_filename);
+    }
 
+    if(!parse_breakpoints(&opts))
+    {
+        exit(1);
+    }
     if(use_verbose)
     {
         printf("total breakpoints: %d\n",opts.num_breakpoints);
         for(i=0; i<opts.num_breakpoints; ++i)
         {
-            printf("> bp %d: 0x%x\n",i,opts.breakpoints[i]);
+            printf("> bp %d: 0x%x\n",i,opts.bpoffs[i]);
         }
     }
-    
-    sanitize_options(&opts);
 
     /* Read our rom file into memory */
     buf = NULL;

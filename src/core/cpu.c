@@ -38,6 +38,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
         exit(1);
     }
     (*state)->meta.old_pc = 0;
+    (*state)->pc = 0;
     (*state)->m = mem;
     if(!((*state)->vm = calloc(320*240,1)))
     {
@@ -150,6 +151,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 /* Execute 1 CPU cycle. */
 void cpu_step(cpu_state* state)
 {
+    state->meta.old_pc = state->pc;
     /* Fetch instruction, increase PC. */
     state->i = *(instr*)(&state->m[state->pc]);
     state->pc += 4;
