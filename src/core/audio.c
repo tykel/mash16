@@ -17,6 +17,7 @@
  */
 
 #include "audio.h"
+#include <stdio.h>
 #include <SDL/SDL.h>
 
 static audio_state as;
@@ -29,6 +30,7 @@ fptr f_sample;
 void audio_init(cpu_state *state, program_opts *opts)
 {
 	SDL_AudioSpec spec;
+    SDL_AudioSpec actual_spec;
 	
     f_sample = NULL;
 
@@ -50,11 +52,17 @@ void audio_init(cpu_state *state, program_opts *opts)
 	spec.callback = audio_callback;
 	spec.userdata = state;
 
-	if(SDL_OpenAudio(&spec, NULL) < 0)
+	if(SDL_OpenAudio(&spec, &actual_spec) < 0)
 	{
 		fprintf(stderr,"error: could not open audio: %s",SDL_GetError());
 		exit(1);
 	}
+    if (use_verbose) {
+        printf("audio: reqstd spec: freq = %d Hz, samples = %d, format = %d\n"
+               "audio: actual spec: freq = %d Hz, samples = %d, format = %d\n",
+               spec.freq, spec.samples, spec.format,
+               actual_spec.freq, actual_spec.samples, actual_spec.format);
+    }
 }
 
 /* Clean up after the sound system. */
@@ -154,6 +162,7 @@ void audio_update(cpu_state *state)
 void audio_callback(void* data, uint8_t* stream, int len)
 {
 	int i;
+    int ns;
     int16_t *buffer;
 
     if(as.s_index >= as.s_total)
@@ -161,9 +170,9 @@ void audio_callback(void* data, uint8_t* stream, int len)
 
 	buffer = (int16_t*)stream;
 	/* We are dealing with 16 bit as.s_period_total. */
-	len /= 2;
+	ns = len / 2;
 
-	for(i=0; i<len; ++i, ++as.s_index)
+	for(i=0; i<ns; ++i, ++as.s_index)
 		buffer[i] = (*f_sample)();
 }
 
@@ -198,38 +207,80 @@ int16_t audio_gen_snd3_sample()
 	return as.vol;
 }
 
+double triangle_lerp_table[4][2] = {
+    { 0.0,  1.0},
+    { 1.0,  0.0},
+    { 0.0, -1.0},
+    {-1.0,  0.0},
+};
+
+double sawtooth_lerp_table[4][2] = {
+    { 0.0,  0.5},
+    { 0.5,  1.0},
+    {-1.0, -0.5},
+    {-0.5,  0.0},
+};
+
+double pulse_lerp_table[4][2] = {
+    { 1.0,  1.0},
+    { 1.0,  1.0},
+    { 0.0,  0.0},
+    { 0.0,  0.0},
+};
+
+double noise_table[2] = {
+    1.0, 0.0
+};
+
+double lerp(double v1, double v2, double w)
+{
+    return w * v1 + (1.0 - w) * v2;
+}
+
 /* Our more advanced envelope generators. */
 int16_t audio_gen_sample()
 {
     double sample;
+    double v1, v2, w;
+    int i, t;
 
 	++as.s_period_index;
 	if((double)as.s_period_index >= as.s_period_total)
 		as.s_period_index = 0;
+
+    i = as.s_period_index;
+    t = as.s_period_total;
 	switch(as.wf)
 	{
 		case WF_TRIANGLE:
-			as.sample = 2.0 * (double)as.s_period_index / (double)as.s_period_total - 1.0;
-			break;
+            v1 = triangle_lerp_table[4*i/t][0];
+            v2 = triangle_lerp_table[4*i/t][1];
+            w  = (double)(i % (t/4)) / (t/4);
+			sample = lerp(v1, v2, w);
+            break;
 		case WF_SAWTOOTH:
-			if(4*as.s_period_index < as.s_period_total) 
-				as.sample = (double)(4*as.s_period_index)/(double)(as.s_period_total);
-			else
-				as.sample = (double)(as.s_period_total)/(double)(4*as.s_period_index);
+            v1 = sawtooth_lerp_table[4*i/t][0];
+            v2 = sawtooth_lerp_table[4*i/t][1];
+            w  = (double)(i % (t/4)) / (t/4);
+			sample = lerp(v1, v2, w);
 			break;
 		case WF_PULSE:
-			as.sample = 1.0; 
+            v1 = pulse_lerp_table[4*i/t][0];
+            v2 = pulse_lerp_table[4*i/t][1];
+            w  = (double)(i % (t/4)) / (t/4);
+			sample = lerp(v1, v2, w);
 			break;
 		case WF_NOISE:
-			if(!as.s_period_index)
-				as.sample = 2.0*(double)(rand() % as.max_vol)/(double)(as.max_vol) - 1.0;
+			if(i == 0)
+                noise_table[0] =
+                    (double)(rand() % (2*as.max_vol))/(double)as.max_vol - 1.0;
+            sample = noise_table[0];
 			break;
 		default:
 			fprintf(stderr, "error: invalid ADSR envelope type (%d)", as.wf);
 			exit(1);
 	}
 	
-    sample = as.sample;
 	/* Scale the amplitude according to position in envelope. */
 	/* Attack */
 	if(as.s_index < as.atk_samples)
@@ -251,9 +302,6 @@ int16_t audio_gen_sample()
 	if(as.wf == WF_NOISE)
 		return (int16_t)sample;
 
-	/* Positive or negative? */	
-	if((double)(2 * as.s_period_index) < as.s_period_total)
-		return (int16_t)-sample;
 	return (int16_t)sample;
 }
 
