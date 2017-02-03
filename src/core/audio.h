@@ -86,10 +86,8 @@ void audio_update(cpu_state*);
 void audio_play(int16_t,int16_t,int);
 void audio_stop();
 void audio_callback(void*,uint8_t*,int);
-int16_t audio_gen_sample();
-int16_t audio_gen_snd1_sample();
-int16_t audio_gen_snd2_sample();
-int16_t audio_gen_snd3_sample();
+void audio_gen_samples(int16_t*,int);
+double audio_apply_adsr(double);
 
 #endif
 
