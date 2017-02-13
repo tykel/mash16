@@ -62,6 +62,8 @@ typedef enum x64_rm
 
 #define MODRM(mod, reg, rm) ((((mod) & 3) << 6) | (((reg) & 7) << 3) | (rm))
 
+int jit_main(int argc, char *argv[]);
+
 void jit_regs_init();
 void jit_regs_alloc(jit_insn *is, int num_insns);
 

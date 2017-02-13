@@ -73,8 +73,8 @@ void o_drw_imm(uint32_t x, uint32_t y)
     e_mov_r_m8(rcx, (uint8_t *)&s.i + 1);
     //TODO: e_shr_r_imm8(rcx, 8);
     //TODO: e_mov deref register
-    e_mov_r_m8(r8, &s.sw);
-    e_mov_r_m8(r9, &s.sh);
+    e_mov_r_m32(r8, &s.sw);
+    e_mov_r_m32(r9, &s.sh);
     // s.fx goes on stack
     // s.fy goes on stack
     e_call((uintptr_t)op_drw);
@@ -92,15 +92,15 @@ void o_rnd(uint32_t x, uint32_t imm)
 {
     e_call((uint64_t)rand);
     e_and_r_imm32(rax, imm);
-    e_mov_m64_r((uint64_t)(&s.r[x]), rax);
+    e_mov_m16_r(&s.r[x], rax);
 }
 
 void o_flip(uint32_t x, uint32_t y)
 {
 //    state->fx = i_hhll(state->i) >> 9;
 //    state->fy = (i_hhll(state->i) >> 8) & 0x01;
-    e_mov_m64_imm32((uint64_t)&s.fx, x);
-    e_mov_m64_imm32((uint64_t)&s.fy, y);
+    e_mov_m32_imm32(&s.fx, x);
+    e_mov_m32_imm32(&s.fy, y);
 }
 
 void *audio_stop;
@@ -163,17 +163,17 @@ void o_sng(uint32_t atk, uint32_t dec, uint32_t vol, uint32_t type,
 //    state->sus = (i_hhll(state->i) >> 4) & 0x0f;
 //    state->rls = i_hhll(state->i) & 0x0f;
 //    audio_update(state);
-    e_mov_m64_imm32((uint64_t)&s.atk, atk);
-    e_mov_m64_imm32((uint64_t)&s.dec, dec);
-    e_mov_m64_imm32((uint64_t)&s.vol, vol);
-    e_mov_m64_imm32((uint64_t)&s.type, type);
-    e_mov_m64_imm32((uint64_t)&s.sus, sus);
-    e_mov_m64_imm32((uint64_t)&s.rls, rls);
+    e_mov_m32_imm32(&s.atk, atk);
+    e_mov_m32_imm32(&s.dec, dec);
+    e_mov_m32_imm32(&s.vol, vol);
+    e_mov_m32_imm32(&s.type, type);
+    e_mov_m32_imm32(&s.sus, sus);
+    e_mov_m32_imm32(&s.rls, rls);
     e_call((uint64_t)&s);
 }
 
 void o_jmp_imm(uint32_t pc)
 {
 //    state->pc = i_hhll(state->i);
-    e_mov_m64_imm32((uint64_t)&s.pc, pc);
+    e_mov_m16_imm16(&s.pc, pc);
 }

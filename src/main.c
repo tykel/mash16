@@ -24,6 +24,7 @@ int use_verbose;
 #include "strings.h"
 #include "header/header.h"
 #include "core/cpu.h"
+#include "core/jit.h"
 #include "core/gpu.h"
 #include "core/audio.h"
 
@@ -401,6 +402,8 @@ int main(int argc, char* argv[])
 {
     int i, len, use_header, sdl_flags, video_flags;
     uint8_t *buf, *mem;
+
+    return jit_main(argc, argv);
 
     /* Ensure STDIO goes to the terminal in Windows. */
 #ifdef _WIN32

@@ -112,22 +112,22 @@ typedef struct cpu_state
     uint8_t* m;
     
     /* Gfx stuff. */
-    uint8_t  bgc;
-    uint8_t  sw;
-    uint8_t  sh;
-    uint8_t  fx;
-    uint8_t  fy;
+    uint32_t  bgc;
+    uint32_t  sw;
+    uint32_t  sh;
+    uint32_t  fx;
+    uint32_t  fy;
     uint32_t* pal;
     uint8_t* vm;
 
     /* Sfx stuff. */
     uint16_t tone;
-    uint8_t  atk;
-    uint8_t  dec;
-    uint8_t  sus;
-    uint8_t  rls;
-    uint8_t  vol;
-    uint8_t  type;
+    uint32_t  atk;
+    uint32_t  dec;
+    uint32_t  sus;
+    uint32_t  rls;
+    uint32_t  vol;
+    uint32_t  type;
     
     /* Other */
     cpu_meta meta;

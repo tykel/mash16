@@ -157,7 +157,7 @@ void jit_execute()
     result = entry();
 }
 
-int main(int argc, char *argv[])
+int jit_main(int argc, char *argv[])
 {
     jit_execute();
     return 0;
@@ -256,27 +256,39 @@ void e_mov_r_imm32(uint8_t to, uint32_t from)
     p_cur += sizeof(uint32_t);
 }
 
-void e_mov_m64_imm32(uint32_t *to, uint32_t from)
+void e_mov_m16_imm16(uint16_t *to, uint16_t from)
+{
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 9));
+    *p_cur++ = 0x66;
+    *p_cur++ = 0xc7;                           // MOV R64/imm16
+    *p_cur++ = MODRM(0, 0, disp32);            // ModR/M
+    *(int32_t *)p_cur = dest;                 // m64
+    p_cur += sizeof(uint32_t*);
+    *(uint16_t *)p_cur = from;               // imm32
+    p_cur += sizeof(uint16_t);
+}
+
+void e_mov_m32_imm32(uint32_t *to, uint32_t from)
 {
     int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 10));
     *p_cur++ = 0xc7;                           // MOV R64/imm16
     *p_cur++ = MODRM(0, 0, disp32);            // ModR/M
     *(int32_t *)p_cur = dest;                 // m64
-    p_cur += sizeof(uint32_t);
+    p_cur += sizeof(uint32_t*);
     *(uint32_t *)p_cur = from;               // imm32
     p_cur += sizeof(uint32_t);
 }
 
-void e_mov_m64_imm16(uint16_t *to, uint16_t from)
+void e_mov_m64_imm64(uint64_t *to, uint64_t from)
 {
-    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 9));
-    *p_cur++ = 0x66;
+    int32_t dest = (int32_t)((uint64_t)to - ((uint64_t)p_cur + 11));
+    *p_cur++ = REX(1, 0, 0, 0);
     *p_cur++ = 0xc7;
     *p_cur++ = MODRM(0, 0, disp32);
     *(int32_t *)p_cur = dest;
     p_cur += sizeof(uint32_t);
-    *(uint16_t *)p_cur = from;
-    p_cur += sizeof(uint16_t);
+    *(uint32_t *)p_cur = (uint32_t)from;
+    p_cur += sizeof(uint32_t);
 }
 
 void e_mov_r_m8(uint8_t to, uint8_t *from)
