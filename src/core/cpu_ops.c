@@ -197,8 +197,7 @@ void op_snp(cpu_state* state)
 {
     uint16_t f, dt;
 
-    f = state->m[(uint16_t)(state->r[i_yx(state->i) & 0x0f])] |
-                ((uint16_t)state->m[(uint16_t)(state->r[i_yx(state->i) & 0x0f]) + 1] << 8);
+    f = state->r[i_yx(state->i) & 0x0f];
     dt = i_hhll(state->i);
     audio_play(f,dt,1);
     state->meta.type = OP_R_HHLL;
