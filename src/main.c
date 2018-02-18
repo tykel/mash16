@@ -70,6 +70,10 @@ void print_state(cpu_state* state)
     {
         case OP_HHLL:
             printf("$%04x",i_hhll(state->i));
+            printf(" %c%s%c",
+                    symbols[i_hhll(state->i)] ? '(' : ' ',
+                    symbols[i_hhll(state->i)] ? symbols[i_hhll(state->i)] : "",
+                    symbols[i_hhll(state->i)] ? ')' : ' ');
             break;
         case OP_N:
             printf("%x",i_n(state->i));
@@ -91,9 +95,17 @@ void print_state(cpu_state* state)
             break;
         case OP_R_HHLL:
             printf("r%x, $%04x",i_yx(state->i)&0xf, i_hhll(state->i));
+            printf(" %c%s%c",
+                    symbols[i_hhll(state->i)] ? '(' : ' ',
+                    symbols[i_hhll(state->i)] ? symbols[i_hhll(state->i)] : "",
+                    symbols[i_hhll(state->i)] ? ')' : ' ');
             break;
         case OP_R_R_HHLL:
             printf("r%x, r%x, $%04x",i_yx(state->i)&0xf, i_yx(state->i) >> 4, i_hhll(state->i));
+            printf(" %c%s%c",
+                    symbols[i_hhll(state->i)] ? '(' : ' ',
+                    symbols[i_hhll(state->i)] ? symbols[i_hhll(state->i)] : "",
+                    symbols[i_hhll(state->i)] ? ')' : ' ');
             break;
         case OP_HHLL_HHLL:
             printf("$%02x, $%04x",i_yx(state->i),i_hhll(state->i));
