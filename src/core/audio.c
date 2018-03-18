@@ -18,7 +18,7 @@
 
 #include "audio.h"
 #include <stdio.h>
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 static audio_state as;
 static int use_audio;

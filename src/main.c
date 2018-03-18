@@ -27,7 +27,7 @@ int use_verbose;
 #include "core/gpu.h"
 #include "core/audio.h"
 
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -47,7 +47,9 @@ static program_opts opts;
 static cpu_state* state;
 static char *symbol_strs;
 static char *symbols[0x10000];
-static SDL_Surface* screen;
+static SDL_Renderer *renderer;
+static SDL_Window *window;
+static SDL_Texture* screen;
 static char strfps[256];
 
 
@@ -354,7 +356,7 @@ void emulation_loop()
         {
             /* Update the caption. */
             sprintf(strfps,"mash16 (%d fps) - %s",fps,opts.filename);
-            SDL_WM_SetCaption(strfps, NULL);
+            SDL_SetWindowTitle(window, strfps);
             /* Reset timing info. */
             lastsec = t;
             fps = 0;
@@ -403,6 +405,9 @@ void emulation_loop()
     }
     /* Draw. */
     blit_screen(screen,state,opts.video_scaler);
+    SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, screen, NULL, NULL);
+    SDL_RenderPresent(renderer);
     /* Reset vblank flag. */
     state->meta.wait_vblnk = 0;
     state->meta.cycles = 0;
@@ -512,7 +517,7 @@ int main(int argc, char* argv[])
     free(buf);
 
     /* Initialise SDL target. */
-    sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE;
+    sdl_flags = SDL_INIT_VIDEO | SDL_INIT_TIMER;
     if(opts.use_audio)
         sdl_flags |= SDL_INIT_AUDIO;
     if(SDL_Init(sdl_flags) < 0)
@@ -522,8 +527,8 @@ int main(int argc, char* argv[])
     }
     atexit(SDL_Quit);
 
-    video_flags = opts.use_fullscreen ? SDL_FULLSCREEN : 0;
-    if((screen = SDL_SetVideoMode(opts.video_scaler*320,opts.video_scaler*240,0,video_flags)) == NULL)
+    video_flags = opts.use_fullscreen ? SDL_WINDOW_FULLSCREEN : 0;
+    if(SDL_CreateWindowAndRenderer(opts.video_scaler*320,opts.video_scaler*240,video_flags,&window,&renderer))
     {
         fprintf(stderr,"error: failed to init. video mode (%d x %d x 32 bpp): %s\n",
                 opts.video_scaler*320,opts.video_scaler*240,
@@ -532,11 +537,13 @@ int main(int argc, char* argv[])
     }
     if(opts.use_verbose)
         printf("sdl initialised: %d x %d x %d bpp%s\n",
-                screen->w,screen->h,screen->format->BitsPerPixel,
+                opts.video_scaler*320,opts.video_scaler*240,32,
                 opts.use_fullscreen?" (fullscreen)":"");
 
     sprintf(strfps,"mash16 - %s",opts.filename);
-    SDL_WM_SetCaption(strfps,NULL);
+    SDL_SetWindowTitle(window,strfps);
+
+    screen = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING,320,240);
 
     /* Initialise the chip16 processor state. */
     cpu_init(&state,mem,&opts);
@@ -556,7 +563,9 @@ int main(int argc, char* argv[])
     audio_free();
     cpu_free(state);
     free(mem); 
-    SDL_FreeSurface(screen);
+    SDL_DestroyTexture(screen);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
     if(opts.use_verbose)
         printf("memory freed, goodbye\n");
     exit(0);

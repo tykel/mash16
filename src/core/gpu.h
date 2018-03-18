@@ -57,13 +57,11 @@
 
 #include "cpu.h"
 
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 void init_pal(cpu_state*);
 void load_pal(uint8_t*,int,cpu_state*);
-void blit_screen(SDL_Surface*,cpu_state*,int);
-void blit_screen1x(SDL_Surface*,cpu_state*);
-void blit_screen2x(SDL_Surface*,cpu_state*);
-void blit_screen3x(SDL_Surface*,cpu_state*);
+void blit_screen(SDL_Texture*,cpu_state*,int);
+void blit_screen1x(SDL_Texture*,cpu_state*);
 
 #endif

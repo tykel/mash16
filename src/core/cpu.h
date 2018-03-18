@@ -21,7 +21,7 @@
 
 #include "../consts.h"
 #include "../options.h"
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 
 #define FLAG_C 2
 #define FLAG_Z 4

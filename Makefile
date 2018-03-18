@@ -10,11 +10,11 @@ WIN_CC = $(WIN_PREFIX)-gcc
 VERSION = \"$(shell git describe --match "v*" | cut -d'-' -f1 | cut -c2-)\"
 VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
-SDL_CFLAGS = $(shell pkg-config --cflags sdl)
-CFLAGS = -O3 -finline-functions -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
+SDL_CFLAGS = $(shell pkg-config --cflags sdl2)
+CFLAGS = -O3 -finline-functions -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS)
 #WIN_CFLAGS = $(CFLAGS) -I/home/tim/Downloads/SDL-1.2.15/include -I/usr/include 
 WIN_CFLAGS = -O0 -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) -I/usr/local/cross-tools/$(WIN_PREFIX)/include $(shell /usr/local/cross-tools/$(WIN_PREFIX)/bin/sdl-config --cflags)
-SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl)
+SDL_LDFLAGS = -lSDLmain $(shell pkg-config --libs sdl2)
 LDFLAGS = -lm $(SDL_LDFLAGS)
 WIN_LDFLAGS = $(shell /usr/local/cross-tools/$(WIN_PREFIX)/bin/sdl-config --libs)
 
