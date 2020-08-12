@@ -136,7 +136,7 @@ typedef struct cpu_state
 
 /* Instruction function pointer table. */
 typedef void (*cpu_op)(cpu_state*);
-cpu_op op_table[0x100];
+extern cpu_op op_table[0x100];
 
 /* CPU functions. */
 void cpu_init(cpu_state**,uint8_t*,program_opts*);
