@@ -27,6 +27,9 @@
 
 extern int use_verbose;
 
+/* Initialize global CPU function table*/
+cpu_op op_table[0x100];
+
 /* Initialise the CPU to safe values. */
 void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 {
