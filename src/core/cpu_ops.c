@@ -329,21 +329,33 @@ void op_mov(cpu_state* state)
 
 void op_stm_imm(cpu_state* state)
 {
-    if ((uint16_t)i_hhll(state->i) == 0x1106) {
-      printf("data.obj_cb_ref: %d -> %d\n", *(int16_t*)&state->m[0x1106], state->r[i_yx(state->i) & 0x0f]);
+    uint16_t a = i_hhll(state->i);
+    if (a == BANK_SEL_ADDR)
+    {
+        uint8_t val = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
+        uint8_t prev_bank = state->m[a];
+        memcpy(state->mp[prev_bank], state->m, 0x8000);
+        memcpy(state->m, state->mp[val], 0x8000);
+        printf("stm: bank sel %d -> %d\n", prev_bank, val);
     }
-    state->m[i_hhll(state->i)] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
-    state->m[i_hhll(state->i) + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
+    state->m[a] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
+    state->m[a + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
     state->meta.type = OP_R_HHLL;
 }
 
 void op_stm_r(cpu_state* state)
 {
-    if (state->r[i_yx(state->i) >> 4] == 0x1106) {
-      printf("data.obj_cb_ref: %d -> %d\n", *(int16_t*)&state->m[0x1106], state->r[i_yx(state->i) & 0x0f]);
+    uint16_t a = (uint16_t)state->r[i_yx(state->i) >> 4];
+    if (a == BANK_SEL_ADDR)
+    {
+        uint8_t val = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
+        uint8_t prev_bank = state->m[a];
+        memcpy(state->mp[prev_bank], state->m, 0x8000);
+        memcpy(state->m, state->mp[val], 0x8000);
+        printf("stm: bank sel %d -> %d\n", prev_bank, val);
     }
-    state->m[(uint16_t)state->r[i_yx(state->i) >> 4]] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
-    state->m[(uint16_t)state->r[i_yx(state->i) >> 4] + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
+    state->m[a] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
+    state->m[a + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
     state->meta.type = OP_R_R;
 }
 

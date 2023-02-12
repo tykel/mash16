@@ -26,6 +26,7 @@
 #define STACK_ADDR      0xFDF0
 #define IO_PAD1_ADDR    0xFFF0
 #define IO_PAD2_ADDR    0xFFF2
+#define BANK_SEL_ADDR   0xFFF4
 
 #define FRAME_CYCLES    (CLOCK_RATE/60.0)
 #define FRAME_DT        16

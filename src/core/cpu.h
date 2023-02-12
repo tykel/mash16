@@ -100,6 +100,29 @@ typedef struct cpu_meta
 
 } cpu_meta;
 
+typedef struct cpu_rec_bblk
+{
+    void (*code)(void);
+    size_t size;
+    int cycles;
+
+} cpu_rec_bblk;
+
+/* Holds information about the recompiler context. */
+typedef struct cpu_rec
+{
+    /* A 65,536 entry map of Chip16 addresses to JIT blocks. */
+    cpu_rec_bblk *bblk_map;
+
+    /* Memory pages mmap()-d for JIT. 4 MiB total. */
+    void *jit_base;
+
+    /* Currently our scheme only allocates, there is no eviction or
+     * deallocation until exit. So a monotonously increasing "next" pointer is
+     * enough to tell us where to start the next basic block code pointer. */
+    void *jit_next;
+} cpu_rec;
+
 /* Holds CPU functionality. */
 typedef struct cpu_state
 {
@@ -110,6 +133,7 @@ typedef struct cpu_state
     instr    i;
     flags    f;
     uint8_t* m;
+    uint8_t* mp[256];
     
     /* Gfx stuff. */
     uint8_t  bgc;
@@ -131,12 +155,16 @@ typedef struct cpu_state
     
     /* Other */
     cpu_meta meta;
+    cpu_rec rec;
 
 } cpu_state;
 
+extern void* global_alloc;
+extern size_t page_size;
+
 /* Instruction function pointer table. */
 typedef void (*cpu_op)(cpu_state*);
-cpu_op op_table[0x100];
+extern cpu_op op_table[0x100];
 
 /* CPU functions. */
 void cpu_init(cpu_state**,uint8_t*,program_opts*);
@@ -144,6 +172,11 @@ void cpu_step(cpu_state*);
 void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
 void cpu_io_reset(cpu_state*);
 void cpu_free(cpu_state*);
+
+void cpu_rec_init(cpu_state*);
+void cpu_rec_compile(cpu_state*, uint16_t);
+void cpu_rec_1bblk(cpu_state*);
+void cpu_rec_free(cpu_state*);
 
 void op_error(cpu_state*);
 void op_nop(cpu_state*);

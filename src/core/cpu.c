@@ -24,22 +24,39 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 
 extern int use_verbose;
+cpu_op op_table[0x100];
+void *global_alloc;
+size_t page_size;
 
 /* Initialise the CPU to safe values. */
 void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 {
     int i;
 
-    if(!(*state = (cpu_state*)calloc(1,sizeof(cpu_state))))
+    page_size = sysconf(_SC_PAGESIZE);
+
+    if (posix_memalign(&global_alloc, page_size, 16 * 1024 * 1024) < 0)
     {
-        fprintf(stderr,"error: calloc failed (state)\n");
+        fprintf(stderr,"error: posix_memalign failed (global_alloc)\n");
         exit(1);
     }
+    *state = global_alloc;
+    cpu_rec_init(*state);
+    (*state)->rec.bblk_map = calloc(65536, sizeof(cpu_rec_bblk*));
     (*state)->meta.old_pc = 0;
     (*state)->pc = 0;
     (*state)->m = mem;
+    for (i = 0; i < 256; ++i)
+    {
+        if (!((*state)->mp[i] = calloc(0x8000, 1)))
+        {
+            fprintf(stderr, "error: calloc failed (state->mp[%d])\n", i);
+            exit(1);
+        }
+    }
     if(!((*state)->vm = calloc(320*240,1)))
     {
         fprintf(stderr,"error: calloc failed (state->vm)\n");
@@ -58,91 +75,91 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     /* Ensure unused instructions return errors. */
     for(i=0; i<0x100; ++i)
     {
-        op_table[i] = &op_error;
+        op_table[i] = op_error;
     }
     /* Map instr. table entries to functions. */
-    op_table[0x00] = &op_nop;
-    op_table[0x01] = &op_cls;
-    op_table[0x02] = &op_vblnk;
-    op_table[0x03] = &op_bgc;
-    op_table[0x04] = &op_spr;
-    op_table[0x05] = &op_drw_imm;
-    op_table[0x06] = &op_drw_r;
-    op_table[0x07] = &op_rnd;
-    op_table[0x08] = &op_flip;
-    op_table[0x09] = &op_snd0;
-    op_table[0x0a] = &op_snd1;
-    op_table[0x0b] = &op_snd2;
-    op_table[0x0c] = &op_snd3;
-    op_table[0x0d] = &op_snp;
-    op_table[0x0e] = &op_sng;
-    op_table[0x10] = &op_jmp_imm;
-    op_table[0x11] = &op_jmc;
-    op_table[0x12] = &op_jx;
-    op_table[0x13] = &op_jme;
-    op_table[0x14] = &op_call_imm;
-    op_table[0x15] = &op_ret;
-    op_table[0x16] = &op_jmp_r;
-    op_table[0x17] = &op_cx;
-    op_table[0x18] = &op_call_r;
-    op_table[0x20] = &op_ldi_r;
-    op_table[0x21] = &op_ldi_sp;
-    op_table[0x22] = &op_ldm_imm;
-    op_table[0x23] = &op_ldm_r;
-    op_table[0x24] = &op_mov;
-    op_table[0x30] = &op_stm_imm;
-    op_table[0x31] = &op_stm_r;
-    op_table[0x40] = &op_addi;
-    op_table[0x41] = &op_add_r2;
-    op_table[0x42] = &op_add_r3;
-    op_table[0x50] = &op_subi;
-    op_table[0x51] = &op_sub_r2;
-    op_table[0x52] = &op_sub_r3;
-    op_table[0x53] = &op_cmpi;
-    op_table[0x54] = &op_cmp;
-    op_table[0x60] = &op_andi;
-    op_table[0x61] = &op_and_r2;
-    op_table[0x62] = &op_and_r3;
-    op_table[0x63] = &op_tsti;
-    op_table[0x64] = &op_tst;
-    op_table[0x70] = &op_ori;
-    op_table[0x71] = &op_or_r2;
-    op_table[0x72] = &op_or_r3;
-    op_table[0x80] = &op_xori;
-    op_table[0x81] = &op_xor_r2;
-    op_table[0x82] = &op_xor_r3;
-    op_table[0x90] = &op_muli;
-    op_table[0x91] = &op_mul_r2;
-    op_table[0x92] = &op_mul_r3;
-    op_table[0xa0] = &op_divi;
-    op_table[0xa1] = &op_div_r2;
-    op_table[0xa2] = &op_div_r3;
-    op_table[0xa3] = &op_modi;
-    op_table[0xa4] = &op_mod_r2;
-    op_table[0xa5] = &op_mod_r3;
-    op_table[0xa6] = &op_remi;
-    op_table[0xa7] = &op_rem_r2;
-    op_table[0xa8] = &op_rem_r3;
-    op_table[0xb0] = &op_shl_n;
-    op_table[0xb1] = &op_shr_n;
-    op_table[0xb2] = &op_sar_n;
-    op_table[0xb3] = &op_shl_r;
-    op_table[0xb4] = &op_shr_r;
-    op_table[0xb5] = &op_sar_r;
-    op_table[0xc0] = &op_push;
-    op_table[0xc1] = &op_pop;
-    op_table[0xc2] = &op_pushall;
-    op_table[0xc3] = &op_popall;
-    op_table[0xc4] = &op_pushf;
-    op_table[0xc5] = &op_popf;
-    op_table[0xd0] = &op_pal_imm;
-    op_table[0xd1] = &op_pal_r;
-    op_table[0xe0] = &op_noti;
-    op_table[0xe1] = &op_not_r;
-    op_table[0xe2] = &op_not_r2;
-    op_table[0xe3] = &op_negi;
-    op_table[0xe4] = &op_neg_r;
-    op_table[0xe5] = &op_neg_r2;
+    op_table[0x00] = op_nop;
+    op_table[0x01] = op_cls;
+    op_table[0x02] = op_vblnk;
+    op_table[0x03] = op_bgc;
+    op_table[0x04] = op_spr;
+    op_table[0x05] = op_drw_imm;
+    op_table[0x06] = op_drw_r;
+    op_table[0x07] = op_rnd;
+    op_table[0x08] = op_flip;
+    op_table[0x09] = op_snd0;
+    op_table[0x0a] = op_snd1;
+    op_table[0x0b] = op_snd2;
+    op_table[0x0c] = op_snd3;
+    op_table[0x0d] = op_snp;
+    op_table[0x0e] = op_sng;
+    op_table[0x10] = op_jmp_imm;
+    op_table[0x11] = op_jmc;
+    op_table[0x12] = op_jx;
+    op_table[0x13] = op_jme;
+    op_table[0x14] = op_call_imm;
+    op_table[0x15] = op_ret;
+    op_table[0x16] = op_jmp_r;
+    op_table[0x17] = op_cx;
+    op_table[0x18] = op_call_r;
+    op_table[0x20] = op_ldi_r;
+    op_table[0x21] = op_ldi_sp;
+    op_table[0x22] = op_ldm_imm;
+    op_table[0x23] = op_ldm_r;
+    op_table[0x24] = op_mov;
+    op_table[0x30] = op_stm_imm;
+    op_table[0x31] = op_stm_r;
+    op_table[0x40] = op_addi;
+    op_table[0x41] = op_add_r2;
+    op_table[0x42] = op_add_r3;
+    op_table[0x50] = op_subi;
+    op_table[0x51] = op_sub_r2;
+    op_table[0x52] = op_sub_r3;
+    op_table[0x53] = op_cmpi;
+    op_table[0x54] = op_cmp;
+    op_table[0x60] = op_andi;
+    op_table[0x61] = op_and_r2;
+    op_table[0x62] = op_and_r3;
+    op_table[0x63] = op_tsti;
+    op_table[0x64] = op_tst;
+    op_table[0x70] = op_ori;
+    op_table[0x71] = op_or_r2;
+    op_table[0x72] = op_or_r3;
+    op_table[0x80] = op_xori;
+    op_table[0x81] = op_xor_r2;
+    op_table[0x82] = op_xor_r3;
+    op_table[0x90] = op_muli;
+    op_table[0x91] = op_mul_r2;
+    op_table[0x92] = op_mul_r3;
+    op_table[0xa0] = op_divi;
+    op_table[0xa1] = op_div_r2;
+    op_table[0xa2] = op_div_r3;
+    op_table[0xa3] = op_modi;
+    op_table[0xa4] = op_mod_r2;
+    op_table[0xa5] = op_mod_r3;
+    op_table[0xa6] = op_remi;
+    op_table[0xa7] = op_rem_r2;
+    op_table[0xa8] = op_rem_r3;
+    op_table[0xb0] = op_shl_n;
+    op_table[0xb1] = op_shr_n;
+    op_table[0xb2] = op_sar_n;
+    op_table[0xb3] = op_shl_r;
+    op_table[0xb4] = op_shr_r;
+    op_table[0xb5] = op_sar_r;
+    op_table[0xc0] = op_push;
+    op_table[0xc1] = op_pop;
+    op_table[0xc2] = op_pushall;
+    op_table[0xc3] = op_popall;
+    op_table[0xc4] = op_pushf;
+    op_table[0xc5] = op_popf;
+    op_table[0xd0] = op_pal_imm;
+    op_table[0xd1] = op_pal_r;
+    op_table[0xe0] = op_noti;
+    op_table[0xe1] = op_not_r;
+    op_table[0xe2] = op_not_r2;
+    op_table[0xe3] = op_negi;
+    op_table[0xe4] = op_neg_r;
+    op_table[0xe5] = op_neg_r2;
 
     /* Load default palette. */
     init_pal(*state);
@@ -160,6 +177,22 @@ void cpu_step(cpu_state* state)
     /* Update cycles. */
     ++state->meta.cycles;
     ++state->meta.target_cycles;
+}
+
+/* Execute a (variable-length) JIT basic block. */
+void cpu_rec_1bblk(cpu_state* state)
+{
+    cpu_rec_bblk* bblk = &state->rec.bblk_map[state->pc];
+    state->meta.old_pc = state->pc;
+    if (bblk->code == NULL) {
+        printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
+        cpu_rec_compile(state, state->pc);
+    }
+    //printf("> recompiler: run basic block @ 0x%04x, %d cycles [%p]\n",
+    //       state->pc, bblk->cycles, bblk->code);
+    bblk->code();
+    state->meta.cycles += bblk->cycles;
+    state->meta.target_cycles += bblk->cycles;
 }
 
 /* Update I/O port contents with gamepad input. */
@@ -246,8 +279,16 @@ void cpu_io_reset(cpu_state* state)
 /* Free resources held by the cpu state. */
 void cpu_free(cpu_state* state)
 {
+    int i;
+
     free(state->vm);
-    free(state);
+    for (i = 0; i < 256; ++i)
+    {
+        free(state->mp[i]);
+    }
+    cpu_rec_free(state);
+    free(state->rec.bblk_map);
+    free(global_alloc);
 }
 
 

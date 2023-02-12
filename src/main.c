@@ -52,6 +52,7 @@ static SDL_Window *window;
 static SDL_Texture* screen;
 static char strfps[256];
 
+void (*cpu_exec)(cpu_state* state);
 
 /* Timing variables. */
 static int t = 0, oldt = 0;
@@ -278,10 +279,12 @@ void sanitize_options(program_opts* opts)
         fprintf(stderr, "error: volume %d not valid (range is 0-255)\n",opts->audio_volume);
         ++input_errors;
     }
-    /* Temporary warning. */
     if(opts->use_cpu_rec)
-        printf("warning: recompiler core not available, falling back to interpreter\n");
-    
+    {
+        cpu_exec = cpu_rec_1bblk;
+        printf("> using experimental recompiler core\n");
+    }
+
     if(input_errors)
         exit(1);
 }
@@ -303,7 +306,7 @@ void emulation_loop()
         {
             while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             {
-                cpu_step(state);
+                cpu_exec(state);
                 paused = opts.use_breakall;
                 /* Stop at breakpoint if necessary. */
                 if(opts.num_breakpoints > 0)
@@ -335,7 +338,7 @@ void emulation_loop()
             {
                 for(i=0; i<600; ++i)
                 {
-                    cpu_step(state);
+                    cpu_exec(state);
                     /* Don't forget to count our frames! */
                     if(state->meta.wait_vblnk)
                     {
@@ -382,7 +385,7 @@ void emulation_loop()
                 }
                 else if(evt.key.keysym.sym == SDLK_n && paused)
                 {
-                    cpu_step(state);
+                    cpu_exec(state);
                     print_state(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_h && paused)
@@ -440,6 +443,7 @@ int main(int argc, char* argv[])
     opts.use_cpu_rec = 0;
     opts.num_breakpoints = 0;
     opts.use_breakall = 0;
+    cpu_exec = cpu_step;
 
     options_parse(argc,argv,&opts);
     use_verbose = opts.use_verbose;
