@@ -5,12 +5,26 @@
 
 #define ROUNDUP(n,d) ((((n)+(d)-1) / (d)) * (d))
 
-#define DISP32(rip,ptr) ((ptr)-(rip))
-#define MODRM_eip_disp32_to_rm(dst) (0x00 | ((dst)<<3) | 0x5)
-#define MODRM_rm_to_rm(src,dst) (0xc0 | ((src)<<3) | (dst))
-#define MODRM_sib() (0x4)
+const uint8_t P_WORD = 0x66;
+const uint8_t REX_W = 0x48;
 
-#define SIB(s,i,b) (((s)<<6) | ((i)<<3) | (b))
+#define OFFSET(p, n) ((void*)(p) - (void*)((jit_block) + (n)))
+#define EMIT(b)   (*jit_block++ = (b))
+#define EMIT4i(dw) do { *(int32_t*)jit_block = (int32_t)(dw); jit_block += sizeof(int32_t); } while (0)
+#define EMIT4u(dw) do { *(uint32_t*)jit_block = (uint32_t)(dw); jit_block += sizeof(uint32_t); } while (0)
+#define EMIT8i(qw) do { *(int64_t*)jit_block = (int64_t)(qw); jit_block += sizeof(int64_t); } while (0)
+#define EMIT8u(qw) do { *(uint64_t*)jit_block = (uint64_t)(qw); jit_block += sizeof(uint64_t); } while (0)
+
+static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
+{
+   return (mod << 6) | (reg << 3) | (rm);
+}
+
+#define MODRM_RIP_DISP32(reg) modrm(0, reg, 5)
+#define MODRM_REG_DIRECT(reg, rm) modrm(3, reg, rm)
+#define MODRM_SIB modrm(0, 0, 4)
+
+#define SIB(s,i,b) modrm(s,i,b)
 
 enum {
     RAX = 0,
@@ -30,6 +44,7 @@ enum {
     R14,
     R15
 };
+
 
 static void* cpu_rec_get_memblk(cpu_state *state, size_t min_bytes)
 {
@@ -60,15 +75,15 @@ static uint8_t* cpu_rec_compile_start(cpu_state *state, uint8_t* jit_block)
     if (offs_state <= INT32_MAX &&
         offs_state >= INT32_MIN) {
        // LEA rdi, [state]
-       *jit_block++ = 0x48;    // REX.w
-       *jit_block++ = 0x8d;    // LEA r64, m
-       *jit_block++ = MODRM_eip_disp32_to_rm(RDI);
+       EMIT(0x48);    // REX.w
+       EMIT(0x8d);    // LEA r64, m
+       EMIT(MODRM_RIP_DISP32(RDI));
        *(int32_t *)jit_block = (int32_t)(offs_state);
        jit_block += sizeof(int32_t);
     } else {
        // MOV rdi, [state]
-       *jit_block++ = 0x48;   // REX.w
-       *jit_block++ = 0xb8 + RDI;   // MOV r64, imm64
+       EMIT(0x48);   // REX.w
+       EMIT(0xb8 + RDI);   // MOV r64, imm64
        *(cpu_state **)jit_block = state;
        jit_block += sizeof(cpu_state*);
     }
@@ -79,7 +94,7 @@ static uint8_t* cpu_rec_compile_start(cpu_state *state, uint8_t* jit_block)
 /* Write the necessary boilerplate to restore registers, and return. */
 static uint8_t* cpu_rec_compile_end(cpu_state *state, uint8_t* jit_block)
 {
-    *jit_block++ = 0xc3;    // ret
+    EMIT(0xc3);    // ret
     return jit_block;
 }
 
@@ -95,37 +110,37 @@ static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit
     void *op_instr = op_table[state->m[a]];
 
     // Push rdi
-    *jit_block++ = 0x50 + RDI;
+    EMIT(0x50 + RDI);
     
     // Copy instruction 32 bits to state
     // state->i = *(instr*)(&state->m[state->pc]);
     {
        ptrdiff_t offs_pc = (void *)&state->pc - (void *)(jit_block + 8);
        // MOVZX rax, word [state->pc]
-       *jit_block++ = 0x48;   // REX.w
-       *jit_block++ = 0x0f;   // MOVZX
-       *jit_block++ = 0xb7;   // MOVZX
-       *jit_block++ = MODRM_eip_disp32_to_rm(RAX);
+       EMIT(0x48);   // REX.w
+       EMIT(0x0f);   // MOVZX
+       EMIT(0xb7);   // MOVZX
+       EMIT(MODRM_RIP_DISP32(RAX));
        *(int32_t *)jit_block = (int32_t)(offs_pc);
        jit_block += sizeof(int32_t);
        
        ptrdiff_t offs_m = (void *)&state->m - (void *)(jit_block + 7);
        // MOV rdx, [state->m]
-       *jit_block++ = 0x48;    // REX.w
-       *jit_block++ = 0x8b;    // MOV
-       *jit_block++ = MODRM_eip_disp32_to_rm(RDX);
+       EMIT(0x48);    // REX.w
+       EMIT(0x8b);    // MOV
+       EMIT(MODRM_RIP_DISP32(RDX));
        *(int32_t *)jit_block = (int32_t)(offs_m);
        jit_block += sizeof(int32_t);
 
        // MOV eax, [rax + rdx]
-       *jit_block++ = 0x8b;    // MOV
-       *jit_block++ = MODRM_sib();
-       *jit_block++ = SIB(0, RAX, RDX);
+       EMIT(0x8b);    // MOV
+       EMIT(MODRM_SIB);
+       EMIT(SIB(0, RAX, RDX));
 
        ptrdiff_t offs_i = (void *)&state->i - (void *)(jit_block + 6);
        // MOV [state->i], eax
-       *jit_block++ = 0x89;   // MOV
-       *jit_block++ = MODRM_eip_disp32_to_rm(RAX);
+       EMIT(0x89);   // MOV
+       EMIT(MODRM_RIP_DISP32(RAX));
        *(int32_t *)jit_block = (int32_t)(offs_i);
        jit_block += sizeof(int32_t);
     }
@@ -133,29 +148,26 @@ static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit
     // Add 4 to PC
     {
        // ADD word ptr [state->pc], 4
-       ptrdiff_t offs_pc = (void *)&state->pc - (void *)(jit_block + 8);
-       *jit_block++ = 0x66;   // Operand prefix - word
-       *jit_block++ = 0x83;   // ADD
-       *jit_block++ = MODRM_eip_disp32_to_rm(RAX);
-       *(int32_t *)jit_block = (int32_t)offs_pc;
-       jit_block += sizeof(int32_t);
-       *jit_block++ = 4;
+       EMIT(P_WORD);
+       EMIT(0x83);
+       EMIT(MODRM_RIP_DISP32(RAX));
+       EMIT4i(OFFSET(&state->pc, 5));
+       EMIT(4);
     }
 
     // Call `op_instr`
     {
        // MOV rax, [op_instr]
-       *jit_block++ = 0x48;         // REX.w
-       *jit_block++ = 0xb8 + RAX;   // LEA
-       *(void**)jit_block = op_instr;
-       jit_block += sizeof(void*);
+       EMIT(REX_W);
+       EMIT(0xb8 + RAX);
+       EMIT8u(op_instr);
        // CALL rax
-       *jit_block++ = 0xff;   // CALL
-       *jit_block++ = MODRM_rm_to_rm(2,RAX);
+       EMIT(0xff);
+       EMIT(MODRM_REG_DIRECT(2, RAX));
     }
 
     // Pop rdi
-    *jit_block++ = 0x58 + RDI;
+    EMIT(0x58 + RDI);
 
     return jit_block;
 }
