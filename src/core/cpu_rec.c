@@ -8,6 +8,8 @@
 const uint8_t P_WORD = 0x66;
 const uint8_t REX_W = 0x48;
 
+#define STRUCT_OFFSET(p, m) ((void*)((p)->(m)) - (void*)(p))
+
 #define OFFSET(p, n) ((void*)(p) - (void*)((jit_block) + (n)))
 #define EMIT(b)   (*jit_block++ = (b))
 #define EMIT4i(dw) do { *(int32_t*)jit_block = (int32_t)(dw); jit_block += sizeof(int32_t); } while (0)
@@ -70,7 +72,6 @@ void cpu_rec_free(cpu_state* state)
 static uint8_t* cpu_rec_compile_start(cpu_state *state, uint8_t* jit_block)
 {
     ptrdiff_t offs_state = (void *)state - ((void *)jit_block + 7);
-    
     // Move `state` into RDI
     if (offs_state <= INT32_MAX &&
         offs_state >= INT32_MIN) {
@@ -78,14 +79,12 @@ static uint8_t* cpu_rec_compile_start(cpu_state *state, uint8_t* jit_block)
        EMIT(0x48);    // REX.w
        EMIT(0x8d);    // LEA r64, m
        EMIT(MODRM_RIP_DISP32(RDI));
-       *(int32_t *)jit_block = (int32_t)(offs_state);
-       jit_block += sizeof(int32_t);
+       EMIT4i(offs_state);
     } else {
        // MOV rdi, [state]
        EMIT(0x48);   // REX.w
        EMIT(0xb8 + RDI);   // MOV r64, imm64
-       *(cpu_state **)jit_block = state;
-       jit_block += sizeof(cpu_state*);
+       EMIT8u(state);
     }
     
     return jit_block;
@@ -115,34 +114,28 @@ static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit
     // Copy instruction 32 bits to state
     // state->i = *(instr*)(&state->m[state->pc]);
     {
-       ptrdiff_t offs_pc = (void *)&state->pc - (void *)(jit_block + 8);
        // MOVZX rax, word [state->pc]
        EMIT(0x48);   // REX.w
        EMIT(0x0f);   // MOVZX
        EMIT(0xb7);   // MOVZX
        EMIT(MODRM_RIP_DISP32(RAX));
-       *(int32_t *)jit_block = (int32_t)(offs_pc);
-       jit_block += sizeof(int32_t);
+       EMIT4i(OFFSET(&state->pc, 4));
        
-       ptrdiff_t offs_m = (void *)&state->m - (void *)(jit_block + 7);
        // MOV rdx, [state->m]
        EMIT(0x48);    // REX.w
        EMIT(0x8b);    // MOV
        EMIT(MODRM_RIP_DISP32(RDX));
-       *(int32_t *)jit_block = (int32_t)(offs_m);
-       jit_block += sizeof(int32_t);
+       EMIT4i(OFFSET(&state->m, 4));
 
        // MOV eax, [rax + rdx]
        EMIT(0x8b);    // MOV
        EMIT(MODRM_SIB);
        EMIT(SIB(0, RAX, RDX));
 
-       ptrdiff_t offs_i = (void *)&state->i - (void *)(jit_block + 6);
        // MOV [state->i], eax
        EMIT(0x89);   // MOV
        EMIT(MODRM_RIP_DISP32(RAX));
-       *(int32_t *)jit_block = (int32_t)(offs_i);
-       jit_block += sizeof(int32_t);
+       EMIT4i(OFFSET(&state->i, 4));
     }
 
     // Add 4 to PC
@@ -217,6 +210,6 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     }
 
     state->rec.bblk_map[start].code = (void (*)(void))(jit_block);
-    state->rec.bblk_map[start].size = size;
+    state->rec.bblk_map[start].size = jit_ptr - jit_block;
     state->rec.bblk_map[start].cycles = nb_instrs;
 }
