@@ -8,10 +8,12 @@
 const uint8_t P_WORD = 0x66;
 const uint8_t REX_W = 0x48;
 
-#define STRUCT_OFFSET(p, m) ((void*)((p)->(m)) - (void*)(p))
+#define STRUCT_OFFSET(p, m) ((void*)&((p)->m) - (void*)(p))
 
 #define OFFSET(p, n) ((void*)(p) - (void*)((jit_block) + (n)))
 #define EMIT(b)   (*jit_block++ = (b))
+#define EMIT2i(w) do { *(int16_t*)jit_block = (int16_t)(w); jit_block += sizeof(int16_t); } while (0)
+#define EMIT2u(w) do { *(uint16_t*)jit_block = (uint16_t)(w); jit_block += sizeof(uint16_t); } while (0)
 #define EMIT4i(dw) do { *(int32_t*)jit_block = (int32_t)(dw); jit_block += sizeof(int32_t); } while (0)
 #define EMIT4u(dw) do { *(uint32_t*)jit_block = (uint32_t)(dw); jit_block += sizeof(uint32_t); } while (0)
 #define EMIT8i(qw) do { *(int64_t*)jit_block = (int64_t)(qw); jit_block += sizeof(int64_t); } while (0)
@@ -22,9 +24,12 @@ static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
    return (mod << 6) | (reg << 3) | (rm);
 }
 
+#define MODRM_REG_IMM8(rm) modrm(3, 0, rm)
 #define MODRM_RIP_DISP32(reg) modrm(0, reg, 5)
+#define MODRM_REG_RMDISP8(reg, rm) modrm(1, reg, rm)
+#define MODRM_REG_RMDISP32(reg, rm) modrm(2, reg, rm)
 #define MODRM_REG_DIRECT(reg, rm) modrm(3, reg, rm)
-#define MODRM_SIB modrm(0, 0, 4)
+#define MODRM_REG_SIB(reg) modrm(0, reg, 4)
 
 #define SIB(s,i,b) modrm(s,i,b)
 
@@ -114,38 +119,42 @@ static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit
     // Copy instruction 32 bits to state
     // state->i = *(instr*)(&state->m[state->pc]);
     {
-       // MOVZX rax, word [state->pc]
-       EMIT(0x48);   // REX.w
-       EMIT(0x0f);   // MOVZX
-       EMIT(0xb7);   // MOVZX
-       EMIT(MODRM_RIP_DISP32(RAX));
-       EMIT4i(OFFSET(&state->pc, 4));
-       
-       // MOV rdx, [state->m]
+       // MOVZX rax, word [rdi + _offset(state, pc)]
+       EMIT(0x48);
+       EMIT(0x0f);
+       EMIT(0xb7);
+       EMIT(MODRM_REG_RMDISP8(RAX, RDI));
+       EMIT(STRUCT_OFFSET(state, pc));
+
+       // MOV rdx, [rdi + _offset(state, m)]
        EMIT(0x48);    // REX.w
        EMIT(0x8b);    // MOV
-       EMIT(MODRM_RIP_DISP32(RDX));
-       EMIT4i(OFFSET(&state->m, 4));
+       EMIT(MODRM_REG_RMDISP8(RDX, RDI));
+       EMIT(STRUCT_OFFSET(state, m));
 
-       // MOV eax, [rax + rdx]
+       // MOV edx, [rax + rdx]
        EMIT(0x8b);    // MOV
-       EMIT(MODRM_SIB);
+       EMIT(MODRM_REG_SIB(RDX));
        EMIT(SIB(0, RAX, RDX));
 
-       // MOV [state->i], eax
+       // MOV [state->i], edx
        EMIT(0x89);   // MOV
-       EMIT(MODRM_RIP_DISP32(RAX));
+       EMIT(MODRM_RIP_DISP32(RDX));
        EMIT4i(OFFSET(&state->i, 4));
     }
 
     // Add 4 to PC
     {
-       // ADD word ptr [state->pc], 4
-       EMIT(P_WORD);
+       // ADD eax, 4
        EMIT(0x83);
-       EMIT(MODRM_RIP_DISP32(RAX));
-       EMIT4i(OFFSET(&state->pc, 5));
+       EMIT(MODRM_REG_IMM8(RAX));
        EMIT(4);
+
+       // MOV [rdi + _offset(state, pc)], eax
+       EMIT(0x66);
+       EMIT(0x89);
+       EMIT(MODRM_REG_RMDISP8(RAX, RDI));
+       EMIT(STRUCT_OFFSET(state, pc));
     }
 
     // Call `op_instr`
