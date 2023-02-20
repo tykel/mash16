@@ -133,7 +133,9 @@ typedef struct cpu_state
     instr    i;
     flags    f;
     uint8_t* m;
+#ifdef HAVE_BANK_SEL
     uint8_t* mp[256];
+#endif
     
     /* Gfx stuff. */
     uint8_t  bgc;

@@ -49,6 +49,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     (*state)->meta.old_pc = 0;
     (*state)->pc = 0;
     (*state)->m = mem;
+#ifdef HAVE_BANK_SEL 
     for (i = 0; i < 256; ++i)
     {
         if (!((*state)->mp[i] = calloc(0x8000, 1)))
@@ -57,6 +58,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
             exit(1);
         }
     }
+#endif
     if(!((*state)->vm = calloc(320*240,1)))
     {
         fprintf(stderr,"error: calloc failed (state->vm)\n");
@@ -282,10 +284,12 @@ void cpu_free(cpu_state* state)
     int i;
 
     free(state->vm);
+#ifdef HAVE_BANK_SEL
     for (i = 0; i < 256; ++i)
     {
         free(state->mp[i]);
     }
+#endif
     cpu_rec_free(state);
     free(state->rec.bblk_map);
     free(global_alloc);

@@ -330,6 +330,7 @@ void op_mov(cpu_state* state)
 void op_stm_imm(cpu_state* state)
 {
     uint16_t a = i_hhll(state->i);
+#ifdef HAVE_BANK_SEL
     if (a == BANK_SEL_ADDR)
     {
         uint8_t val = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
@@ -338,6 +339,7 @@ void op_stm_imm(cpu_state* state)
         memcpy(state->m, state->mp[val], 0x8000);
         printf("stm: bank sel %d -> %d\n", prev_bank, val);
     }
+#endif
     state->m[a] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
     state->m[a + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
     state->meta.type = OP_R_HHLL;
@@ -346,6 +348,7 @@ void op_stm_imm(cpu_state* state)
 void op_stm_r(cpu_state* state)
 {
     uint16_t a = (uint16_t)state->r[i_yx(state->i) >> 4];
+#ifdef HAVE_BANK_SEL
     if (a == BANK_SEL_ADDR)
     {
         uint8_t val = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
@@ -354,6 +357,7 @@ void op_stm_r(cpu_state* state)
         memcpy(state->m, state->mp[val], 0x8000);
         printf("stm: bank sel %d -> %d\n", prev_bank, val);
     }
+#endif
     state->m[a] = state->r[i_yx(state->i) & 0x0f] & 0x00ff;
     state->m[a + 1] = state->r[i_yx(state->i) & 0x0f] >> 8;
     state->meta.type = OP_R_R;

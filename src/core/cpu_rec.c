@@ -8,9 +8,9 @@
 const uint8_t P_WORD = 0x66;
 const uint8_t REX_W = 0x48;
 
-#define STRUCT_OFFSET(p, m) ((void*)&((p)->m) - (void*)(p))
+#define STRUCT_OFFSET(p, m) ((char*)&((p)->m) - (char*)(p))
 
-#define OFFSET(p, n) ((void*)(p) - (void*)((jit_block) + (n)))
+#define OFFSET(p, n) ((char*)(p) - (char*)((jit_block) + (n)))
 #define EMIT(b)   (*jit_block++ = (b))
 #define EMIT2i(w) do { *(int16_t*)jit_block = (int16_t)(w); jit_block += sizeof(int16_t); } while (0)
 #define EMIT2u(w) do { *(uint16_t*)jit_block = (uint16_t)(w); jit_block += sizeof(uint16_t); } while (0)
@@ -25,33 +25,41 @@ static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
 }
 
 #define MODRM_REG_IMM8(rm) modrm(3, 0, rm)
+#define MODRM_REG_OPX_IMM8(op, rm) modrm(3, op, rm)
 #define MODRM_RIP_DISP32(reg) modrm(0, reg, 5)
 #define MODRM_REG_RMDISP8(reg, rm) modrm(1, reg, rm)
 #define MODRM_REG_RMDISP32(reg, rm) modrm(2, reg, rm)
 #define MODRM_REG_DIRECT(reg, rm) modrm(3, reg, rm)
 #define MODRM_REG_SIB(reg) modrm(0, reg, 4)
+#define MODRM_REG_SIB_DISP8(reg) modrm(1, reg, 4)
+#define MODRM_REG_SIB_DISP32(reg) modrm(2, reg, 4)
 
 #define SIB(s,i,b) modrm(s,i,b)
 
 enum {
-    RAX = 0,
-    RCX,
-    RDX,
-    RBX,
-    RSP,
-    RBP,
-    RSI,
-    RDI,
-    R8,
-    R9,
-    R10,
-    R11,
-    R12,
-    R13,
-    R14,
-    R15
+   AL = 0, CL, DL, BL, AH, CH, DH, BH,
 };
 
+enum {
+    AX = 0, CX, DX, BX, SP, BP, SI, DI,
+};
+
+enum {
+    EAX = 0, ECX, EDX, EBX, ESP, EBP, ESI, EDI,
+    E8, E9, E10, E11, E12, E13, E14, E15,
+};
+
+enum {
+    RAX = 0, RCX, RDX, RBX, RSP, RBP, RSI, RDI,
+    R8, R9, R10, R11, R12, R13, R14, R15,
+};
+
+enum {
+   XMM0 = 0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+   XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15,
+};
+
+#include "cpu_rec_ops.h"
 
 static void* cpu_rec_get_memblk(cpu_state *state, size_t min_bytes)
 {
@@ -76,7 +84,7 @@ void cpu_rec_free(cpu_state* state)
  */
 static uint8_t* cpu_rec_compile_start(cpu_state *state, uint8_t* jit_block)
 {
-    ptrdiff_t offs_state = (void *)state - ((void *)jit_block + 7);
+    ptrdiff_t offs_state = (char *)state - ((char *)jit_block + 7);
     // Move `state` into RDI
     if (offs_state <= INT32_MAX &&
         offs_state >= INT32_MIN) {
@@ -112,9 +120,6 @@ static uint8_t* cpu_rec_compile_end(cpu_state *state, uint8_t* jit_block)
 static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit_block)
 {
     void *op_instr = op_table[state->m[a]];
-
-    // Push rdi
-    EMIT(0x50 + RDI);
     
     // Copy instruction 32 bits to state
     // state->i = *(instr*)(&state->m[state->pc]);
@@ -150,7 +155,7 @@ static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit
        EMIT(MODRM_REG_IMM8(RAX));
        EMIT(4);
 
-       // MOV [rdi + _offset(state, pc)], eax
+       // MOV [rdi + _offset(state, pc)], ax
        EMIT(0x66);
        EMIT(0x89);
        EMIT(MODRM_REG_RMDISP8(RAX, RDI));
@@ -158,18 +163,7 @@ static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit
     }
 
     // Call `op_instr`
-    {
-       // MOV rax, [op_instr]
-       EMIT(REX_W);
-       EMIT(0xb8 + RAX);
-       EMIT8u(op_instr);
-       // CALL rax
-       EMIT(0xff);
-       EMIT(MODRM_REG_DIRECT(2, RAX));
-    }
-
-    // Pop rdi
-    EMIT(0x58 + RDI);
+    jit_block = cpu_rec_dispatch(state, jit_block, state->m[a]);
 
     return jit_block;
 }
@@ -187,7 +181,7 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         
         // RET - we know we hit the end of a subroutine, so return.
         // CALL - we transfer to another basic block, so return.
-        // JMP
+        // JMP - ditto.
         if ((op & 0xf0) == 0x10) {
             found_branch = 1;
             break;
@@ -196,7 +190,7 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     end += 4*found_branch;
     nb_instrs = (end - a) / 4;
 
-    size = ROUNDUP(nb_instrs * 64, 8);
+    size = ROUNDUP(nb_instrs * 80, 8);
     jit_block = cpu_rec_get_memblk(state, size);
     void* page = (void *)((uintptr_t)jit_block & ~(sysconf(_SC_PAGESIZE) - 1));
     size_t sizeup = ROUNDUP(((jit_block + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
