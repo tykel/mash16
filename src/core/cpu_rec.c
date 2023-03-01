@@ -1,64 +1,9 @@
-#include "cpu.h"
 #include <errno.h>
+#include <limits.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define ROUNDUP(n,d) ((((n)+(d)-1) / (d)) * (d))
-
-const uint8_t P_WORD = 0x66;
-const uint8_t REX_W = 0x48;
-
-#define STRUCT_OFFSET(p, m) ((char*)&((p)->m) - (char*)(p))
-
-#define OFFSET(p, n) ((char*)(p) - (char*)((jit_block) + (n)))
-#define EMIT(b)   (*jit_block++ = (b))
-#define EMIT2i(w) do { *(int16_t*)jit_block = (int16_t)(w); jit_block += sizeof(int16_t); } while (0)
-#define EMIT2u(w) do { *(uint16_t*)jit_block = (uint16_t)(w); jit_block += sizeof(uint16_t); } while (0)
-#define EMIT4i(dw) do { *(int32_t*)jit_block = (int32_t)(dw); jit_block += sizeof(int32_t); } while (0)
-#define EMIT4u(dw) do { *(uint32_t*)jit_block = (uint32_t)(dw); jit_block += sizeof(uint32_t); } while (0)
-#define EMIT8i(qw) do { *(int64_t*)jit_block = (int64_t)(qw); jit_block += sizeof(int64_t); } while (0)
-#define EMIT8u(qw) do { *(uint64_t*)jit_block = (uint64_t)(qw); jit_block += sizeof(uint64_t); } while (0)
-
-static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
-{
-   return (mod << 6) | (reg << 3) | (rm);
-}
-
-#define MODRM_REG_IMM8(rm) modrm(3, 0, rm)
-#define MODRM_REG_OPX_IMM8(op, rm) modrm(3, op, rm)
-#define MODRM_RIP_DISP32(reg) modrm(0, reg, 5)
-#define MODRM_REG_RMDISP8(reg, rm) modrm(1, reg, rm)
-#define MODRM_REG_RMDISP32(reg, rm) modrm(2, reg, rm)
-#define MODRM_REG_DIRECT(reg, rm) modrm(3, reg, rm)
-#define MODRM_REG_SIB(reg) modrm(0, reg, 4)
-#define MODRM_REG_SIB_DISP8(reg) modrm(1, reg, 4)
-#define MODRM_REG_SIB_DISP32(reg) modrm(2, reg, 4)
-
-#define SIB(s,i,b) modrm(s,i,b)
-
-enum {
-   AL = 0, CL, DL, BL, AH, CH, DH, BH,
-};
-
-enum {
-    AX = 0, CX, DX, BX, SP, BP, SI, DI,
-};
-
-enum {
-    EAX = 0, ECX, EDX, EBX, ESP, EBP, ESI, EDI,
-    E8, E9, E10, E11, E12, E13, E14, E15,
-};
-
-enum {
-    RAX = 0, RCX, RDX, RBX, RSP, RBP, RSI, RDI,
-    R8, R9, R10, R11, R12, R13, R14, R15,
-};
-
-enum {
-   XMM0 = 0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
-   XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15,
-};
-
+#include "cpu.h"
 #include "cpu_rec_ops.h"
 
 static void* cpu_rec_get_memblk(cpu_state *state, size_t min_bytes)
@@ -72,42 +17,211 @@ void cpu_rec_init(cpu_state* state)
 {
    state->rec.jit_base = (void*)ROUNDUP((size_t)global_alloc + sizeof(*state), page_size);
    state->rec.jit_next = state->rec.jit_base;
+   memset(&state->rec.host[0], 0, sizeof(state->rec.host));
 }
 
 void cpu_rec_free(cpu_state* state)
 {
 }
 
+void cpu_rec_hostreg_release(cpu_state *state, int hostreg)
+{
+   state->rec.host[hostreg].use = 0;
+}
+
+void cpu_rec_hostreg_release_all(cpu_state *state)
+{
+   for (int i = 0; i < 16; ++i) {
+      switch (state->rec.host[i].use) {
+         case 0:
+            break;
+         case CPU_HOST_REG_C16REG:
+         {
+            int regPtrState = cpu_rec_hostreg_ptr(state, state);
+            EMIT(P_WORD);
+            EMIT_REX_RBI(i, regPtrState, 0, 0);
+            EMIT(0x89);
+            EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+            EMIT(STRUCT_OFFSET(state, r[i]));
+
+            break;
+         }
+         case CPU_HOST_REG_LOCAL:
+         {
+            if (state->rec.host[i].local) {
+               if (strcmp(state->rec.host[i].local, "pc") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT(P_WORD);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x89);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, pc));
+               } else if (strcmp(state->rec.host[i].local, "sp") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT(P_WORD);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x89);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, sp));
+               } else if (strcmp(state->rec.host[i].local, "bgc") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x88);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, bgc));
+               } else if (strcmp(state->rec.host[i].local, "sw") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x88);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, sw));
+               } else if (strcmp(state->rec.host[i].local, "sh") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x88);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, sh));
+               } else if (strcmp(state->rec.host[i].local, "fx") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x88);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, fx));
+               } else if (strcmp(state->rec.host[i].local, "fy") == 0) {
+                  int regPtrState = cpu_rec_hostreg_ptr(state, state);
+                  EMIT_REX_RBI(i, regPtrState, 0, 0);
+                  EMIT(0x88);
+                  EMIT(MODRM_REG_RMDISP8(i, regPtrState));
+                  EMIT(STRUCT_OFFSET(state, fy));
+               }
+               // TODO: Sound-gen registers
+            }
+            break;
+         }
+      }
+   }
+   memset(&state->rec.host[0], 0, sizeof(state->rec.host));
+}
+
+void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg)
+{
+   state->rec.host[hostreg].use = CPU_HOST_REG_FROZEN;
+}
+
+int cpu_rec_hostreg_ptr(cpu_state *state, void* ptr)
+{
+   int lru_time = INT_MAX;
+   int lru = 0;
+   int reg = 0, i = 0;
+   for (; i < 16; ++i) {
+      if (state->rec.host[i].use == CPU_HOST_REG_PTR &&
+          ptr == state->rec.host[i].ptr) {
+         return i;
+      } else if (state->rec.host[i].use == 0) {
+         break;
+      }
+      if (state->rec.host[i].last_access_time < lru_time) {
+         lru_time = state->rec.host[i].last_access_time;
+         lru = i;
+      }
+   }
+
+   reg = i < 16 ? i : lru;
+
+   if (i == 16) {
+      panic("%s: LRU: eviction not implemented!", __FUNCTION__);
+   }
+
+   ptrdiff_t disp = (uint8_t *)ptr - state->rec.jit_p;
+   EMIT_REX_RBI(REG_NONE, reg, REG_NONE, 1);
+   if (disp <= INT32_MAX && disp >= INT32_MIN) {
+      EMIT(0x8d);    // LEA r64, [m]
+      EMIT(MODRM_RIP_DISP32(reg));
+      EMIT4i(OFFSET(ptr, 4));
+   } else {
+      EMIT(0xb8 + (reg & 7));    // MOV r64, m
+      EMIT8u(ptr);
+   }
+
+   state->rec.host[reg].use = CPU_HOST_REG_PTR;
+   state->rec.host[reg].ptr = ptr;
+   return reg;
+}
+
+int cpu_rec_hostreg_local(cpu_state *state, const char *name)
+{
+   int lru_time = INT_MAX;
+   int lru = 0;
+   for (int i = 0; i < 16; ++i) {
+      if (name != NULL &&
+          state->rec.host[i].use == CPU_HOST_REG_LOCAL &&
+          state->rec.host[i].local &&
+          strcmp(name, state->rec.host[i].local) == 0) {
+         return i;
+      } else if (state->rec.host[i].use == 0) {
+         state->rec.host[i].use = CPU_HOST_REG_LOCAL;
+         state->rec.host[i].local = name;
+         return i;
+      }
+      if (state->rec.host[i].last_access_time < lru_time) {
+         lru_time = state->rec.host[i].last_access_time;
+         lru = i;
+      }
+   }
+
+   panic("%s: LRU: eviction not implemented!", __FUNCTION__);
+   state->rec.host[lru].use = CPU_HOST_REG_LOCAL;
+   state->rec.host[lru].local = name;
+   return lru;
+}
+
+int cpu_rec_hostreg_c16reg(cpu_state *state, int c16reg)
+{
+   int lru_time = INT_MAX;
+   int lru = 0;
+   for (int i = 0; i < 16; ++i) {
+      if (state->rec.host[i].use == CPU_HOST_REG_C16REG &&
+          c16reg == state->rec.host[i].c16reg) {
+         return i;
+      } else if (state->rec.host[i].use == 0) {
+         state->rec.host[i].use = CPU_HOST_REG_C16REG;
+         state->rec.host[i].c16reg = c16reg;
+         return i;
+      }
+      if (state->rec.host[i].last_access_time < lru_time) {
+         lru_time = state->rec.host[i].last_access_time;
+         lru = i;
+      }
+   }
+
+   panic("%s: LRU: eviction not implemented!", __FUNCTION__);
+   state->rec.host[lru].use = CPU_HOST_REG_C16REG;
+   state->rec.host[lru].c16reg = c16reg;
+   return lru;
+}
+
 /*
  * Write the necessary boilerplate to save registers, setup stack, etc.
  * - `mov rdi, qword ptr [state]` for all opcode calls
  */
-static uint8_t* cpu_rec_compile_start(cpu_state *state, uint8_t* jit_block)
+static void cpu_rec_compile_start(cpu_state *state, uint16_t a)
 {
-    ptrdiff_t offs_state = (char *)state - ((char *)jit_block + 7);
-    // Move `state` into RDI
-    if (offs_state <= INT32_MAX &&
-        offs_state >= INT32_MIN) {
-       // LEA rdi, [state]
-       EMIT(0x48);    // REX.w
-       EMIT(0x8d);    // LEA r64, m
-       EMIT(MODRM_RIP_DISP32(RDI));
-       EMIT4i(offs_state);
-    } else {
-       // MOV rdi, [state]
-       EMIT(0x48);   // REX.w
-       EMIT(0xb8 + RDI);   // MOV r64, imm64
-       EMIT8u(state);
-    }
-    
-    return jit_block;
+    cpu_rec_hostreg_freeze(state, RSP);
+    cpu_rec_hostreg_freeze(state, RBP);
+    int regPtrState = cpu_rec_hostreg_ptr(state, state);
+    int regPc = cpu_rec_hostreg_local(state, "pc");
+
+    // MOV eax, a
+    EMIT_REX_RBI(REG_NONE, regPc, REG_NONE, 0);
+    EMIT(0xb8 + (regPc & 7));
+    EMIT4u(a);
 }
 
 /* Write the necessary boilerplate to restore registers, and return. */
-static uint8_t* cpu_rec_compile_end(cpu_state *state, uint8_t* jit_block)
+static void cpu_rec_compile_end(cpu_state *state)
 {
+    cpu_rec_hostreg_release_all(state);
     EMIT(0xc3);    // ret
-    return jit_block;
 }
 
 /*
@@ -117,60 +231,28 @@ static uint8_t* cpu_rec_compile_end(cpu_state *state, uint8_t* jit_block)
  * interpreter").
  */
 
-static uint8_t* cpu_rec_compile_instr(cpu_state *state, uint16_t a, uint8_t *jit_block)
+static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
 {
     void *op_instr = op_table[state->m[a]];
+    int regPc = cpu_rec_hostreg_local(state, "pc");
     
     // Copy instruction 32 bits to state
-    // state->i = *(instr*)(&state->m[state->pc]);
-    {
-       // MOVZX rax, word [rdi + _offset(state, pc)]
-       EMIT(0x48);
-       EMIT(0x0f);
-       EMIT(0xb7);
-       EMIT(MODRM_REG_RMDISP8(RAX, RDI));
-       EMIT(STRUCT_OFFSET(state, pc));
-
-       // MOV rdx, [rdi + _offset(state, m)]
-       EMIT(0x48);    // REX.w
-       EMIT(0x8b);    // MOV
-       EMIT(MODRM_REG_RMDISP8(RDX, RDI));
-       EMIT(STRUCT_OFFSET(state, m));
-
-       // MOV edx, [rax + rdx]
-       EMIT(0x8b);    // MOV
-       EMIT(MODRM_REG_SIB(RDX));
-       EMIT(SIB(0, RAX, RDX));
-
-       // MOV [state->i], edx
-       EMIT(0x89);   // MOV
-       EMIT(MODRM_RIP_DISP32(RDX));
-       EMIT4i(OFFSET(&state->i, 4));
-    }
+    state->i = *(instr*)(&state->m[a]);
 
     // Add 4 to PC
-    {
-       // ADD eax, 4
-       EMIT(0x83);
-       EMIT(MODRM_REG_IMM8(RAX));
-       EMIT(4);
-
-       // MOV [rdi + _offset(state, pc)], ax
-       EMIT(0x66);
-       EMIT(0x89);
-       EMIT(MODRM_REG_RMDISP8(RAX, RDI));
-       EMIT(STRUCT_OFFSET(state, pc));
-    }
+    // ADD eax, 4
+    EMIT_REX_RBI(regPc, REG_NONE, REG_NONE, 0);
+    EMIT(0x83);
+    EMIT(MODRM_REG_IMM8(regPc));
+    EMIT(4);
 
     // Call `op_instr`
-    jit_block = cpu_rec_dispatch(state, jit_block, state->m[a]);
-
-    return jit_block;
+    cpu_rec_dispatch(state, state->m[a]);
 }
 
 void cpu_rec_compile(cpu_state* state, uint16_t a)
 {
-    uint8_t *jit_block, *jit_ptr;
+    uint8_t *jit_ptr;
     size_t size;
     uint16_t start = a, end, nb_instrs;
     int ret, found_branch = 0;
@@ -191,28 +273,29 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     nb_instrs = (end - a) / 4;
 
     size = ROUNDUP(nb_instrs * 80, 8);
-    jit_block = cpu_rec_get_memblk(state, size);
-    void* page = (void *)((uintptr_t)jit_block & ~(sysconf(_SC_PAGESIZE) - 1));
-    size_t sizeup = ROUNDUP(((jit_block + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
+    jit_ptr = cpu_rec_get_memblk(state, size);
+    void* page = (void *)((uintptr_t)jit_ptr & ~(sysconf(_SC_PAGESIZE) - 1));
+    size_t sizeup = ROUNDUP(((jit_ptr + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
     if (mprotect(page, sizeup, PROT_READ | PROT_WRITE) < 0) {
         fprintf(stderr, "mprotect(%p, %zu, PROT_READ | PROT_WRITE) failed with errno %d.\n",
-                jit_block, size, errno);
+                state->rec.jit_p, size, errno);
         exit(1);
     }
 
-    jit_ptr = cpu_rec_compile_start(state, jit_block);
+    state->rec.jit_p = jit_ptr;
+    cpu_rec_compile_start(state, a);
     for (; a < end; a += 4)
     {
-        jit_ptr = cpu_rec_compile_instr(state, a, jit_ptr);
+        cpu_rec_compile_instr(state, a);
     }
-    jit_ptr = cpu_rec_compile_end(state, jit_ptr);
+    cpu_rec_compile_end(state);
     if (mprotect(page, sizeup, PROT_EXEC) < 0) {
         fprintf(stderr, "mprotect(%p, %zu, PROT_EXEC) failed with errno %d.\n",
-                jit_block, size, errno);
+                state->rec.jit_p, size, errno);
         exit(1);
     }
 
-    state->rec.bblk_map[start].code = (void (*)(void))(jit_block);
-    state->rec.bblk_map[start].size = jit_ptr - jit_block;
+    state->rec.bblk_map[start].code = (void (*)(void))(jit_ptr);
+    state->rec.bblk_map[start].size = state->rec.jit_p - jit_ptr;
     state->rec.bblk_map[start].cycles = nb_instrs;
 }

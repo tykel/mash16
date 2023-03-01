@@ -30,6 +30,7 @@ int use_verbose;
 #include <SDL2/SDL.h>
 
 #include <assert.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -573,4 +574,16 @@ int main(int argc, char* argv[])
     if(opts.use_verbose)
         printf("memory freed, goodbye\n");
     exit(0);
+}
+
+void panic(const char* format, ...)
+{
+   raise(SIGTRAP);
+   
+   va_list va = { 0 };
+   va_start(va, format);
+   vfprintf(stderr, format, va);
+   va_end(va);
+
+   exit(1);
 }

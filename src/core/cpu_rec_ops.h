@@ -1,555 +1,99 @@
-static void* cpu_rec_op_nop(cpu_state *state, uint8_t *jit_block)
+/*
+ *   mash16 - the chip16 emulator
+ *   Copyright (C) 2012-2013 tykel
+ *
+ *   mash16 is free software: you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation, either version 3 of the License, or
+ *   (at your option) any later version.
+ *
+ *   mash16 is distributed in the hope that it will be useful,
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *   GNU General Public License for more details.
+ *
+ *   You should have received a copy of the GNU General Public License
+ *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef CPU_REC_OPS_H
+#define CPU_REC_OPS_H
+
+#include <inttypes.h>
+
+#define ROUNDUP(n,d) ((((n)+(d)-1) / (d)) * (d))
+
+static const uint8_t P_WORD = 0x66;
+static const uint8_t REX_W = 0x48;
+
+#define STRUCT_OFFSET(p, m) ((char*)&((p)->m) - (char*)(p))
+
+#define OFFSET(p, n) ((char*)(p) - (char*)((state->rec.jit_p) + (n)))
+#define EMIT(b)   (*state->rec.jit_p++ = (b))
+#define EMIT2i(w) do { *(int16_t*)state->rec.jit_p = (int16_t)(w); state->rec.jit_p += sizeof(int16_t); } while (0)
+#define EMIT2u(w) do { *(uint16_t*)state->rec.jit_p = (uint16_t)(w); state->rec.jit_p += sizeof(uint16_t); } while (0)
+#define EMIT4i(dw) do { *(int32_t*)state->rec.jit_p = (int32_t)(dw); state->rec.jit_p += sizeof(int32_t); } while (0)
+#define EMIT4u(dw) do { *(uint32_t*)state->rec.jit_p = (uint32_t)(dw); state->rec.jit_p += sizeof(uint32_t); } while (0)
+#define EMIT8i(qw) do { *(int64_t*)state->rec.jit_p = (int64_t)(qw); state->rec.jit_p += sizeof(int64_t); } while (0)
+#define EMIT8u(qw) do { *(uint64_t*)state->rec.jit_p = (uint64_t)(qw); state->rec.jit_p += sizeof(uint64_t); } while (0)
+
+#define EMIT_REX_RBI(reg,b,i,q) do {\
+   uint8_t rex = 0;\
+   if (q) rex += 8;\
+   if (reg >= 8) rex += 4;\
+   if (i >= 8) rex += 2;\
+   if (b >= 8) rex += 1;\
+   if (rex != 0) EMIT((rex+0x40));\
+} while (0);
+
+static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
 {
-   return jit_block;
+   return (mod << 6) | ((reg&7) << 3) | (rm&7);
 }
 
-static uint8_t* cpu_rec_op_cls(cpu_state *state, uint8_t *jit_block)
-{
-   // XORPS xmm0, xmm0
-   EMIT(0x0f);
-   EMIT(0x57);
-   EMIT(MODRM_REG_DIRECT(XMM0, XMM0));
-
-   // MOV rax, 76800
-   EMIT(0xb8 + RAX);
-   EMIT4i(76800 - 16);
-   
-   // MOV rsi, [rdi + _offset(state, vm)]
-   EMIT(REX_W);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_RMDISP32(RSI, RDI));
-   EMIT4i(STRUCT_OFFSET(state, vm));
-
-   // @MOVDQA [rsi + rax - 16], xmm0
-   EMIT(P_WORD);
-   EMIT(0x0f);
-   EMIT(0x7f);
-   EMIT(MODRM_REG_SIB_DISP8(XMM0));
-   EMIT(SIB(0, RAX, RSI));
-   EMIT((int8_t)-16);
-
-   // SUB eax, 16
-   EMIT(0x83);
-   EMIT(MODRM_REG_OPX_IMM8(5, RAX));
-   EMIT(16);
-
-   // JNZ @
-   EMIT(0x75);
-   EMIT((int8_t)-11);
-
-   // MOV [rdi + _offset(state, bgc)], 0
-   EMIT(0xc6);
-   EMIT(MODRM_REG_RMDISP32(RAX, RDI));
-   EMIT4i(STRUCT_OFFSET(state, bgc));
-   EMIT(0);
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_vblnk(cpu_state *state, uint8_t *jit_block)
-{
-   //state->meta.wait_vblnk = 1;
-   // MOV BYTE [rdi + _offset(state, meta.wait_vblnk)], 1
-   EMIT(0xc6);
-   EMIT(MODRM_REG_RMDISP32(0, RDI));
-   EMIT4i(STRUCT_OFFSET(state, meta.wait_vblnk));
-   EMIT(1);
-   
-   return jit_block;
-}
-
-static void* cpu_rec_op_bgc(cpu_state *state, uint8_t *jit_block)
-{
-   //state->bgc = i_n(state->i);
-   // ROR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, EDX));
-   EMIT(16);
-
-   // MOV [RDI, _offset(state, bgc)], DL
-   EMIT(0x88);
-   EMIT(MODRM_REG_RMDISP8(DL, RDI));
-   EMIT(STRUCT_OFFSET(state, bgc));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_spr(cpu_state *state, uint8_t *jit_block)
-{
-    //state->sw = i_hhll(state->i) & 0x00ff;
-    //state->sh = i_hhll(state->i) >> 8;
-    // ROR EDX, 16
-    EMIT(0xc1);
-    EMIT(MODRM_REG_DIRECT(1, EDX));
-    EMIT(16);
-
-    if (STRUCT_OFFSET(state, sh) - STRUCT_OFFSET(state, sw) == 1) {
-       // MOV [RDI + _offset(state, sw)], DX
-       EMIT(P_WORD);
-       EMIT(0x89);
-       EMIT(MODRM_REG_RMDISP8(DX, RDI));
-       EMIT(STRUCT_OFFSET(state, sw));
-    } else {
-       // MOV [RDI + _offset(state, sw)], DL    // 0x41 offset within struct
-       EMIT(0x88);
-       EMIT(MODRM_REG_RMDISP8(DL, RDI));
-       EMIT(STRUCT_OFFSET(state, sw));
-
-       // MOV [RDI + _offset(state, sh)], DH
-       EMIT(0x88);
-       EMIT(MODRM_REG_RMDISP8(DH, RDI));
-       EMIT(STRUCT_OFFSET(state, sh));
-    }
-
-    return jit_block;
-}
-
-static void* cpu_rec_op_rnd(cpu_state *state, uint8_t *jit_block)
-{
-   //state->r[i_yx(state->i) & 0x0f] = rand() % (i_hhll(state->i) + 1);
-   // MOV rax, rand
-   EMIT(REX_W);
-   EMIT(0xb8 + RAX);
-   EMIT8u(rand);
-
-   // PUSH rdi
-   EMIT(0x50 + RDI);
-   
-   // PUSH rdx
-   EMIT(0x50 + RDX);
-
-   // CALL rax
-   EMIT(0xff);
-   EMIT(MODRM_REG_DIRECT(2, RAX));
-
-   // POP rcx
-   EMIT(0x58 + RCX);
-
-   // POP rdi
-   EMIT(0x58 + RDI);
-
-   // ROR ecx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, ECX));
-   EMIT(16);
-
-   // AND ecx, 0xffff
-   EMIT(0x81);
-   EMIT(MODRM_REG_DIRECT(4, ECX));
-   EMIT4u(0xffff);
-
-   // INC ecx
-   EMIT(0xff);
-   EMIT(MODRM_REG_DIRECT(0, ECX));
-
-   // DIV ecx
-   EMIT(0xf7);
-   EMIT(MODRM_REG_DIRECT(6, ECX));
-
-   // MOVZX rax, BYTE [rdi + _offset(state, i) + 1]
-   EMIT(REX_W);
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_RMDISP8(RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, i) + 1);
-
-   // MOV [rdi + rax * 2 + _offset(state, r)], dx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB_DISP8(DX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_flip(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, EDX));
-   EMIT(16);
-
-   // SHR dh, 1
-   EMIT(0xd0);
-   EMIT(MODRM_REG_DIRECT(5, DX));
-
-   // ADC dl, 0
-   EMIT(0x14);
-   EMIT(0);
-
-   // MOV [rdi + _offset(state, fx)], dh
-   EMIT(0x88);
-   EMIT(MODRM_REG_RMDISP8(DH, RDI));
-   EMIT(STRUCT_OFFSET(state, fx));
-
-   // MOV [rdi + _offset(state, fy)], dl
-   EMIT(0x88);
-   EMIT(MODRM_REG_RMDISP8(DL, RDI));
-   EMIT(STRUCT_OFFSET(state, fy));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_jmp_imm(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, EDX));
-   EMIT(16);
-
-   // MOV [rdi + _offset(state,pc)], dx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_RMDISP8(DX, RDI));
-   EMIT(STRUCT_OFFSET(state, pc));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_ldi_imm(cpu_state *state, uint8_t *jit_block)
-{
-   // MOVZX eax, dh
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_DIRECT(RAX, DH));
-
-   // ROR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, EDX));
-   EMIT(16);
-
-   // MOV [rdi + rax*2 + _offset(state,r)], dx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB_DISP8(DX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_ldi_sp_imm(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, EDX));
-   EMIT(16);
-
-   // MOV [rdi + _offset(state,sp)], dx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_RMDISP8(DX, RDI));
-   EMIT(STRUCT_OFFSET(state, sp));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_ldm_imm(cpu_state *state, uint8_t *jit_block)
-{
-   // MOVZX eax, dh
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_DIRECT(RAX, DH));
-
-   // SHR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(5, EDX));
-   EMIT(16);
-
-   // MOV rcx, [rdi + _offset(state,m)]
-   EMIT(REX_W);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_RMDISP8(RCX, RDI));
-   EMIT(STRUCT_OFFSET(state, m));
-
-   // MOV cx, [rcx + rdx]
-   EMIT(P_WORD);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_SIB(CX));
-   EMIT(SIB(0, RDX, RCX));
-
-   // MOV [rdi + rax*2 + _offset(state,r)], cx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB_DISP8(CX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_ldm(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR dx, 8
-   EMIT(P_WORD);
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, DX));
-   EMIT(8);
-
-   // MOVZX rax, dx
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_DIRECT(RAX, DX));
-   
-   // AND rdx, 0xf
-   EMIT(0x83);
-   EMIT(MODRM_REG_DIRECT(4, RDX));
-   EMIT(0xf);
-
-   // SHR al, 4
-   EMIT(0xc0);
-   EMIT(MODRM_REG_DIRECT(5, AL));
-   EMIT(4);
-
-   // AND eax, 0xf
-   EMIT(0x83);
-   EMIT(MODRM_REG_DIRECT(4, EAX));
-   EMIT(0xf);
-
-   // MOVZX cx, word [rdi + rax*2 + _offset(state,r)]
-   EMIT(0x0f);
-   EMIT(0xb7);
-   EMIT(MODRM_REG_SIB_DISP8(CX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   // MOV rax, [rdi + _offset(state,m)]
-   EMIT(REX_W);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_RMDISP8(RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, m));
-
-   // MOV cx, word [rax + rcx*1]
-   EMIT(P_WORD);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_SIB(CX));
-   EMIT(SIB(0, RCX, RAX));
-
-   // MOV word [rdi + rdx*2 + _offset(state,r)], cx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB_DISP8(CX));
-   EMIT(SIB(1, RDX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_mov(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR dx, 8
-   EMIT(P_WORD);
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, DX));
-   EMIT(8);
-
-   // MOVZX rax, dx
-   //EMIT(REX_W);
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_DIRECT(RAX, DX));
-   
-   // AND rdx, 0xf
-   //EMIT(REX_W);
-   EMIT(0x83);
-   EMIT(MODRM_REG_DIRECT(4, RDX));
-   EMIT(0xf);
-
-   // SHR al, 4
-   EMIT(0xc0);
-   EMIT(MODRM_REG_DIRECT(5, AL));
-   EMIT(4);
-
-   // AND eax, 0xf
-   EMIT(0x83);
-   EMIT(MODRM_REG_DIRECT(4, EAX));
-   EMIT(0xf);
-
-   // MOV cx, [rdi + rax*2 + _offset(state,r)]
-   EMIT(P_WORD);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_SIB_DISP8(CX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-   
-   // MOV [rdi + rdx*2 + _offset(state,r)], cx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB_DISP8(CX));
-   EMIT(SIB(1, RDX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_stm_imm(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR dx, 8
-   EMIT(P_WORD);
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, DX));
-   EMIT(8);
-
-   // MOVZX eax, dl
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_DIRECT(EAX, DL));
-
-   // AND eax, 0xf
-   EMIT(0x83);
-   EMIT(MODRM_REG_DIRECT(4, EAX));
-   EMIT(0xf);
-
-   // SHR edx, 16
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(5, EDX));
-   EMIT(16);
-
-   // MOVZX cx, word [rdi + rax*2 + _offset(state,r)]
-   EMIT(0x0f);
-   EMIT(0xb7);
-   EMIT(MODRM_REG_SIB_DISP8(CX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   // MOV rax, [rdi + _offset(state,m)]
-   EMIT(REX_W);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_RMDISP8(RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, m));
-
-   // MOV word [rax + rdx*1], cx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB(CX));
-   EMIT(SIB(0, RDX, RAX));
-
-   return jit_block;
-}
-
-static void* cpu_rec_op_stm(cpu_state *state, uint8_t *jit_block)
-{
-   // ROR dx, 8
-   EMIT(P_WORD);
-   EMIT(0xc1);
-   EMIT(MODRM_REG_DIRECT(1, DX));
-   EMIT(8);
-
-   // MOVZX eax, dl
-   EMIT(0x0f);
-   EMIT(0xb6);
-   EMIT(MODRM_REG_DIRECT(EAX, DL));
-
-   // MOV ecx, eax
-   EMIT(0x8b);
-   EMIT(MODRM_REG_DIRECT(ECX, EAX));
-
-   // SHR al, 4
-   EMIT(0xc0);
-   EMIT(MODRM_REG_DIRECT(5, AL));
-   EMIT(4);
-
-   // AND ecx, 0xf
-   EMIT(0x83);
-   EMIT(MODRM_REG_DIRECT(4, ECX));
-   EMIT(0xf);
-
-   // MOVZX ebx, word [rdi + rcx*2 + _offset(state,r)]
-   EMIT(0x0f);
-   EMIT(0xb7);
-   EMIT(MODRM_REG_SIB_DISP8(EBX));
-   EMIT(SIB(1, RCX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   // MOV rdx, [rdi + _offset(state,m)]
-   EMIT(REX_W);
-   EMIT(0x8b);
-   EMIT(MODRM_REG_RMDISP8(RDX, RDI));
-   EMIT(STRUCT_OFFSET(state, m));
-
-   // MOVZX eax, [rdi + rax*2 + _offset(state,r)]
-   EMIT(0x0f);
-   EMIT(0xb7);
-   EMIT(MODRM_REG_SIB_DISP8(EAX));
-   EMIT(SIB(1, RAX, RDI));
-   EMIT(STRUCT_OFFSET(state, r));
-
-   // MOV word [rdx + rax*1], bx
-   EMIT(P_WORD);
-   EMIT(0x89);
-   EMIT(MODRM_REG_SIB(BX));
-   EMIT(SIB(0, RAX, RDX));
-
-   return jit_block;
-}
-
-static void* cpu_rec_dispatch(cpu_state *state, uint8_t *jit_block, uint8_t op)
-{
-   switch (op) {
-      case 0x00:  // NOP
-         jit_block = cpu_rec_op_nop(state, jit_block);
-         break;
-      case 0x01:  // CLS
-         jit_block = cpu_rec_op_cls(state, jit_block);
-         break;
-      case 0x02:  // VBLNK
-         jit_block = cpu_rec_op_vblnk(state, jit_block);
-         break;
-      case 0x03:  // BGC
-         jit_block = cpu_rec_op_bgc(state, jit_block);
-         break;
-      case 0x04:  // SPR
-         jit_block = cpu_rec_op_spr(state, jit_block);
-         break;
-      case 0x07:  // RND
-         jit_block = cpu_rec_op_rnd(state, jit_block);
-         break;
-      case 0x08:  // FLIP 
-         jit_block = cpu_rec_op_flip(state, jit_block);
-         break;
-      case 0x10:  // JMP (imm)
-         jit_block = cpu_rec_op_jmp_imm(state, jit_block);
-         break;
-      case 0x20:  // LDI (imm)
-         jit_block = cpu_rec_op_ldi_imm(state, jit_block);
-         break;
-      case 0x21:  // LDI SP (imm)
-         jit_block = cpu_rec_op_ldi_sp_imm(state, jit_block);
-         break;
-      case 0x22:  // LDM (imm)
-         jit_block = cpu_rec_op_ldm_imm(state, jit_block);
-         break;
-      case 0x23:  // LDM 
-         jit_block = cpu_rec_op_ldm(state, jit_block);
-         break;
-      case 0x24:  // MOV 
-         jit_block = cpu_rec_op_mov(state, jit_block);
-         break;
-      case 0x30:  // STM (imm)
-         jit_block = cpu_rec_op_stm_imm(state, jit_block);
-         break;
-      case 0x31:  // STM
-         jit_block = cpu_rec_op_stm(state, jit_block);
-         break;
-      default:
-      {
-         void *op_instr = (void *)op_table[op];
-
-         // PUSH rdi
-         EMIT(0x50 + RDI);
-         // MOV rax, [op_instr]
-         EMIT(REX_W);
-         EMIT(0xb8 + RAX);
-         EMIT8u(op_instr);
-         // CALL rax
-         EMIT(0xff);
-         EMIT(MODRM_REG_DIRECT(2, RAX));
-         // POP rdi
-         EMIT(0x58 + RDI);
-         break;
-      }
-   }
-   return jit_block;
-}
+#define MODRM_REG_IMM8(rm) modrm(3, 0, rm)
+#define MODRM_REG_OPX_IMM8(op, rm) modrm(3, op, rm)
+#define MODRM_RIP_DISP32(reg) modrm(0, reg, 5)
+#define MODRM_REG_RMDISP8(reg, rm) modrm(1, reg, rm)
+#define MODRM_REG_RMDISP32(reg, rm) modrm(2, reg, rm)
+#define MODRM_REG_DIRECT(reg, rm) modrm(3, reg, rm)
+#define MODRM_REG_SIB(reg) modrm(0, reg, 4)
+#define MODRM_REG_SIB_DISP8(reg) modrm(1, reg, 4)
+#define MODRM_REG_SIB_DISP32(reg) modrm(2, reg, 4)
+
+#define SIB(s,i,b) modrm(s,i,b)
+
+static const int REG_NONE = -1;
+
+enum {
+   AL = 0, CL, DL, BL, AH, CH, DH, BH,
+};
+
+enum {
+    AX = 0, CX, DX, BX, SP, BP, SI, DI,
+};
+
+enum {
+    EAX = 0, ECX, EDX, EBX, ESP, EBP, ESI, EDI,
+    E8, E9, E10, E11, E12, E13, E14, E15,
+};
+
+enum {
+    RAX = 0, RCX, RDX, RBX, RSP, RBP, RSI, RDI,
+    R8, R9, R10, R11, R12, R13, R14, R15,
+};
+
+enum {
+   XMM0 = 0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7,
+   XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15,
+};
+
+int cpu_rec_hostreg_ptr(cpu_state *state, void* ptr);
+int cpu_rec_hostreg_local(cpu_state *state, const char *name);
+int cpu_rec_hostreg_c16reg(cpu_state *state, int c16reg);
+void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
+void cpu_rec_hostreg_release(cpu_state *state, int hostreg);
+void cpu_rec_hostreg_release_all(cpu_state *state);
+
+#endif
 

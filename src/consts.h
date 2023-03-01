@@ -55,4 +55,6 @@ typedef unsigned char 		uint8_t;
 #include <stdint.h>
 #endif
 
+void panic(const char* format, ...);
+
 #endif

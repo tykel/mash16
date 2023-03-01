@@ -108,6 +108,21 @@ typedef struct cpu_rec_bblk
 
 } cpu_rec_bblk;
 
+#define CPU_HOST_REG_C16REG      1  // cache r0 .. r15
+#define CPU_HOST_REG_PTR         2  // cache a pointer for [[reg][+reg*N][+disp]]
+#define CPU_HOST_REG_LOCAL       3  // cache a temporary variable
+#define CPU_HOST_REG_FROZEN      4  // register not accessible - e.g. RSP, RBP
+
+typedef struct cpu_host_regs_state {
+   int use;
+   union {
+      int c16reg;
+      const char *local;
+      void *ptr;
+   };
+   int last_access_time;            // used for eviction
+} cpu_host_regs_state;
+
 /* Holds information about the recompiler context. */
 typedef struct cpu_rec
 {
@@ -121,6 +136,16 @@ typedef struct cpu_rec
      * deallocation until exit. So a monotonously increasing "next" pointer is
      * enough to tell us where to start the next basic block code pointer. */
     void *jit_next;
+
+    /* Pointer to next position in current JIT block. */
+    uint8_t *jit_p;
+
+    /* Map of Chip16 r0..15 to host x86_64 rax..r15. */
+    cpu_host_regs_state host[16];
+
+    /* An integer which increases monotonically with each output JIT
+     * instruction -- to decide which reg. to evict, if needed, using LRU. */
+    int time;
 } cpu_rec;
 
 /* Holds CPU functionality. */
@@ -179,6 +204,7 @@ void cpu_rec_init(cpu_state*);
 void cpu_rec_compile(cpu_state*, uint16_t);
 void cpu_rec_1bblk(cpu_state*);
 void cpu_rec_free(cpu_state*);
+void* cpu_rec_dispatch(cpu_state *, uint8_t);
 
 void op_error(cpu_state*);
 void op_nop(cpu_state*);
