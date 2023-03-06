@@ -26,7 +26,7 @@
 static const uint8_t P_WORD = 0x66;
 static const uint8_t REX_W = 0x48;
 
-#define STRUCT_OFFSET(p, m) ((char*)&((p)->m) - (char*)(p))
+#define STRUCT_OFFSET(P, M) ((char*)&((P)->M) - (char*)(P))
 
 #define OFFSET(p, n) ((char*)(p) - (char*)((state->rec.jit_p) + (n)))
 #define EMIT(b)   (*state->rec.jit_p++ = (b))
@@ -37,14 +37,23 @@ static const uint8_t REX_W = 0x48;
 #define EMIT8i(qw) do { *(int64_t*)state->rec.jit_p = (int64_t)(qw); state->rec.jit_p += sizeof(int64_t); } while (0)
 #define EMIT8u(qw) do { *(uint64_t*)state->rec.jit_p = (uint64_t)(qw); state->rec.jit_p += sizeof(uint64_t); } while (0)
 
-#define EMIT_REX_RBI(reg,b,i,q) do {\
-   uint8_t rex = 0;\
-   if (q) rex += 8;\
-   if (reg >= 8) rex += 4;\
-   if (i >= 8) rex += 2;\
-   if (b >= 8) rex += 1;\
-   if (rex != 0) EMIT((rex+0x40));\
-} while (0);
+#define EMIT_REX_RBI(reg,b,i,sz) do {\
+   int need_rex = 0;\
+   uint8_t rex = 0x40;\
+   if (sz == 1 && reg >= 4) { need_rex = 1; }\
+   if (sz == 8) { rex += 8; need_rex = 1; }\
+   if (reg >= 8) { rex += 4; need_rex = 1; }\
+   if (i >= 8) { rex += 2; need_rex = 1; }\
+   if (b >= 8) { rex += 1; need_rex = 1; }\
+   if (need_rex) EMIT(rex);\
+} while (0)
+
+static enum {
+   BYTE =   1,
+   WORD =   2,
+   DWORD =  4,
+   QWORD =  8,
+};
 
 static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
 {
@@ -88,12 +97,39 @@ enum {
    XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15,
 };
 
-int cpu_rec_hostreg_ptr(cpu_state *state, void* ptr);
-int cpu_rec_hostreg_local(cpu_state *state, const char *name);
-int cpu_rec_hostreg_c16reg(cpu_state *state, int c16reg);
+// You can use these flags to control whether or not to:
+// - load the variable's existing value into the cache register
+// - write back the cache register to the variable's memory location.
+// - cache the variable's address rather than its value -- this can't be used with flags.
+//
+// For instance if you know the variable is only used for reading, the write
+// flag can be omitted. And if the variable is only used to store a result, the
+// read can be omitted.
+#define CPU_VAR_READ       1
+#define CPU_VAR_WRITE      2
+#define CPU_VAR_ADDRESS_OF 4
+
+// Allocate a register for use in JIT code.
+// Examples:
+// - declare a function temporary:
+//    int reg0 = cpu_rec_hostreg_var(state, NULL, 0, 0);
+// - map a variable (with result write-back):
+//    int regPc = cpu_rec_hostreg_var(state, &state->pc, 2, CPU_VAR_READ | CPU_VAR_WRITE);
+int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags);
+void cpu_rec_hostreg_preserve(cpu_state *state);
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release_all(cpu_state *state);
+
+#define HOSTREG_TEMP_VAR() cpu_rec_hostreg_var(state, NULL, 0, 0)
+
+#define HOSTREG_PTR(zzp) cpu_rec_hostreg_var(state, zzp, sizeof(void*), CPU_VAR_ADDRESS_OF)
+#define HOSTREG_STATE_VAR_RW(zzz, szz)\
+   cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ | CPU_VAR_WRITE)
+#define HOSTREG_STATE_VAR_R(zzz, szz)\
+   cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ)
+#define HOSTREG_STATE_VAR_W(zzz, szz)\
+   cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_WRITE)
 
 #endif
 

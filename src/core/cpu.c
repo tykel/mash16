@@ -69,6 +69,21 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
         fprintf(stderr,"error: malloc failed (state->pal)\n");
         exit(1);
     }
+    if(!((*state)->pal_r = malloc(16)))
+    {
+        fprintf(stderr,"error: malloc failed (state->pal_r)\n");
+        exit(1);
+    }
+    if(!((*state)->pal_g = malloc(16)))
+    {
+        fprintf(stderr,"error: malloc failed (state->pal_g)\n");
+        exit(1);
+    }
+    if(!((*state)->pal_b = malloc(16)))
+    {
+        fprintf(stderr,"error: malloc failed (state->pal_b)\n");
+        exit(1);
+    }
     (*state)->sp = STACK_ADDR;
     memset(&(*state)->f,0,sizeof(flags));
     
@@ -281,10 +296,9 @@ void cpu_io_reset(cpu_state* state)
 /* Free resources held by the cpu state. */
 void cpu_free(cpu_state* state)
 {
-    int i;
-
     free(state->vm);
 #ifdef HAVE_BANK_SEL
+    int i;
     for (i = 0; i < 256; ++i)
     {
         free(state->mp[i]);

@@ -83,10 +83,10 @@ typedef enum
 /* Stores CPU flags. */
 typedef struct flags
 {
-    uint32_t c;
-    uint32_t z;
-    uint32_t o;
-    uint32_t n;
+    uint8_t c;
+    uint8_t z;
+    uint8_t o;
+    uint8_t n;
 } flags;
 
 /* Holds information about the CPU. */
@@ -108,18 +108,14 @@ typedef struct cpu_rec_bblk
 
 } cpu_rec_bblk;
 
-#define CPU_HOST_REG_C16REG      1  // cache r0 .. r15
-#define CPU_HOST_REG_PTR         2  // cache a pointer for [[reg][+reg*N][+disp]]
-#define CPU_HOST_REG_LOCAL       3  // cache a temporary variable
-#define CPU_HOST_REG_FROZEN      4  // register not accessible - e.g. RSP, RBP
+#define CPU_HOST_REG_VAR         1  // cache a variable from memory
+#define CPU_HOST_REG_FROZEN      2  // register not accessible - e.g. RSP, RBP
 
 typedef struct cpu_host_regs_state {
    int use;
-   union {
-      int c16reg;
-      const char *local;
-      void *ptr;
-   };
+   void *ptr;
+   size_t size;
+   int flags;
    int last_access_time;            // used for eviction
 } cpu_host_regs_state;
 
@@ -169,6 +165,13 @@ typedef struct cpu_state
     uint8_t  fx;
     uint8_t  fy;
     uint32_t* pal;
+    uint8_t* pal_r;
+    uint8_t* pal_g;
+    uint8_t* pal_b;
+    uint8_t pal_r0;
+    uint8_t pal_g0;
+    uint8_t pal_b0;
+
     uint8_t* vm;
 
     /* Sfx stuff. */

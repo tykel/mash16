@@ -18,6 +18,8 @@
 
 #include "gpu.h"
 #include <SDL2/SDL.h>
+#include <emmintrin.h>
+#include <tmmintrin.h>
 
 uint32_t pixels[320*240];
 
@@ -39,23 +41,67 @@ void load_pal(uint8_t* pal, int alpha, cpu_state* state)
     for(i=0; i<16; ++i)
     {
         uint32_t col = (pal[i*b] << 16) | (pal[i*b + 1] << 8) | (pal[i*b + 2]);
-        *((uint32_t*)&state->pal[i]) = col;
+        state->pal[i] = col;
+        state->pal_b[i] = pal[i*b];
+        state->pal_g[i] = pal[i*b + 1];
+        state->pal_r[i] = pal[i*b + 2];
     }
+    state->pal_b0 = pal[0];
+    state->pal_g0 = pal[1];
+    state->pal_r0 = pal[2];
 }
 
 /* (Public) blitting functions. */
 void blit_screen(SDL_Texture* sfc, cpu_state* state, int scale)
 {
-    blit_screen1x(sfc,state);
+    blit_screen1x(state);
     SDL_UpdateTexture(sfc, NULL, pixels, 320*sizeof(uint32_t));
 }
 
 /* Internal blitters. */
-void blit_screen1x(SDL_Texture* sfc, cpu_state* state)
+void blit_screen1x(cpu_state* state)
 {
+#if 1
+   uint8_t *vm = state->vm;
+   uint32_t *out = pixels;
+   __m128i vZero = _mm_set_epi32(0, 0, 0, 0);
+   __m128i vPalB = _mm_loadu_si128(state->pal_b);
+   __m128i vPalG = _mm_loadu_si128(state->pal_g);
+   __m128i vPalR = _mm_loadu_si128(state->pal_r);
+   for (int i = 0; i < 320*240; i += 16) {
+      __m128i vPix16 = _mm_load_si128(vm);
+      
+      __m128i vRPix16 = _mm_shuffle_epi8(vPalR, vPix16);
+      __m128i vGPix16 = _mm_shuffle_epi8(vPalG, vPix16);
+      __m128i vBPix16 = _mm_shuffle_epi8(vPalB, vPix16);
+
+      // 0..7
+      __m128i vGRPix8 = _mm_unpacklo_epi8(vRPix16, vGPix16);
+      __m128i vABPix8 = _mm_unpacklo_epi8(vBPix16, vZero);
+      // 0..3
+      __m128i vABGRPix4 = _mm_unpacklo_epi16(vGRPix8, vABPix8);
+      _mm_store_si128(out, vABGRPix4);
+      // 4..7
+      vABGRPix4 = _mm_unpackhi_epi16(vGRPix8, vABPix8);
+      _mm_store_si128(out + 4, vABGRPix4);
+
+      // 8..15
+      vGRPix8 = _mm_unpackhi_epi8(vRPix16, vGPix16);
+      vABPix8 = _mm_unpackhi_epi8(vBPix16, vZero);
+      // 8..11
+      vABGRPix4 = _mm_unpacklo_epi16(vGRPix8, vABPix8);
+      _mm_store_si128(out + 8, vABGRPix4);
+      // 12..15
+      vABGRPix4 = _mm_unpackhi_epi16(vGRPix8, vABPix8);
+      _mm_store_si128(out + 12, vABGRPix4);
+      
+      vm += 16;
+      out += 16;
+   }
+   
+#else
     int y, x;
     uint8_t rgb;
-    
     for(y=0; y<240; ++y)
     {
         for(x=0; x<320; ++x)
@@ -64,4 +110,5 @@ void blit_screen1x(SDL_Texture* sfc, cpu_state* state)
             pixels[y*320 + x] = !rgb ? state->pal[state->bgc] : state->pal[rgb];
         }
     }
+#endif
 }

@@ -48,6 +48,10 @@ void op_cls(cpu_state* state)
     memset(state->vm,0,320*240);
     state->meta.type = OP_NONE;
     state->bgc = 0;
+    state->pal[0] = (state->pal_b0 << 16) | (state->pal_g0 << 8) | state->pal_r0;
+    state->pal_r[0] = state->pal_r0;
+    state->pal_g[0] = state->pal_g0;
+    state->pal_b[0] = state->pal_b0;
 }
 
 void op_vblnk(cpu_state* state)
@@ -59,6 +63,10 @@ void op_vblnk(cpu_state* state)
 void op_bgc(cpu_state* state)
 {
     state->bgc = i_n(state->i);
+    state->pal[0] = state->pal[state->bgc];
+    state->pal_r[0] = state->pal_r[state->bgc];
+    state->pal_g[0] = state->pal_g[state->bgc];
+    state->pal_b[0] = state->pal_b[state->bgc];
     state->meta.type = OP_N;
 }
 

@@ -62,6 +62,6 @@
 void init_pal(cpu_state*);
 void load_pal(uint8_t*,int,cpu_state*);
 void blit_screen(SDL_Texture*,cpu_state*,int);
-void blit_screen1x(SDL_Texture*,cpu_state*);
+void blit_screen1x(cpu_state*);
 
 #endif

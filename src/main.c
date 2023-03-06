@@ -532,7 +532,8 @@ int main(int argc, char* argv[])
     }
     atexit(SDL_Quit);
 
-    video_flags = opts.use_fullscreen ? SDL_WINDOW_FULLSCREEN : 0;
+    video_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC |
+      (opts.use_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
     if(SDL_CreateWindowAndRenderer(opts.video_scaler*320,opts.video_scaler*240,video_flags,&window,&renderer))
     {
         fprintf(stderr,"error: failed to init. video mode (%d x %d x 32 bpp): %s\n",
