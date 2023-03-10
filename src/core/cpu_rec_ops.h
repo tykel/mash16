@@ -63,6 +63,7 @@ static uint8_t modrm(uint8_t mod, uint8_t reg, uint8_t rm)
 #define MODRM_REG_IMM8(rm) modrm(3, 0, rm)
 #define MODRM_REG_OPX_IMM8(op, rm) modrm(3, op, rm)
 #define MODRM_RIP_DISP32(reg) modrm(0, reg, 5)
+#define MODRM_REG_RM(reg, rm) modrm(0, reg, rm)
 #define MODRM_REG_RMDISP8(reg, rm) modrm(1, reg, rm)
 #define MODRM_REG_RMDISP32(reg, rm) modrm(2, reg, rm)
 #define MODRM_REG_DIRECT(reg, rm) modrm(3, reg, rm)
@@ -121,7 +122,7 @@ void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release_all(cpu_state *state);
 
-#define HOSTREG_TEMP_VAR() cpu_rec_hostreg_var(state, NULL, 0, 0)
+#define HOSTREG_TEMP_VAR() cpu_rec_hostreg_var(state, NULL, DWORD, 0)
 
 #define HOSTREG_PTR(zzp) cpu_rec_hostreg_var(state, zzp, sizeof(void*), CPU_VAR_ADDRESS_OF)
 #define HOSTREG_STATE_VAR_RW(zzz, szz)\

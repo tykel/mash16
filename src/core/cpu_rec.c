@@ -18,7 +18,7 @@ void cpu_rec_init(cpu_state* state)
    state->rec.jit_base = (void*)ROUNDUP((size_t)global_alloc + sizeof(*state), page_size);
    state->rec.jit_next = state->rec.jit_base;
    memset(state->rec.jit_base, 0x90, 16*1024*1024 - (state->rec.jit_base - global_alloc));
-   memset(&state->rec.host[0], 0, sizeof(state->rec.host));
+   memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
 }
 
 void cpu_rec_free(cpu_state* state)
@@ -30,23 +30,43 @@ void cpu_rec_hostreg_release(cpu_state *state, int i)
    if (state->rec.host[i].use == CPU_HOST_REG_VAR &&
        state->rec.host[i].ptr != NULL &&
        (state->rec.host[i].flags & CPU_VAR_WRITE)) {
+      ptrdiff_t disp = (uint8_t *)state->rec.host[i].ptr - state->rec.jit_p;
       int size = state->rec.host[i].size;
+      int ptr64 = 0;
+      int regPtr = REG_NONE;
+      
+      if (disp > INT32_MAX || disp < INT32_MIN) {
+         regPtr = cpu_rec_hostreg_var(state, NULL, QWORD, 0);
+         ptr64 = 1;
+
+         //printf("%s: reg %d: ptr %p\n", __FUNCTION__, i, state->rec.host[i].ptr);
+         EMIT_REX_RBI(REG_NONE, regPtr, REG_NONE, QWORD);
+         EMIT(0xb8 + (regPtr & 7));
+         EMIT8u(state->rec.host[i].ptr);
+      }
+      
       switch (size) {
       case 1:
-         EMIT_REX_RBI(i, REG_NONE, REG_NONE, size);
+         EMIT_REX_RBI(i, regPtr, REG_NONE, size);
          EMIT(0x88);
-         EMIT(MODRM_RIP_DISP32(i));
-         EMIT4i(OFFSET(state->rec.host[i].ptr, 4));
          break;
       case 2:
          EMIT(P_WORD);
       case 4:
       case 8:
-         EMIT_REX_RBI(i, REG_NONE, REG_NONE, size);
+         EMIT_REX_RBI(i, regPtr, REG_NONE, size);
          EMIT(0x89);
+         break;
+      default:
+         panic("host reg %d: invalid size %d!\n", i, size);
+      }
+
+      if (ptr64) {
+         EMIT(MODRM_REG_RM(i, regPtr));
+         cpu_rec_hostreg_release(state, regPtr);
+      } else {
          EMIT(MODRM_RIP_DISP32(i));
          EMIT4i(OFFSET(state->rec.host[i].ptr, 4));
-         break;
       }
    }
    state->rec.host[i].use = 0;
@@ -70,17 +90,25 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
    int lru_time = INT_MAX;
    int lru = 0;
    int reg = 0, i = 0;
+
+   ++state->rec.time;
+
    for (; i < 16; ++i) {
       if (state->rec.host[i].use == CPU_HOST_REG_VAR &&
           ptr == state->rec.host[i].ptr) {
+         state->rec.host[i].flags |= flags;
          return i;
       }
+   }
+   if (size != 1 && size != 2 && size != 4 && size != 8) {
+      panic("host reg %d: invalid size %d!\n", i, size);
    }
    for (i = 0; i < 16; ++i) {
       if (state->rec.host[i].use == 0) {
          break;
       }
-      if (state->rec.host[i].last_access_time < lru_time) {
+      if (state->rec.host[i].use == CPU_HOST_REG_VAR &&
+          state->rec.host[i].last_access_time < lru_time) {
          lru_time = state->rec.host[i].last_access_time;
          lru = i;
       }
@@ -89,7 +117,7 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
    reg = i < 16 ? i : lru;
 
    if (i == 16) {
-      panic("%s: LRU: eviction not implemented!", __FUNCTION__);
+      cpu_rec_hostreg_release(state, reg);
    }
 
    if (flags & CPU_VAR_ADDRESS_OF) {
@@ -98,16 +126,16 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
       }
 
       ptrdiff_t disp = (uint8_t*)ptr - state->rec.jit_p;
-      if (0 && disp <= INT32_MAX && disp >= INT32_MIN) {
+      if (disp <= INT32_MAX && disp >= INT32_MIN) {
          // LEA reg, qword [ptr]
-         EMIT_REX_RBI(i, REG_NONE, REG_NONE, QWORD);
+         EMIT_REX_RBI(reg, REG_NONE, REG_NONE, QWORD);
          EMIT(0x8d);
-         EMIT(MODRM_RIP_DISP32(i));
+         EMIT(MODRM_RIP_DISP32(reg));
          EMIT4i(OFFSET(ptr, 4));
       } else {
          // MOV reg, qword ptr
-         EMIT_REX_RBI(REG_NONE, i, REG_NONE, QWORD);
-         EMIT(0xb8 + (i & 7));
+         EMIT_REX_RBI(REG_NONE, reg, REG_NONE, QWORD);
+         EMIT(0xb8 + (reg & 7));
          EMIT8u(ptr);
       }
    
@@ -115,36 +143,55 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
       if (flags & CPU_VAR_READ) {
          if (size < 4) {
             // XOR reg, reg
-            EMIT_REX_RBI(i, i, REG_NONE, DWORD);
+            EMIT_REX_RBI(reg, reg, REG_NONE, DWORD);
             EMIT(0x33);
-            EMIT(MODRM_REG_DIRECT(i, i));
+            EMIT(MODRM_REG_DIRECT(reg, reg));
          }
 
          // MOV reg, [byte|word|dword|qword] ptr
+         ptrdiff_t disp = (uint8_t *)ptr - state->rec.jit_p;
+         int ptr64 = 0;
+         int regPtr = REG_NONE;
+         
+         if (disp > INT32_MAX || disp < INT32_MIN) {
+            regPtr = cpu_rec_hostreg_var(state, NULL, QWORD, 0);
+            ptr64 = 1;
+
+            EMIT_REX_RBI(REG_NONE, regPtr, REG_NONE, QWORD);
+            EMIT(0xb8 + (regPtr & 7));
+            EMIT8u(ptr);
+         }
+         
          switch (size) {
          case 1:
-            EMIT_REX_RBI(i, REG_NONE, REG_NONE, size);
+            EMIT_REX_RBI(reg, regPtr, REG_NONE, size);
             EMIT(0x8a);
-            EMIT(MODRM_RIP_DISP32(i));
-            EMIT4i(OFFSET(ptr, 4));
             break;
          case 2:
             EMIT(P_WORD);
          case 4:
          case 8:
-            EMIT_REX_RBI(i, REG_NONE, REG_NONE, size);
+            EMIT_REX_RBI(reg, regPtr, REG_NONE, size);
             EMIT(0x8b);
-            EMIT(MODRM_RIP_DISP32(i));
-            EMIT4i(OFFSET(ptr, 4));
             break;
+         }
+
+         if (ptr64) {
+            EMIT(MODRM_REG_RM(reg, regPtr));
+            cpu_rec_hostreg_release(state, regPtr);
+         } else {
+            EMIT(MODRM_RIP_DISP32(reg));
+            EMIT4i(OFFSET(ptr, 4));
          }
       }
    }
 
+   //printf("%s: reg %d: ptr %p\n", __FUNCTION__, reg, ptr);
    state->rec.host[reg].use = CPU_HOST_REG_VAR;
    state->rec.host[reg].ptr = ptr;
    state->rec.host[reg].size = size;
    state->rec.host[reg].flags = flags;
+   state->rec.host[reg].last_access_time = state->rec.time;
    return reg;
 }
 
@@ -162,6 +209,32 @@ void cpu_rec_hostreg_preserve(cpu_state *state)
     cpu_rec_hostreg_freeze(state, R13);
     cpu_rec_hostreg_freeze(state, R14);
     cpu_rec_hostreg_freeze(state, R15);
+}
+
+/*
+ * If the specified write address is in a basic block we've already JIT'd,
+ * then invalidate it, as the source instructions (may) have been modified.
+ */
+void cpu_rec_invalidate_bblk(cpu_state *state, uint16_t a)
+{
+   for (int i = a; i >= 0; i -= 4) {
+      cpu_rec_bblk *b = &state->rec.bblk_map[i];
+      // If the write is in the bblk currently being compiled, just mark it for
+      // deletion after it is run.
+      if (i == state->rec.bblk_pc0) {
+         printf("> mark bblk @ 0x%04x for deletion after next run\n", i);
+         state->rec.bblk_invalidate = 1;
+      }
+      if (b->cycles == 0) {
+         continue;
+      } else if (i + (b->cycles * 4) < a) {
+         break;
+      } else if (b->code != NULL) {
+         printf("> invalidate bblk @ 0x%04x [%p] (dirty @ 0x%04x)\n",
+                i, b->code, a);
+         memset(b, 0, sizeof(*b));
+      }
+   }
 }
 
 /*
@@ -194,17 +267,17 @@ static void cpu_rec_compile_end(cpu_state *state)
 static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
 {
     void *op_instr = op_table[state->m[a]];
-    int regPc = HOSTREG_STATE_VAR_RW(pc, 2);
     
     // Copy instruction 32 bits to state
     state->i = *(instr*)(&state->m[a]);
     // MOV reg, instr
     int regInstr = HOSTREG_STATE_VAR_W(i, DWORD);
-    EMIT_REX_RBI(regInstr, REG_NONE, REG_NONE, DWORD);
+    EMIT_REX_RBI(REG_NONE, regInstr, REG_NONE, DWORD);
     EMIT(0xb8 + (regInstr & 7));
     EMIT4u(state->i.dword);
 
     // Add 4 to PC
+    int regPc = HOSTREG_STATE_VAR_RW(pc, WORD);
     // ADD eax, 4
     EMIT_REX_RBI(regPc, REG_NONE, REG_NONE, DWORD);
     EMIT(0x83);
@@ -237,32 +310,55 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     end += 4*found_branch;
     nb_instrs = (end - a) / 4;
 
+    state->rec.bblk_pc0 = start;
+    state->rec.bblk_pcN = end;
+
     size = ROUNDUP(nb_instrs * 64, 8);
     jit_ptr = cpu_rec_get_memblk(state, size);
+    printf("> ... bblk->code @ %p\n", jit_ptr);
     void* page = (void *)((uintptr_t)jit_ptr & ~(sysconf(_SC_PAGESIZE) - 1));
     size_t sizeup = ROUNDUP(((jit_ptr + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
     if (mprotect(page, sizeup, PROT_READ | PROT_WRITE) < 0) {
-        fprintf(stderr, "mprotect(%p, %zu, PROT_READ | PROT_WRITE) failed with errno %d.\n",
-                page, size, errno);
+        fprintf(stderr, "mprotect(%p, %zu, rw) failed with errno %d.\n",
+                page, sizeup, errno);
         exit(1);
     }
 
+    uint8_t *jit_end = jit_ptr + size;
     state->rec.jit_p = jit_ptr;
     cpu_rec_compile_start(state, a);
     for (; a < end; a += 4)
     {
+        if ((jit_end - state->rec.jit_p) <= 16) {
+           size_t size2 = size * 2;
+           state->rec.jit_next += size2 - size;
+           size_t sizeup2 = ROUNDUP(((jit_ptr + size2) - (uint8_t*)page),
+                                    sysconf(_SC_PAGESIZE));
+           printf("> grow block from %zu to %zu bytes\n", size, size2);
+           if (sizeup2 > sizeup) {
+              if (mprotect(page, sizeup2, PROT_READ | PROT_WRITE) < 0) {
+                 fprintf(stderr, "mprotect(%p, %zu, rw) failed with errno %d.\n",
+                         page, sizeup2, errno);
+                 exit(1);
+              }
+              sizeup = sizeup2;
+           }
+           size = size2;
+        }
         cpu_rec_compile_instr(state, a);
     }
     cpu_rec_compile_end(state);
     if (mprotect(page, sizeup, PROT_EXEC) < 0) {
-        fprintf(stderr, "mprotect(%p, %zu, PROT_EXEC) failed with errno %d.\n",
-                page, size, errno);
+        fprintf(stderr, "mprotect(%p, %zu, x) failed with errno %d.\n",
+                page, sizeup, errno);
         exit(1);
     }
 
     state->rec.bblk_map[start].code = (void (*)(void))(jit_ptr);
     state->rec.bblk_map[start].size = state->rec.jit_p - jit_ptr;
     state->rec.bblk_map[start].cycles = nb_instrs;
+    state->rec.bblk_map[start].dirty = state->rec.bblk_invalidate;
     printf("> ... reserved %zu, final size: %zu bytes\n",
            size, state->rec.bblk_map[start].size);
+    state->rec.bblk_invalidate = 0;
 }

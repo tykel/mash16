@@ -45,7 +45,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     }
     *state = global_alloc;
     cpu_rec_init(*state);
-    (*state)->rec.bblk_map = calloc(65536, sizeof(cpu_rec_bblk*));
+    (*state)->rec.bblk_map = calloc(65536, sizeof(cpu_rec_bblk));
     (*state)->meta.old_pc = 0;
     (*state)->pc = 0;
     (*state)->m = mem;
@@ -201,7 +201,8 @@ void cpu_rec_1bblk(cpu_state* state)
 {
     cpu_rec_bblk* bblk = &state->rec.bblk_map[state->pc];
     state->meta.old_pc = state->pc;
-    if (bblk->code == NULL) {
+    if (bblk->code == NULL || bblk->dirty) {
+        memset(bblk, 0, sizeof(*bblk));
         printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
         cpu_rec_compile(state, state->pc);
     }

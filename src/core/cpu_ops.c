@@ -23,6 +23,7 @@ extern int use_verbose;
 #include "gpu.h"
 #include "audio.h"
 
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -226,6 +227,9 @@ void op_sng(cpu_state* state)
 void op_jmp_imm(cpu_state* state)
 {
     state->pc = i_hhll(state->i);
+    if (state->pc == 0x930) {
+        raise(SIGTRAP);
+    }
     state->meta.type = OP_HHLL;
 }
 
@@ -235,6 +239,9 @@ void op_jmc(cpu_state* state)
     if(state->f.c)
     {
         state->pc = i_hhll(state->i);
+       if (state->pc == 0x930) {
+           raise(SIGTRAP);
+       }
     }
     state->meta.type = OP_HHLL;
 }
@@ -243,6 +250,9 @@ void op_jx(cpu_state* state)
     if(test_cond(state))
     {
         state->pc = i_hhll(state->i);
+       if (state->pc == 0x930) {
+           raise(SIGTRAP);
+       }
     }
     state->meta.type = OP_HHLL;
 }
@@ -256,12 +266,18 @@ void op_jme(cpu_state* state)
     if(rx == ry)
     {
         state->pc = i_hhll(state->i);
+       if (state->pc == 0x930) {
+           raise(SIGTRAP);
+       }
     }
     state->meta.type = OP_R_R;
 }
 
 void op_call_imm(cpu_state* state)
 {
+    if (state->pc == 0x930) {
+        raise(SIGTRAP);
+    }
     state->m[state->sp] = state->pc & 0x00ff;
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
@@ -279,6 +295,9 @@ void op_ret(cpu_state* state)
 void op_jmp_r(cpu_state* state)
 {
     state->pc = (uint16_t)state->r[i_yx(state->i) & 0x0f];
+    if (state->pc == 0x930) {
+        raise(SIGTRAP);
+    }
     state->meta.type = OP_R;
 }
 
@@ -286,6 +305,9 @@ void op_cx(cpu_state* state)
 {
     if(test_cond(state))
     {
+       if (state->pc == 0x930) {
+           raise(SIGTRAP);
+       }
         state->m[state->sp] = state->pc & 0x00ff;
         state->m[state->sp + 1] = state->pc >> 8;
         state->sp += 2;
@@ -296,6 +318,9 @@ void op_cx(cpu_state* state)
 
 void op_call_r(cpu_state* state)
 {
+    if (state->pc == 0x930) {
+        raise(SIGTRAP);
+    }
     state->m[state->sp] = state->pc & 0x00ff;
     state->m[state->sp + 1] = state->pc >> 8;
     state->sp += 2;
@@ -797,6 +822,9 @@ void op_sar_r(cpu_state* state)
 void op_push(cpu_state* state)
 {
     int16_t rx = state->r[i_yx(state->i) & 0x0f];
+    if (rx == 0x930) {
+        raise(SIGTRAP);
+    }
     state->m[state->sp] = rx & 0x00ff;
     state->m[state->sp + 1] = rx >> 8;
     state->sp += 2;
@@ -815,6 +843,9 @@ void op_pushall(cpu_state* state)
     int i;
     for(i=0; i<16; ++i)
     {
+        if (state->r[i] == 0x930) {
+           raise(SIGTRAP);
+        }
         state->m[state->sp] = (uint16_t)state->r[i] & 0x00ff;
         state->m[state->sp + 1] = (uint16_t)state->r[i] >> 8;
         state->sp += 2;

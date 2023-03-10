@@ -105,7 +105,7 @@ typedef struct cpu_rec_bblk
     void (*code)(void);
     size_t size;
     int cycles;
-
+    int dirty;
 } cpu_rec_bblk;
 
 #define CPU_HOST_REG_VAR         1  // cache a variable from memory
@@ -135,6 +135,14 @@ typedef struct cpu_rec
 
     /* Pointer to next position in current JIT block. */
     uint8_t *jit_p;
+
+    /* Start Chip16 PC of the basic block being compiled. */
+    uint16_t bblk_pc0;
+    /* First Chip16 PC past end of the basic block being compiled. */
+    uint16_t bblk_pcN;
+    /* Flag marking that this basic block has overwritten itself, and needs
+     * to be discarded after next execution. */
+    int bblk_invalidate;
 
     /* Map of Chip16 r0..15 to host x86_64 rax..r15. */
     cpu_host_regs_state host[16];
@@ -206,6 +214,7 @@ void cpu_free(cpu_state*);
 void cpu_rec_init(cpu_state*);
 void cpu_rec_compile(cpu_state*, uint16_t);
 void cpu_rec_1bblk(cpu_state*);
+void cpu_rec_invalidate_bblk(cpu_state*, uint16_t);
 void cpu_rec_free(cpu_state*);
 void* cpu_rec_dispatch(cpu_state *, uint8_t);
 
