@@ -199,8 +199,8 @@ void cpu_rec_1bblk(cpu_state* state)
 {
     cpu_rec_bblk* bblk = &state->rec.bblk_map[state->pc];
     state->meta.old_pc = state->pc;
-    if (bblk->code == NULL || bblk->dirty) {
-        memset(bblk, 0, sizeof(*bblk));
+    cpu_rec_validate(state, state->pc);
+    if (bblk->code == NULL) {
         printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
         cpu_rec_compile(state, state->pc);
     }

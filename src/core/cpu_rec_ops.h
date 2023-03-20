@@ -37,15 +37,23 @@ static const uint8_t REX_W = 0x48;
 #define EMIT8i(qw) do { *(int64_t*)state->rec.jit_p = (int64_t)(qw); state->rec.jit_p += sizeof(int64_t); } while (0)
 #define EMIT8u(qw) do { *(uint64_t*)state->rec.jit_p = (uint64_t)(qw); state->rec.jit_p += sizeof(uint64_t); } while (0)
 
+static int rex(int reg, int b, int i, int sz, int *need)
+{
+   int need_rex = 0;
+   uint8_t rex = 0x40;
+   if (sz == 1 && (reg >= 4 || b >= 4)) { need_rex = 1; }
+   if (sz == 8) { rex += 8; need_rex = 1; }
+   if (reg >= 8) { rex += 4; need_rex = 1; }
+   if (i >= 8) { rex += 2; need_rex = 1; }
+   if (b >= 8) { rex += 1; need_rex = 1; }
+   *need = need_rex;
+   return rex;
+}
+
 #define EMIT_REX_RBI(reg,b,i,sz) do {\
-   int need_rex = 0;\
-   uint8_t rex = 0x40;\
-   if (sz == 1 && (reg >= 4 || b >= 4)) { need_rex = 1; }\
-   if (sz == 8) { rex += 8; need_rex = 1; }\
-   if (reg >= 8) { rex += 4; need_rex = 1; }\
-   if (i >= 8) { rex += 2; need_rex = 1; }\
-   if (b >= 8) { rex += 1; need_rex = 1; }\
-   if (need_rex) EMIT(rex);\
+   int need = 0;\
+   int _rex = rex(reg,b,i,sz, &need);\
+   if (need) EMIT(_rex);\
 } while (0)
 
 static enum {

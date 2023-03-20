@@ -13,10 +13,12 @@ void cpu_rec_init(cpu_state* state, program_opts* opts)
    memset(state->rec.jit_base, 0x90, 16*1024*1024 - (state->rec.jit_base - (void*)state));
    memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
    state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
+   state->rec.dirty_map = calloc(8192, 1);
 }
 
 void cpu_rec_free(cpu_state* state)
 {
+   free(state->rec.dirty_map);
 }
 
 void cpu_rec_hostreg_release(cpu_state *state, int i)
@@ -243,35 +245,6 @@ void cpu_rec_hostreg_preserve(cpu_state *state)
 }
 
 /*
- * If the specified write address is in a basic block we've already JIT'd,
- * then invalidate it, as the source instructions (may) have been modified.
- */
-void cpu_rec_invalidate_bblk(cpu_state *state, uint16_t a)
-{
-   int steps[] = { 4, 1, 2, 1 };
-   int step = steps[a & 3];
-   for (int i = a; i >= 0; i -= step) {
-      cpu_rec_bblk *b = &state->rec.bblk_map[i];
-      if (b->cycles == 0) {
-         continue;
-      } else if (i + (b->cycles * 4) < a) {
-         break;
-      } else if (b->code != NULL) {
-         printf("> invalidate bblk @ 0x%04x [%p] (dirty @ 0x%04x) [pc = 0x%04x]\n",
-                i, b->code, a, state->rec.bblk_pcI);
-         memset(b, 0, sizeof(*b));
-      }
-      // If the write is in the bblk currently being compiled, just mark it for
-      // deletion after it is run.
-      if (i == state->rec.bblk_pc0) {
-         printf("> mark bblk @ 0x%04x for deletion next run [pc = 0x%04x]\n",
-                i, state->rec.bblk_pcI);
-         state->rec.bblk_invalidate = 1;
-      }
-   }
-}
-
-/*
  * Write the necessary boilerplate to save registers, setup stack, etc.
  * - `mov rdi, qword ptr [state]` for all opcode calls
  */
@@ -279,7 +252,16 @@ static void cpu_rec_compile_start(cpu_state *state, uint16_t a)
 {
     cpu_rec_hostreg_preserve(state);
 
-    int regPc = HOSTREG_STATE_VAR_W(pc, 2);
+    int regEndPc = HOSTREG_STATE_VAR_W(rec.bblk_pcN, WORD);
+    // MOV regEndPc, [state->rec.bblk_map[a].end_pc]
+    EMIT_REX_RBI(regEndPc, REG_NONE, REG_NONE, WORD);
+    EMIT(P_WORD);
+    EMIT(0x8b);
+    EMIT(MODRM_RIP_DISP32(regEndPc));
+    EMIT4i(OFFSET(&state->rec.bblk_map[a].end_pc, 4));
+
+    cpu_rec_hostreg_release(state, regEndPc);
+    int regPc = HOSTREG_STATE_VAR_W(pc, WORD);
     // MOV eax, a
     EMIT_REX_RBI(REG_NONE, regPc, REG_NONE, DWORD);
     EMIT(0xb8 + (regPc & 7));
@@ -322,6 +304,19 @@ static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
     cpu_rec_dispatch(state, state->m[a]);
 }
 
+void cpu_rec_validate(cpu_state *state, uint16_t a)
+{
+   cpu_rec_bblk *bblk = &state->rec.bblk_map[a];
+   int index = a >> 3;
+   int bit = a & 7;
+   int mask = ~((1 << bit) - 1);
+   if (state->rec.dirty_map[index] & mask) {
+      printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
+      state->rec.dirty_map[index] &= ~mask;
+      memset(bblk, 0, sizeof(*bblk));
+   }
+}
+
 void cpu_rec_compile(cpu_state* state, uint16_t a)
 {
     uint8_t *jit_ptr;
@@ -336,7 +331,9 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         // RET - we know we hit the end of a subroutine, so return.
         // CALL - we transfer to another basic block, so return.
         // JMP - ditto.
-        if ((op & 0xf0) == 0x10) {
+        // STM - we might modify the rest of the basic block - return.
+        if ((op & 0xf0) == 0x10 ||
+            (op & 0xf0) == 0x30) {
             end += 4;
             break;
         }
@@ -349,6 +346,7 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
 
     state->rec.bblk_pc0 = start;
     state->rec.bblk_pcN = end;
+    state->rec.bblk_map[start].end_pc = end;
 
     size = ROUNDUP(nb_instrs * 96, 8);
     jit_ptr = state->rec.jit_next;
@@ -368,6 +366,7 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     {
         state->rec.bblk_pcI = a;
         cpu_rec_compile_instr(state, a);
+        
         if ((jit_end - state->rec.jit_p) <= 32) {
            size_t size2 = size * 2;
            size_t sizeup2 = ROUNDUP(((jit_ptr + size2) - (uint8_t*)page),
@@ -384,6 +383,11 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
            size = size2;
            jit_end = jit_ptr + size;
         }
+        if (state->rec.bblk_stop) {
+           nb_instrs = (a - start) / 4 + 1;
+           printf("> ... bblk shortened to %d Chip16 instructions\n", nb_instrs);
+           break;
+        }
     }
     cpu_rec_compile_end(state);
     if (mprotect(page, sizeup, PROT_EXEC) < 0) {
@@ -397,8 +401,6 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     state->rec.bblk_map[start].code = (void (*)(void))(jit_ptr);
     state->rec.bblk_map[start].size = state->rec.jit_p - jit_ptr;
     state->rec.bblk_map[start].cycles = nb_instrs;
-    state->rec.bblk_map[start].dirty = state->rec.bblk_invalidate;
     printf("> ... reserved %zu, final size: %zu bytes\n",
            size, state->rec.bblk_map[start].size);
-    state->rec.bblk_invalidate = 0;
 }
