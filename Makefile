@@ -12,7 +12,7 @@ VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl2)
 # Add -pg to get profiling data
-PROF_FLAGS =
+PROF_FLAGS = -pg
 CFLAGS = -O0 -march=native -g -finline-functions -Wall -std=c99 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS) $(PROF_FLAGS)
 #WIN_CFLAGS = $(CFLAGS) -I/home/tim/Downloads/SDL-1.2.15/include -I/usr/include 
 WIN_CFLAGS = -O0 -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) -I/usr/local/cross-tools/$(WIN_PREFIX)/include $(shell /usr/local/cross-tools/$(WIN_PREFIX)/bin/sdl-config --cflags)
@@ -28,7 +28,10 @@ ARCHIVE = archive
 DOC = doc
 
 SOURCES = $(shell find $(SRC) -type f -name '*.c')
-OBJECTS = $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SOURCES))
+MASH16_SRCS = $(filter-out src/cpu_test.c, $(SOURCES))
+MASH16_OBJS = $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(MASH16_SRCS))
+CPUTEST_SRCS = $(filter-out src/main.c, $(SOURCES))
+CPUTEST_OBJS = $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(CPUTEST_SRCS))
 WIN_OBJECTS = $(patsubst $(SRC)/%.c, $(OBJ)/%.obj, $(SOURCES))
 TAR_SOURCES = $(SRC) $(DOC) vs2010 INSTALL LICENSE Makefile README.md 
 
@@ -36,12 +39,15 @@ TAR_SOURCES = $(SRC) $(DOC) vs2010 INSTALL LICENSE Makefile README.md
 
 .PHONY: all clean archive install uninstall windows win
 
-all: mash16 
+all: mash16 cpu_test 
 win: windows 
 windows: mash16.exe
 
-mash16: $(OBJECTS)
-	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
+cpu_test: $(CPUTEST_OBJS)
+	$(CC) $(CPUTEST_OBJS) $(LDFLAGS) -o $@
+
+mash16: $(MASH16_OBJS)
+	$(CC) $(MASH16_OBJS) $(LDFLAGS) -o $@
 
 $(OBJ)/%.o: $(SRC)/%.c
 	@mkdir -p $(@D)

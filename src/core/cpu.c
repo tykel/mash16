@@ -28,7 +28,6 @@
 
 extern int use_verbose;
 cpu_op op_table[0x100];
-void *global_alloc;
 size_t page_size;
 
 /* Initialise the CPU to safe values. */
@@ -38,13 +37,12 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
 
     page_size = sysconf(_SC_PAGESIZE);
 
-    if (posix_memalign(&global_alloc, page_size, 16 * 1024 * 1024) < 0)
+    if (posix_memalign((void **)state, page_size, 16 * 1024 * 1024) < 0)
     {
-        fprintf(stderr,"error: posix_memalign failed (global_alloc)\n");
+        fprintf(stderr,"error: posix_memalign failed (state)\n");
         exit(1);
     }
-    *state = global_alloc;
-    cpu_rec_init(*state);
+    cpu_rec_init(*state, opts);
     (*state)->rec.bblk_map = calloc(65536, sizeof(cpu_rec_bblk));
     (*state)->meta.old_pc = 0;
     (*state)->pc = 0;
@@ -206,8 +204,9 @@ void cpu_rec_1bblk(cpu_state* state)
         printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
         cpu_rec_compile(state, state->pc);
     }
-    //printf("> recompiler: run basic block @ 0x%04x, %d cycles [%p]\n",
-    //       state->pc, bblk->cycles, bblk->code);
+
+    //printf("> recompiler: run basic block @ 0x%04x, %d cycles [%p]. r3=%d, r5=%04hx\n",
+    //       state->pc, bblk->cycles, bblk->code, state->r[3], state->r[5]);
     bblk->code();
     state->meta.cycles += bblk->cycles;
     state->meta.target_cycles += bblk->cycles;
@@ -307,7 +306,7 @@ void cpu_free(cpu_state* state)
 #endif
     cpu_rec_free(state);
     free(state->rec.bblk_map);
-    free(global_alloc);
+    free(state);
 }
 
 

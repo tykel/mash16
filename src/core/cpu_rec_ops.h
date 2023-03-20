@@ -40,7 +40,7 @@ static const uint8_t REX_W = 0x48;
 #define EMIT_REX_RBI(reg,b,i,sz) do {\
    int need_rex = 0;\
    uint8_t rex = 0x40;\
-   if (sz == 1 && reg >= 4) { need_rex = 1; }\
+   if (sz == 1 && (reg >= 4 || b >= 4)) { need_rex = 1; }\
    if (sz == 8) { rex += 8; need_rex = 1; }\
    if (reg >= 8) { rex += 4; need_rex = 1; }\
    if (i >= 8) { rex += 2; need_rex = 1; }\
@@ -109,6 +109,7 @@ enum {
 #define CPU_VAR_READ       1
 #define CPU_VAR_WRITE      2
 #define CPU_VAR_ADDRESS_OF 4
+#define CPU_VAR_DIRTY      8
 
 // Allocate a register for use in JIT code.
 // Examples:
@@ -121,6 +122,25 @@ void cpu_rec_hostreg_preserve(cpu_state *state);
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release_all(cpu_state *state);
+void cpu_rec_hostreg_release_mask(cpu_state *state, unsigned int mask);
+
+#if 0
+// Map the variable (ptr, size) to a register
+// If CPU_VAR_READ flag was set, read in the existing value
+int cpu_rec_hostreg_cache(cpu_state *state, void *ptr, size_t size, int flags);
+
+// Get a register for general-purpose use -- not a cache register
+int cpu_rec_hostreg_temp(cpu_state *state);
+
+// Mark the register as available for other use -- but not yet freed
+int cpu_rec_hostreg_release(cpu_state *state, int i);
+
+// Actually evict the contents of a cache register
+// Will cause a write-back if CPU_VAR_WRITE flag was set
+int cpu_rec_hostreg_evict(cpu_state *state, int i);
+int cpu_rec_hostreg_evict_all(cpu_state *state, int i);
+int cpu_rec_hostreg_evict_mask(cpu_state *state, unsigned int mask);
+#endif
 
 #define HOSTREG_TEMP_VAR() cpu_rec_hostreg_var(state, NULL, DWORD, 0)
 

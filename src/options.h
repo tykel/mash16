@@ -38,6 +38,7 @@ typedef struct program_opts
     int use_fullscreen;
     int use_cpu_limit;
     int use_cpu_rec;
+    int cpu_rec_1bblk_per_op;
     char *breakpoints[BREAKPOINTS];
     int bpoffs[BREAKPOINTS];
     int num_breakpoints;

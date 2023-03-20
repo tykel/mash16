@@ -146,7 +146,13 @@ void print_state(cpu_state* state)
     printf("--------------------------------------------------------------\n");
 }
 
-int verify_header(uint8_t* bin, int len)
+char*
+get_symbol(uint16_t a)
+{
+   return symbols[a];
+}
+
+static int verify_header(uint8_t* bin, int len)
 {
     ch16_header* header;
     uint8_t *data;
@@ -159,7 +165,7 @@ int verify_header(uint8_t* bin, int len)
 }
 
 /* Return length of file if success; otherwise 0 */
-int read_file(char* fp, uint8_t* buf)
+static int read_file(char* fp, uint8_t* buf)
 {
     int len, read;
     FILE* romf;

@@ -6,19 +6,13 @@
 #include "cpu.h"
 #include "cpu_rec_ops.h"
 
-static void* cpu_rec_get_memblk(cpu_state *state, size_t min_bytes)
+void cpu_rec_init(cpu_state* state, program_opts* opts)
 {
-   void* block = state->rec.jit_next;
-   state->rec.jit_next += min_bytes;
-   return block;
-}
-
-void cpu_rec_init(cpu_state* state)
-{
-   state->rec.jit_base = (void*)ROUNDUP((size_t)global_alloc + sizeof(*state), page_size);
+   state->rec.jit_base = (void*)ROUNDUP((size_t)state + sizeof(*state), page_size);
    state->rec.jit_next = state->rec.jit_base;
-   memset(state->rec.jit_base, 0x90, 16*1024*1024 - (state->rec.jit_base - global_alloc));
+   memset(state->rec.jit_base, 0x90, 16*1024*1024 - (state->rec.jit_base - (void*)state));
    memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
+   state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
 }
 
 void cpu_rec_free(cpu_state* state)
@@ -69,7 +63,16 @@ void cpu_rec_hostreg_release(cpu_state *state, int i)
          EMIT4i(OFFSET(state->rec.host[i].ptr, 4));
       }
    }
-   state->rec.host[i].use = 0;
+   memset(&state->rec.host[i], 0, sizeof(state->rec.host[i]));
+}
+
+void cpu_rec_hostreg_release_mask(cpu_state *state, unsigned int mask)
+{
+   for (int i = 0; i < 16; ++i) {
+      if (mask & (1 << i)) {
+         cpu_rec_hostreg_release(state, i);
+      }
+   }
 }
 
 void cpu_rec_hostreg_release_all(cpu_state *state)
@@ -77,13 +80,74 @@ void cpu_rec_hostreg_release_all(cpu_state *state)
    for (int i = 0; i < 16; ++i) {
       cpu_rec_hostreg_release(state, i);
    }
-   memset(&state->rec.host[0], 0, sizeof(state->rec.host));
 }
 
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg)
 {
-   state->rec.host[hostreg].use = CPU_HOST_REG_FROZEN;
+   if (state->rec.host[hostreg].use == 0) {
+      state->rec.host[hostreg].use = CPU_HOST_REG_FROZEN;
+   }
 }
+
+static void cpu_rec_hostreg_readvar(cpu_state *state, int reg, void* ptr, size_t size, int flags)
+{
+   if (size < 4) {
+      // XOR reg, reg
+      EMIT_REX_RBI(reg, reg, REG_NONE, DWORD);
+      EMIT(0x33);
+      EMIT(MODRM_REG_DIRECT(reg, reg));
+   }
+
+   // MOV reg, [byte|word|dword|qword] ptr
+   ptrdiff_t disp = (uint8_t *)ptr - state->rec.jit_p;
+   int ptr64 = 0;
+   int regPtr = REG_NONE;
+   
+   if (disp > INT32_MAX || disp < INT32_MIN) {
+      regPtr = cpu_rec_hostreg_var(state, NULL, QWORD, 0);
+      ptr64 = 1;
+
+      EMIT_REX_RBI(REG_NONE, regPtr, REG_NONE, QWORD);
+      EMIT(0xb8 + (regPtr & 7));
+      EMIT8u(ptr);
+   }
+   
+   switch (size) {
+   case 1:
+      EMIT_REX_RBI(reg, regPtr, REG_NONE, size);
+      EMIT(0x8a);
+      break;
+   case 2:
+      EMIT(P_WORD);
+   case 4:
+   case 8:
+      EMIT_REX_RBI(reg, regPtr, REG_NONE, size);
+      EMIT(0x8b);
+      break;
+   }
+
+   if (ptr64) {
+      EMIT(MODRM_REG_RM(reg, regPtr));
+      cpu_rec_hostreg_release(state, regPtr);
+   } else {
+      EMIT(MODRM_RIP_DISP32(reg));
+      EMIT4i(OFFSET(ptr, 4));
+   }
+}
+
+/*
+ * XXX:
+ *
+ * Need to specify the registers that need to be preserved for a given
+ * cpu_rec_XXX_op.
+ *
+ * Otherwise, the following might happen:
+ *
+ * int regSrc = HOSTREG_STATE_VAR_R(...); // -> RDX, was already cached
+ * int regDst = HOSTREG_STATE_VAR_W(...); // -> eviction, and RDX chosen!
+ *
+ *
+ */
 
 int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
 {
@@ -93,11 +157,19 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
 
    ++state->rec.time;
 
-   for (; i < 16; ++i) {
-      if (state->rec.host[i].use == CPU_HOST_REG_VAR &&
-          ptr == state->rec.host[i].ptr) {
-         state->rec.host[i].flags |= flags;
-         return i;
+   if (ptr != NULL) {
+      for (; i < 16; ++i) {
+         if (state->rec.host[i].use == CPU_HOST_REG_VAR &&
+             ptr == state->rec.host[i].ptr) {
+            // If this call adds a read flag, make sure we read it
+            //if (((state->rec.host[i].flags & CPU_VAR_READ) == 0) &&
+            //    (flags & CPU_VAR_READ)) {
+            //   cpu_rec_hostreg_readvar(state, i, ptr, size, flags);
+            //}
+            state->rec.host[i].flags |= flags;
+            state->rec.host[i].last_access_time = state->rec.time;
+            return i;
+         }
       }
    }
    if (size != 1 && size != 2 && size != 4 && size != 8) {
@@ -141,48 +213,7 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
    
    } else {
       if (flags & CPU_VAR_READ) {
-         if (size < 4) {
-            // XOR reg, reg
-            EMIT_REX_RBI(reg, reg, REG_NONE, DWORD);
-            EMIT(0x33);
-            EMIT(MODRM_REG_DIRECT(reg, reg));
-         }
-
-         // MOV reg, [byte|word|dword|qword] ptr
-         ptrdiff_t disp = (uint8_t *)ptr - state->rec.jit_p;
-         int ptr64 = 0;
-         int regPtr = REG_NONE;
-         
-         if (disp > INT32_MAX || disp < INT32_MIN) {
-            regPtr = cpu_rec_hostreg_var(state, NULL, QWORD, 0);
-            ptr64 = 1;
-
-            EMIT_REX_RBI(REG_NONE, regPtr, REG_NONE, QWORD);
-            EMIT(0xb8 + (regPtr & 7));
-            EMIT8u(ptr);
-         }
-         
-         switch (size) {
-         case 1:
-            EMIT_REX_RBI(reg, regPtr, REG_NONE, size);
-            EMIT(0x8a);
-            break;
-         case 2:
-            EMIT(P_WORD);
-         case 4:
-         case 8:
-            EMIT_REX_RBI(reg, regPtr, REG_NONE, size);
-            EMIT(0x8b);
-            break;
-         }
-
-         if (ptr64) {
-            EMIT(MODRM_REG_RM(reg, regPtr));
-            cpu_rec_hostreg_release(state, regPtr);
-         } else {
-            EMIT(MODRM_RIP_DISP32(reg));
-            EMIT4i(OFFSET(ptr, 4));
-         }
+         cpu_rec_hostreg_readvar(state, reg, ptr, size, flags);
       }
    }
 
@@ -217,22 +248,25 @@ void cpu_rec_hostreg_preserve(cpu_state *state)
  */
 void cpu_rec_invalidate_bblk(cpu_state *state, uint16_t a)
 {
-   for (int i = a; i >= 0; i -= 4) {
+   int steps[] = { 4, 1, 2, 1 };
+   int step = steps[a & 3];
+   for (int i = a; i >= 0; i -= step) {
       cpu_rec_bblk *b = &state->rec.bblk_map[i];
-      // If the write is in the bblk currently being compiled, just mark it for
-      // deletion after it is run.
-      if (i == state->rec.bblk_pc0) {
-         printf("> mark bblk @ 0x%04x for deletion after next run\n", i);
-         state->rec.bblk_invalidate = 1;
-      }
       if (b->cycles == 0) {
          continue;
       } else if (i + (b->cycles * 4) < a) {
          break;
       } else if (b->code != NULL) {
-         printf("> invalidate bblk @ 0x%04x [%p] (dirty @ 0x%04x)\n",
-                i, b->code, a);
+         printf("> invalidate bblk @ 0x%04x [%p] (dirty @ 0x%04x) [pc = 0x%04x]\n",
+                i, b->code, a, state->rec.bblk_pcI);
          memset(b, 0, sizeof(*b));
+      }
+      // If the write is in the bblk currently being compiled, just mark it for
+      // deletion after it is run.
+      if (i == state->rec.bblk_pc0) {
+         printf("> mark bblk @ 0x%04x for deletion next run [pc = 0x%04x]\n",
+                i, state->rec.bblk_pcI);
+         state->rec.bblk_invalidate = 1;
       }
    }
 }
@@ -246,7 +280,6 @@ static void cpu_rec_compile_start(cpu_state *state, uint16_t a)
     cpu_rec_hostreg_preserve(state);
 
     int regPc = HOSTREG_STATE_VAR_W(pc, 2);
-
     // MOV eax, a
     EMIT_REX_RBI(REG_NONE, regPc, REG_NONE, DWORD);
     EMIT(0xb8 + (regPc & 7));
@@ -270,6 +303,7 @@ static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
     
     // Copy instruction 32 bits to state
     state->i = *(instr*)(&state->m[a]);
+
     // MOV reg, instr
     int regInstr = HOSTREG_STATE_VAR_W(i, DWORD);
     EMIT_REX_RBI(REG_NONE, regInstr, REG_NONE, DWORD);
@@ -303,19 +337,22 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         // CALL - we transfer to another basic block, so return.
         // JMP - ditto.
         if ((op & 0xf0) == 0x10) {
-            found_branch = 1;
+            end += 4;
             break;
         }
+        if (state->rec.bblk_1per_op != 0) {
+           end += 4;
+           break;
+        }
     }
-    end += 4*found_branch;
     nb_instrs = (end - a) / 4;
 
     state->rec.bblk_pc0 = start;
     state->rec.bblk_pcN = end;
 
-    size = ROUNDUP(nb_instrs * 64, 8);
-    jit_ptr = cpu_rec_get_memblk(state, size);
-    printf("> ... bblk->code @ %p\n", jit_ptr);
+    size = ROUNDUP(nb_instrs * 96, 8);
+    jit_ptr = state->rec.jit_next;
+    printf("> ... bblk->code @ %p (%d Chip16 instructions)\n", jit_ptr, nb_instrs);
     void* page = (void *)((uintptr_t)jit_ptr & ~(sysconf(_SC_PAGESIZE) - 1));
     size_t sizeup = ROUNDUP(((jit_ptr + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
     if (mprotect(page, sizeup, PROT_READ | PROT_WRITE) < 0) {
@@ -329,12 +366,13 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     cpu_rec_compile_start(state, a);
     for (; a < end; a += 4)
     {
-        if ((jit_end - state->rec.jit_p) <= 16) {
+        state->rec.bblk_pcI = a;
+        cpu_rec_compile_instr(state, a);
+        if ((jit_end - state->rec.jit_p) <= 32) {
            size_t size2 = size * 2;
-           state->rec.jit_next += size2 - size;
            size_t sizeup2 = ROUNDUP(((jit_ptr + size2) - (uint8_t*)page),
                                     sysconf(_SC_PAGESIZE));
-           printf("> grow block from %zu to %zu bytes\n", size, size2);
+           printf("> ...... grow block from %zu to %zu bytes\n", size, size2);
            if (sizeup2 > sizeup) {
               if (mprotect(page, sizeup2, PROT_READ | PROT_WRITE) < 0) {
                  fprintf(stderr, "mprotect(%p, %zu, rw) failed with errno %d.\n",
@@ -344,8 +382,8 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
               sizeup = sizeup2;
            }
            size = size2;
+           jit_end = jit_ptr + size;
         }
-        cpu_rec_compile_instr(state, a);
     }
     cpu_rec_compile_end(state);
     if (mprotect(page, sizeup, PROT_EXEC) < 0) {
@@ -353,6 +391,8 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
                 page, sizeup, errno);
         exit(1);
     }
+
+    state->rec.jit_next += (state->rec.jit_p - jit_ptr);
 
     state->rec.bblk_map[start].code = (void (*)(void))(jit_ptr);
     state->rec.bblk_map[start].size = state->rec.jit_p - jit_ptr;

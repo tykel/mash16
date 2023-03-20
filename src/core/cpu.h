@@ -125,6 +125,9 @@ typedef struct cpu_rec
     /* A 65,536 entry map of Chip16 addresses to JIT blocks. */
     cpu_rec_bblk *bblk_map;
 
+    /* A 8,192 entry map of Chip16 addresses to dirty bits. */
+    uint8_t *dirty_map;
+
     /* Memory pages mmap()-d for JIT. 4 MiB total. */
     void *jit_base;
 
@@ -138,6 +141,8 @@ typedef struct cpu_rec
 
     /* Start Chip16 PC of the basic block being compiled. */
     uint16_t bblk_pc0;
+    /* Current Chip16 PC in the basic block being compiled. */
+    uint16_t bblk_pcI;
     /* First Chip16 PC past end of the basic block being compiled. */
     uint16_t bblk_pcN;
     /* Flag marking that this basic block has overwritten itself, and needs
@@ -150,6 +155,8 @@ typedef struct cpu_rec
     /* An integer which increases monotonically with each output JIT
      * instruction -- to decide which reg. to evict, if needed, using LRU. */
     int time;
+
+    int bblk_1per_op;
 } cpu_rec;
 
 /* Holds CPU functionality. */
@@ -211,7 +218,7 @@ void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
 void cpu_io_reset(cpu_state*);
 void cpu_free(cpu_state*);
 
-void cpu_rec_init(cpu_state*);
+void cpu_rec_init(cpu_state*, program_opts*);
 void cpu_rec_compile(cpu_state*, uint16_t);
 void cpu_rec_1bblk(cpu_state*);
 void cpu_rec_invalidate_bblk(cpu_state*, uint16_t);

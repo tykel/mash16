@@ -252,6 +252,10 @@ void options_parse(int argc, char** argv, program_opts* opts)
             {
                 opts->use_cpu_rec = 1;
             }
+            else if(!strncmp(argv[i],"--cpu-rec-1bblk-per-op",MAX_STRING))
+            {
+                opts->cpu_rec_1bblk_per_op = 1;
+            }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {
                 printf("%s",str_help[0]);
