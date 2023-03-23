@@ -200,6 +200,7 @@ typedef struct cpu_state
     uint8_t  type;
     
     /* Other */
+    uint32_t prev_rand;
     cpu_meta meta;
     cpu_rec rec;
 
@@ -211,6 +212,8 @@ extern size_t page_size;
 /* Instruction function pointer table. */
 typedef void (*cpu_op)(cpu_state*);
 extern cpu_op op_table[0x100];
+
+uint32_t mash16_rand(cpu_state *state);
 
 /* CPU functions. */
 void cpu_init(cpu_state**,uint8_t*,program_opts*);

@@ -310,7 +310,7 @@ void cpu_rec_validate(cpu_state *state, uint16_t a)
    int index = a >> 3;
    int bit = a & 7;
    int mask = ~((1 << bit) - 1);
-   if (state->rec.dirty_map[index] & mask) {
+   if (state->rec.dirty_map[index] & mask && bblk->code) {
       printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
       state->rec.dirty_map[index] &= ~mask;
       memset(bblk, 0, sizeof(*bblk));

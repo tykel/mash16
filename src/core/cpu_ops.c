@@ -232,7 +232,7 @@ int op_drw(uint8_t* m, uint8_t* vm, int x, int y, int w, int h, int fx, int fy)
 
 void op_rnd(cpu_state* state)
 {
-    state->r[i_yx(state->i) & 0x0f] = rand() % (i_hhll(state->i) + 1);
+    state->r[i_yx(state->i) & 0x0f] = mash16_rand(state) % (i_hhll(state->i) + 1);
     state->meta.type = OP_HHLL;
 }
 
@@ -712,8 +712,8 @@ void op_divi(cpu_state* state)
         fprintf(stderr,"state: pc=0x%04x\n",state->pc);
         exit(1);
     }
-    //flags_div(*rx,imm,state);
-    UPDATE_FLAGS_DIV(*rx, imm);
+    flags_div(*rx,imm,state);
+    //UPDATE_FLAGS_DIV(*rx, imm);
     *rx /= imm;
     state->meta.type = OP_R_HHLL;
 }
@@ -730,8 +730,8 @@ void op_div_r2(cpu_state* state)
         fprintf(stderr,"state: pc=0x%04x\n",state->pc);
         exit(1);
     }
-    //flags_div(*rx,ry,state);
-    UPDATE_FLAGS_DIV(*rx, ry);
+    flags_div(*rx,ry,state);
+    //UPDATE_FLAGS_DIV(*rx, ry);
     *rx /= ry;
     state->meta.type = OP_R_R;
 }
@@ -748,8 +748,8 @@ void op_div_r3(cpu_state* state)
         fprintf(stderr,"state: pc=0x%04x\n",state->pc);
         exit(1);
     }
-    //flags_div(rx,ry,state);
-    UPDATE_FLAGS_DIV(rx, ry);
+    flags_div(rx,ry,state);
+    //UPDATE_FLAGS_DIV(rx, ry);
     state->r[i_z(state->i)] = rx / ry;
     state->meta.type = OP_R_R_R;
 }
@@ -1120,7 +1120,7 @@ void flags_div(int16_t x, int16_t y, cpu_state* state)
         state->f.z = 1;
     if(rem)
         state->f.c = 1;
-    if((int16_t)res < 0)
+    if(*(int16_t*)&res < 0)
         state->f.n = 1;
 }
 

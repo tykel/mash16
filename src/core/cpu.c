@@ -23,12 +23,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <time.h>
 #include <unistd.h>
 
 extern int use_verbose;
 cpu_op op_table[0x100];
 size_t page_size;
+
+static uint32_t xorshift(uint32_t prev)
+{
+   prev ^= prev << 13;
+   prev ^= prev >> 17;
+   prev ^= prev << 5;
+   return prev;
+}
+
+uint32_t mash16_rand(cpu_state *state)
+{
+   state->prev_rand = xorshift(state->prev_rand);
+   return state->prev_rand;
+}
 
 /* Initialise the CPU to safe values. */
 void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
@@ -85,7 +98,7 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     (*state)->sp = STACK_ADDR;
     memset(&(*state)->f,0,sizeof(flags));
     
-    srand(time(NULL));
+    (*state)->prev_rand = opts->rng_seed;
 
     /* Ensure unused instructions return errors. */
     for(i=0; i<0x100; ++i)

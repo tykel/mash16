@@ -34,6 +34,7 @@ int use_verbose;
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #pragma pack(push,1)
 typedef struct sym_entry
@@ -450,6 +451,7 @@ int main(int argc, char* argv[])
     opts.use_cpu_rec = 0;
     opts.num_breakpoints = 0;
     opts.use_breakall = 0;
+    opts.rng_seed = time(NULL);
     cpu_exec = cpu_step;
 
     options_parse(argc,argv,&opts);

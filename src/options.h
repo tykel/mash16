@@ -43,6 +43,8 @@ typedef struct program_opts
     int bpoffs[BREAKPOINTS];
     int num_breakpoints;
     int use_breakall;
+
+    int rng_seed;
 } program_opts;
 
 int read_palette(char const *,uint32_t *);
