@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 
    os.filename = argv[1];
    os.rng_seed = time(NULL);
-   os.cpu_rec_1bblk_per_op = 1;
+   //os.cpu_rec_1bblk_per_op = 1;
 
    /* Read our rom file into memory */
    buf = NULL;
@@ -146,9 +146,7 @@ int main(int argc, char **argv)
    free(buf);
 
    cpu_init(&is, mi, &os);
-   printf("is bblk_map: %p\n", is->rec.bblk_map);
    cpu_init(&rs, mr, &os);
-   printf("rs bblk_map: %p\n", rs->rec.bblk_map);
 
    for (int cycles = 0; ; ++cycles) {
       uint16_t pc = is->pc;
