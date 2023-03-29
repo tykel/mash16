@@ -12,7 +12,7 @@ VERSION_NQ = $(shell echo $(VERSION) | cut -c2- | rev | cut -c2- | rev)
 TAG = \"$(shell git rev-parse --short HEAD)\"
 SDL_CFLAGS = $(shell pkg-config --cflags sdl2)
 # Add -pg to get profiling data
-PROF_FLAGS = 
+PROF_FLAGS =
 CFLAGS = -O3 -march=native -g -finline-functions -Wall -std=c99 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) $(SDL_CFLAGS) $(PROF_FLAGS)
 #WIN_CFLAGS = $(CFLAGS) -I/home/tim/Downloads/SDL-1.2.15/include -I/usr/include 
 WIN_CFLAGS = -O0 -g -Wall -std=c89 -pedantic -DVERSION=$(VERSION) -DBUILD=$(TAG) -I/usr/local/cross-tools/$(WIN_PREFIX)/include $(shell /usr/local/cross-tools/$(WIN_PREFIX)/bin/sdl-config --cflags)

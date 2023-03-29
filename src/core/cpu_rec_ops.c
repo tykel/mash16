@@ -281,7 +281,7 @@ static void cpu_rec_op_jmp_imm(cpu_state *state)
 
 static void cpu_rec_op_jmc(cpu_state *state)
 {
-   int regPC = HOSTREG_STATE_VAR_W(pc, WORD);
+   int regPC = HOSTREG_STATE_VAR_RW(pc, WORD);
    int regFC = HOSTREG_STATE_VAR_R(f.c, BYTE);
    int rexNeeded;
    int rexRegPC = rex(REG_NONE, regPC, REG_NONE, DWORD, &rexNeeded);
@@ -304,7 +304,7 @@ static void cpu_rec_op_jme(cpu_state *state)
 {
    int regXReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) & 0x0f], WORD);
    int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
-   int regPC = HOSTREG_STATE_VAR_W(pc, WORD);
+   int regPC = HOSTREG_STATE_VAR_RW(pc, WORD);
    int rexNeeded;
    int rexRegPC = rex(REG_NONE, regPC, REG_NONE, DWORD, &rexNeeded);
 
@@ -322,6 +322,78 @@ static void cpu_rec_op_jme(cpu_state *state)
    EMIT4u(i_hhll(state->i));
 }
 
+static void cpu_rec_op_ret(cpu_state *state)
+{
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPC = HOSTREG_STATE_VAR_RW(pc, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+
+   // SUB regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, WORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(5, regSP));
+   EMIT(2);
+   // MOV regPC, [regPtrM + regSP]
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regPC, regPtrM, regSP, WORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_SIB(regPC));
+   EMIT(SIB(0, regSP, regPtrM));
+}
+
+static void cpu_rec_op_call_imm(cpu_state *state)
+{
+   // Store PC to [SP], increase SP by 2, set PC to HHLL.
+   int regPC = HOSTREG_STATE_VAR_RW(pc, WORD);
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+
+   // MOV [regPtrM + regSP], regPC
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regPC, regPtrM, regSP, DWORD);
+   EMIT(0x89);
+   EMIT(MODRM_REG_SIB(regPC));
+   EMIT(SIB(0, regSP, regPtrM));
+
+   // ADD regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(0, regSP));
+   EMIT(2);
+
+   // MOV regPC, HHLL
+   EMIT_REX_RBI(REG_NONE, regPC, REG_NONE, DWORD);
+   EMIT(0xb8 + (regPC & 7));
+   EMIT4u(i_hhll(state->i));
+}
+
+static void cpu_rec_op_call(cpu_state *state)
+{
+   // Store PC to [SP], increase SP by 2, set PC to RX.
+   int regPC = HOSTREG_STATE_VAR_RW(pc, WORD);
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+   int regXReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) & 0x0f], WORD);
+
+   // MOV [regPtrM + regSP], regPC
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regPC, regPtrM, regSP, DWORD);
+   EMIT(0x89);
+   EMIT(MODRM_REG_SIB(regPC));
+   EMIT(SIB(0, regSP, regPtrM));
+
+   // ADD regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(0, regSP));
+   EMIT(2);
+
+   // MOV regPC, regXReg
+   EMIT_REX_RBI(regPC, regXReg, REG_NONE, DWORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_DIRECT(regPC, regXReg));
+}
+
 static void cpu_rec_op_jmp(cpu_state *state)
 {
    int regSrc = HOSTREG_STATE_VAR_R(r[i_yx(state->i)], WORD);
@@ -332,11 +404,20 @@ static void cpu_rec_op_jmp(cpu_state *state)
    EMIT(MODRM_REG_DIRECT(regPc, regSrc));
 }
 
-static void cpu_rec_op_jx(cpu_state *state)
+static void cpu_rec_op_jx_cx(cpu_state *state, int cx)
 {
-   int regPc = HOSTREG_STATE_VAR_W(pc, WORD);
-   int rexNeeded = 0;
-   int rexByte = rex(REG_NONE, regPc, REG_NONE, DWORD, &rexNeeded);
+   int regPC = HOSTREG_STATE_VAR_RW(pc, WORD);
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+   int rexCallMov0 = 0, rexCallAdd = 0, rexCallMov1 = 0;
+   int rexJmpMov = 0;
+   int temp = rex(regPC, regPtrM, regSP, WORD, &rexCallMov0);
+   temp = rex(REG_NONE, regSP, REG_NONE, DWORD, &rexCallAdd);
+   temp = rex(REG_NONE, regPC, REG_NONE, DWORD, &rexCallMov1);
+   temp = rex(REG_NONE, regPC, REG_NONE, DWORD, &rexJmpMov);
+   int xbytes = cx
+      ? (rexCallMov0+4 + rexCallAdd+3 + rexCallMov1+5)
+      : (rexJmpMov+5);
 
    int cond = i_yx(state->i);
    switch (cond) {
@@ -352,7 +433,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(cond);
          // JZ end
          EMIT(0x74);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // N, NN
@@ -367,7 +448,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(cond - 2);
          // JZ end
          EMIT(0x74);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // P
@@ -384,7 +465,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeededN+3 + 2 + rexNeeded+5);
+         EMIT(rexNeededN+3 + 2 + xbytes);
          // CMP regFN, 0
          EMIT_REX_RBI(REG_NONE, regFN, REG_NONE, BYTE);
          EMIT(0x80);
@@ -392,7 +473,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // O, NO
@@ -407,7 +488,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(cond - 5);
          // JZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // A
@@ -425,7 +506,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeededZ+3 + 2 + rexNeeded+5);
+         EMIT(rexNeededZ+3 + 2 + xbytes);
          // CMP regFZ, 0
          EMIT_REX_RBI(REG_NONE, regFZ, REG_NONE, BYTE);
          EMIT(0x80);
@@ -433,7 +514,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // AE, B
@@ -448,7 +529,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(cond - 8);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // BE
@@ -474,7 +555,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // G
@@ -493,14 +574,14 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0);
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeededNO+2 + 2 + rexNeeded+5);
+         EMIT(rexNeededNO+2 + 2 + xbytes);
          // CMP regFO, regFN
          EMIT_REX_RBI(regFN, regFO, REG_NONE, BYTE);
          EMIT(0x38);
          EMIT(MODRM_REG_DIRECT(regFN, regFO));
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // GE
@@ -514,7 +595,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(MODRM_REG_DIRECT(regFN, regFO));
          // JNZ end
          EMIT(0x75);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // L
@@ -528,7 +609,7 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(MODRM_REG_DIRECT(regFN, regFO));
          // JZ end
          EMIT(0x74);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    // LE
@@ -545,24 +626,26 @@ static void cpu_rec_op_jx(cpu_state *state)
          EMIT(0x80);
          EMIT(MODRM_REG_OPX_IMM8(7, regFZ));
          EMIT(1);
-         // JNZ end
-         EMIT(0x75);
-         EMIT(rexNeededNO+2 + 2 + rexNeeded+5);
+         // JZ change_pc 
+         EMIT(0x74);
+         EMIT(rexNeededNO+2 + 2);
          // CMP regFO, regFN
          EMIT_REX_RBI(regFN, regFO, REG_NONE, BYTE);
          EMIT(0x38);
          EMIT(MODRM_REG_DIRECT(regFN, regFO));
          // JZ end
          EMIT(0x74);
-         EMIT(rexNeeded+5);
+         EMIT(xbytes);
       }
       break;
    }
 
    // change_pc;
-   EMIT_REX_RBI(REG_NONE, regPc, REG_NONE, DWORD);
-   EMIT(0xb8 + (regPc & 7));
-   EMIT4u(i_hhll(state->i));
+   if (cx) {
+      cpu_rec_op_call_imm(state);
+   } else {
+      cpu_rec_op_jmp_imm(state);
+   }
 
    // end:
 }
@@ -1271,7 +1354,7 @@ static void cpu_rec_op_shl_n(cpu_state *state)
    EMIT(i_n(state->i));
    // CMP regXReg, 0
    EMIT(P_WORD);
-   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, WORD);
    EMIT(0x83);
    EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
    EMIT(0);
@@ -1422,6 +1505,357 @@ static void cpu_rec_op_sar(cpu_state *state)
    cpu_rec_hostreg_release(state, RCX);
 }
 
+static void cpu_rec_op_push(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i)], WORD);
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+
+   // MOV [regPtrM + regSP], regXReg
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regXReg, regPtrM, regSP, WORD);
+   EMIT(0x89);
+   EMIT(MODRM_REG_SIB(regXReg));
+   EMIT(SIB(0, regSP, regPtrM));
+   // ADD regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(0, regSP));
+   EMIT(2);
+}
+
+static void cpu_rec_op_pop(cpu_state *state)
+{
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+   int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
+   
+   // SUB regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(5, regSP));
+   EMIT(2);
+
+   // MOV regXReg, [regPtrM + regSP]
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regXReg, regPtrM, regSP, WORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_SIB(regXReg));
+   EMIT(SIB(0, regSP, regPtrM));
+}
+
+static void cpu_rec_op_pushall(cpu_state *state)
+{
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+   cpu_rec_hostreg_freeze(state, regSP);
+   cpu_rec_hostreg_freeze(state, regPtrM);
+   
+   for (int i = 0; i < 16; ++i) {
+      int regXReg = HOSTREG_STATE_VAR_R(r[i], WORD);
+
+      // MOV [regPtrM + regSP + 2i], regXReg
+      EMIT(P_WORD);
+      EMIT_REX_RBI(regXReg, regPtrM, regSP, WORD);
+      EMIT(0x89);
+      EMIT(MODRM_REG_SIB_DISP8(regXReg));
+      EMIT(SIB(0, regSP, regPtrM));
+      EMIT(2 * i);
+   }
+   cpu_rec_hostreg_unfreeze(state, regPtrM);
+   
+   // ADD regSP, 32
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(0, regSP));
+   EMIT(32);
+   
+   cpu_rec_hostreg_unfreeze(state, regSP);
+}
+
+static void cpu_rec_op_popall(cpu_state *state)
+{
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+   cpu_rec_hostreg_freeze(state, regSP);
+   cpu_rec_hostreg_freeze(state, regPtrM);
+
+   for (int i = 0; i < 16; ++i) {
+      int regXReg = HOSTREG_STATE_VAR_W(r[15 - i], WORD);
+
+      // MOV regXReg, [regPtrM + regSP - 2i - 2]
+      EMIT(P_WORD);
+      EMIT_REX_RBI(regXReg, regPtrM, regSP, WORD);
+      EMIT(0x8b);
+      EMIT(MODRM_REG_SIB_DISP8(regXReg));
+      EMIT(SIB(0, regSP, regPtrM));
+      EMIT(-2 * i - 2);
+   }
+   cpu_rec_hostreg_unfreeze(state, regPtrM);
+   
+   // SUB regSP, 32
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(5, regSP));
+   EMIT(32);
+   
+   cpu_rec_hostreg_unfreeze(state, regSP);
+}
+
+static void cpu_rec_op_pushf(cpu_state *state)
+{
+   int regFN = HOSTREG_STATE_VAR_R(f.n, BYTE);
+   int regFO = HOSTREG_STATE_VAR_R(f.o, BYTE);
+   int regFZ = HOSTREG_STATE_VAR_R(f.z, BYTE);
+   int regFC = HOSTREG_STATE_VAR_R(f.c, BYTE);
+   int regTemp = HOSTREG_TEMP_VAR();
+   // MOV regTemp, regFN
+   EMIT_REX_RBI(regTemp, regFN, REG_NONE, DWORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_DIRECT(regTemp, regFN));
+   // SHL regTemp, 1
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xd1);
+   EMIT(MODRM_REG_DIRECT(4, regTemp));
+   // ADD regTemp, regFO
+   EMIT_REX_RBI(regTemp, regFO, REG_NONE, DWORD);
+   EMIT(0x03);
+   EMIT(MODRM_REG_DIRECT(regTemp, regFO));
+   // SHL regTemp, 4
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xc1);
+   EMIT(MODRM_REG_DIRECT(4, regTemp));
+   EMIT(4);
+   // ADD regTemp, regFZ
+   EMIT_REX_RBI(regTemp, regFZ, REG_NONE, DWORD);
+   EMIT(0x03);
+   EMIT(MODRM_REG_DIRECT(regTemp, regFZ));
+   // SHL regTemp, 1
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xd1);
+   EMIT(MODRM_REG_DIRECT(4, regTemp));
+   // ADD regTemp, regFC
+   EMIT_REX_RBI(regTemp, regFC, REG_NONE, DWORD);
+   EMIT(0x03);
+   EMIT(MODRM_REG_DIRECT(regTemp, regFC));
+   // SHL regTemp, 1
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xd1);
+   EMIT(MODRM_REG_DIRECT(4, regTemp));
+
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+
+   // MOV [regPtrM + regSP], regTemp
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regTemp, regPtrM, regSP, WORD);
+   EMIT(0x89);
+   EMIT(MODRM_REG_SIB(regTemp));
+   EMIT(SIB(0, regSP, regPtrM));
+   // ADD regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(0, regSP));
+   EMIT(2);
+
+   cpu_rec_hostreg_release(state, regTemp);
+}
+
+static void cpu_rec_op_popf(cpu_state *state)
+{
+   int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
+   int regPtrM = HOSTREG_PTR(state->m);
+   int regTemp = HOSTREG_TEMP_VAR();
+   
+   // SUB regSP, 2
+   EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(5, regSP));
+   EMIT(2);
+
+   // MOV regTemp, [regPtrM + regSP]
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regTemp, regPtrM, regSP, WORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_SIB(regTemp));
+   EMIT(SIB(0, regSP, regPtrM));
+   
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+   int regFO = HOSTREG_STATE_VAR_W(f.o, BYTE);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
+   // SHR regTemp, 2
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xc1);
+   EMIT(MODRM_REG_DIRECT(5, regTemp));
+   EMIT(2);
+   // SETC regFC
+   EMIT_REX_RBI(REG_NONE, regFC, REG_NONE, DWORD);
+   EMIT(0x0f);
+   EMIT(0x92);
+   EMIT(MODRM_REG_DIRECT(0, regFC));
+   // SHR regTemp, 1
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xd1);
+   EMIT(MODRM_REG_DIRECT(5, regTemp));
+   // SETC regFZ
+   EMIT_REX_RBI(REG_NONE, regFZ, REG_NONE, DWORD);
+   EMIT(0x0f);
+   EMIT(0x92);
+   EMIT(MODRM_REG_DIRECT(0, regFZ));
+   // SHR regTemp, 4
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xc1);
+   EMIT(MODRM_REG_DIRECT(5, regTemp));
+   EMIT(4);
+   // SETC regFO
+   EMIT_REX_RBI(REG_NONE, regFO, REG_NONE, DWORD);
+   EMIT(0x0f);
+   EMIT(0x92);
+   EMIT(MODRM_REG_DIRECT(0, regFO));
+   // SHR regTemp, 1
+   EMIT_REX_RBI(REG_NONE, regTemp, REG_NONE, DWORD);
+   EMIT(0xd1);
+   EMIT(MODRM_REG_DIRECT(5, regTemp));
+   // SETC regFN
+   EMIT_REX_RBI(REG_NONE, regFN, REG_NONE, DWORD);
+   EMIT(0x0f);
+   EMIT(0x92);
+   EMIT(MODRM_REG_DIRECT(0, regFN));
+
+   cpu_rec_hostreg_release(state, regTemp);
+}
+
+static void cpu_rec_op_noti(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // MOV regXReg, ~HHLL
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0xb8 + (regXReg & 7));
+   EMIT4u(~i_hhll(state->i));
+   // CMP regXReg, 0
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
+static void cpu_rec_op_not(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_RW(r[i_yx(state->i)], WORD);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // NOT regXReg
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0xf7);
+   EMIT(MODRM_REG_DIRECT(2, regXReg));
+   // CMP regXReg, 0
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
+static void cpu_rec_op_not_r2(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
+   int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i)], WORD);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // MOV regXReg, regYReg
+   EMIT_REX_RBI(regXReg, regYReg, REG_NONE, DWORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_DIRECT(regXReg, regYReg));
+   // NOT regXReg
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0xf7);
+   EMIT(MODRM_REG_DIRECT(2, regXReg));
+   // CMP regXReg, 0
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
+static void cpu_rec_op_negi(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // MOV regXReg, -HHLL
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0xb8 + (regXReg & 7));
+   EMIT4i(-*(int16_t*)&i_hhll(state->i));
+   // CMP regXReg, 0
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
+static void cpu_rec_op_neg(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_RW(r[i_yx(state->i)], WORD);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // NEG regXReg
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0xf7);
+   EMIT(MODRM_REG_DIRECT(3, regXReg));
+   // CMP regXReg, 0
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
+static void cpu_rec_op_neg_r2(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
+   int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i)], WORD);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // MOV regXReg, regYReg
+   EMIT_REX_RBI(regXReg, regYReg, REG_NONE, DWORD);
+   EMIT(0x8b);
+   EMIT(MODRM_REG_DIRECT(regXReg, regYReg));
+   // NEG regXReg
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0xf7);
+   EMIT(MODRM_REG_DIRECT(3, regXReg));
+   // CMP regXReg, 0
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
 void* cpu_rec_dispatch(cpu_state *state, uint8_t op)
 {
    switch (op) {
@@ -1453,13 +1887,25 @@ void* cpu_rec_dispatch(cpu_state *state, uint8_t op)
          cpu_rec_op_jmc(state);
          break;
       case 0x12:  // Jx
-         cpu_rec_op_jx(state);
+         cpu_rec_op_jx_cx(state, 0);
          break;
       case 0x13:  // JME
          cpu_rec_op_jme(state);
          break;
+      case 0x14:  // CALL (imm)
+         cpu_rec_op_call_imm(state);
+         break;
+      case 0x15:  // RET
+         cpu_rec_op_ret(state);
+         break;
       case 0x16:  // JMP
          cpu_rec_op_jmp(state);
+         break;
+      case 0x17:  // Cx
+         cpu_rec_op_jx_cx(state, 1);
+         break;
+      case 0x18:  // CALL
+         cpu_rec_op_call(state);
          break;
       case 0x20:  // LDI (imm)
          cpu_rec_op_ldi_imm(state);
@@ -1562,6 +2008,42 @@ void* cpu_rec_dispatch(cpu_state *state, uint8_t op)
          break;
       case 0xb5:  // SAR
          cpu_rec_op_sar(state);
+         break;
+      case 0xc0:  // PUSH
+         cpu_rec_op_push(state);
+         break;
+      case 0xc1:  // POP 
+         cpu_rec_op_pop(state);
+         break;
+      case 0xc2:  // PUSHALL
+         cpu_rec_op_pushall(state);
+         break;
+      case 0xc3:  // POPALL
+         cpu_rec_op_popall(state);
+         break;
+      case 0xc4:  // PUSHF
+         cpu_rec_op_pushf(state);
+         break;
+      case 0xc5:  // POPF
+         cpu_rec_op_popf(state);
+         break;
+      case 0xe0:  // NOTI
+         cpu_rec_op_noti(state);
+         break;
+      case 0xe1:  // NOT
+         cpu_rec_op_not(state);
+         break;
+      case 0xe2:  // NOT r2
+         cpu_rec_op_not_r2(state);
+         break;
+      case 0xe3:  // NEGI
+         cpu_rec_op_negi(state);
+         break;
+      case 0xe4:  // NEG
+         cpu_rec_op_neg(state);
+         break;
+      case 0xe5:  // NEG r2
+         cpu_rec_op_neg_r2(state);
          break;
       default:
       {

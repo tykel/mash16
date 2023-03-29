@@ -128,6 +128,7 @@ enum {
 int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags);
 void cpu_rec_hostreg_preserve(cpu_state *state);
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
+void cpu_rec_hostreg_unfreeze(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_release_all(cpu_state *state);
 void cpu_rec_hostreg_release_mask(cpu_state *state, unsigned int mask);

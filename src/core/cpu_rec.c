@@ -84,11 +84,16 @@ void cpu_rec_hostreg_release_all(cpu_state *state)
    }
 }
 
+void cpu_rec_hostreg_unfreeze(cpu_state *state, int hostreg)
+{
+   state->rec.host[hostreg].use &= ~CPU_HOST_REG_FROZEN;
+}
+
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg)
 {
-   if (state->rec.host[hostreg].use == 0) {
-      state->rec.host[hostreg].use = CPU_HOST_REG_FROZEN;
-   }
+   //if (state->rec.host[hostreg].use == 0) {
+   state->rec.host[hostreg].use |= CPU_HOST_REG_FROZEN;
+   //}
 }
 
 static void cpu_rec_hostreg_readvar(cpu_state *state, int reg, void* ptr, size_t size, int flags)
@@ -180,6 +185,9 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
    for (i = 0; i < 16; ++i) {
       if (state->rec.host[i].use == 0) {
          break;
+      }
+      if (state->rec.host[i].use & CPU_HOST_REG_FROZEN) {
+         continue;
       }
       if (state->rec.host[i].use == CPU_HOST_REG_VAR &&
           state->rec.host[i].last_access_time < lru_time) {
@@ -295,7 +303,7 @@ static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
     // Add 4 to PC
     int regPc = HOSTREG_STATE_VAR_RW(pc, WORD);
     // ADD eax, 4
-    EMIT_REX_RBI(regPc, REG_NONE, REG_NONE, DWORD);
+    EMIT_REX_RBI(REG_NONE, regPc, REG_NONE, DWORD);
     EMIT(0x83);
     EMIT(MODRM_REG_IMM8(regPc));
     EMIT(4);
