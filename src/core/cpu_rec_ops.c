@@ -1265,6 +1265,35 @@ static void cpu_rec_op_muli(cpu_state *state)
    cpu_rec_flag_n(state, regFN);
 }
 
+
+static void cpu_rec_op_mul_r2(cpu_state *state)
+{
+   int regXReg = HOSTREG_STATE_VAR_RW(r[i_yx(state->i) & 15], WORD);
+   int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
+   int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // IMUL regXReg, regYReg
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regXReg, regYReg, REG_NONE, WORD);
+   EMIT(0x0f);
+   EMIT(0xaf);
+   EMIT(MODRM_REG_DIRECT(regXReg, regYReg));
+
+   cpu_rec_flag_c(state, regFC);
+
+   // CMP regXReg, 0
+   EMIT(P_WORD);
+   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(7, regXReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+}
+
 static void cpu_rec_op_div_r3(cpu_state *state)
 {
    // If this reg was cached, flush it
@@ -1987,6 +2016,9 @@ void* cpu_rec_dispatch(cpu_state *state, uint8_t op)
          break;
       case 0x90:  // MULI
          cpu_rec_op_muli(state);
+         break;
+      case 0x91:  // MUL r2
+         cpu_rec_op_mul_r2(state);
          break;
       case 0xa2:  // DIV r3
          cpu_rec_op_div_r3(state);
