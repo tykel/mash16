@@ -66,66 +66,68 @@ static int hex = 1;
 
 void print_state(cpu_state* state)
 {
+    instr ni;
+    ni.dword = state->i.dword; //*(uint32_t *)&state->m[state->pc];
     int i;
-    const char *sym_imm = symbols[i_hhll(state->i)];
+    const char *sym_imm = symbols[i_hhll(ni)];
     const char *sym_imm_pt = sym_imm ? sym_imm : "";
     const char sym_lp = sym_imm ? '(' : ' ';
     const char sym_rp = sym_imm ? ')' : ' ';
 
     printf("state @ cycle %ld:",state->meta.target_cycles);
-    printf("   %04x [ %s%s ", state->meta.old_pc, str_ops[i_op(state->i)],
-            i_op(state->i)==0x12 || i_op(state->i)==0x17 ? str_cond[i_yx(state->i)&0xf]:"");
+    printf("   %04x [ %s%s ", state->pc, str_ops[i_op(ni)],
+            i_op(ni)==0x12 || i_op(ni)==0x17 ? str_cond[i_yx(ni)&0xf]:"");
     switch(state->meta.type)
     {
         case OP_HHLL:
-            printf("$%04x",i_hhll(state->i));
+            printf("$%04x",i_hhll(ni));
             printf(" %c%s%c", sym_lp, sym_imm_pt, sym_lp);
             break;
         case OP_N:
-            printf("%x",i_n(state->i));
+            printf("%x",i_n(ni));
             break;
         case OP_R:
-            printf("r%x",i_yx(state->i)&0xf);
+            printf("r%x",i_yx(ni)&0xf);
             break;
         case OP_R_N:
-            printf("r%x, %x",i_yx(state->i)&0xf,i_n(state->i));
+            printf("r%x, %x",i_yx(ni)&0xf,i_n(ni));
             break;
         case OP_R_R:
-            printf("r%x, r%x",i_yx(state->i)&0xf, i_yx(state->i) >> 4);
+            printf("r%x, r%x",i_yx(ni)&0xf, i_yx(ni) >> 4);
             break;
         case OP_R_R_R:
-            printf("r%x, r%x, r%x",i_yx(state->i)&0xf, i_yx(state->i) >> 4, i_z(state->i));
+            printf("r%x, r%x, r%x",i_yx(ni)&0xf, i_yx(ni) >> 4, i_z(ni));
             break;
         case OP_N_N:
-            printf("%x, %x",i_yx(state->i)&0xf, i_yx(state->i) >> 4);
+            printf("%x, %x",i_yx(ni)&0xf, i_yx(ni) >> 4);
             break;
         case OP_R_HHLL:
-            printf("r%x, $%04x",i_yx(state->i)&0xf, i_hhll(state->i));
+            printf("r%x, $%04x",i_yx(ni)&0xf, i_hhll(ni));
             printf(" %c%s%c", sym_lp, sym_imm_pt, sym_rp);
             break;
         case OP_R_R_HHLL:
-            printf("r%x, r%x, $%04x",i_yx(state->i)&0xf, i_yx(state->i) >> 4, i_hhll(state->i));
+            printf("r%x, r%x, $%04x",i_yx(ni)&0xf, i_yx(ni) >> 4, i_hhll(ni));
             printf(" %c%s%c", sym_lp, sym_imm_pt, sym_rp);
             break;
         case OP_HHLL_HHLL:
-            printf("$%02x, $%04x",i_yx(state->i),i_hhll(state->i));
+            printf("$%02x, $%04x",i_yx(ni),i_hhll(ni));
             break;
         case OP_SP_HHLL:
-            printf("sp, $%04x",i_hhll(state->i));
+            printf("sp, $%04x",i_hhll(ni));
             break;
         case OP_NONE:
         default:
             break;
     }
     printf(" ]      %c%s%c\n",
-            symbols[state->meta.old_pc] ? '(' : ' ',
-            symbols[state->meta.old_pc] ? symbols[state->meta.old_pc] : "",
-            symbols[state->meta.old_pc] ? ')' : ' ');
+            symbols[state->pc] ? '(' : ' ',
+            symbols[state->pc] ? symbols[state->pc] : "",
+            symbols[state->pc] ? ')' : ' ');
     printf("--------------------------------------------------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
         state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
     printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %02x%02x%02x%02x |\n",
-        state->sw,state->sh,state->bgc,i_op(state->i),i_yx(state->i),i_z(state->i),i_res(state->i));
+        state->sw,state->sh,state->bgc,i_op(ni),i_yx(ni),i_z(ni),i_res(ni));
     printf("--------------------------------------------------------------\n");
     for(i=0; i<4; ++i)
     {
@@ -292,6 +294,28 @@ void sanitize_options(program_opts* opts)
         exit(1);
 }
 
+void breakpoint_print(cpu_state *state)
+{
+    int i;
+    paused = opts.use_breakall;
+    /* Stop at breakpoint if necessary. */
+    if(opts.num_breakpoints > 0)
+    {
+        for(i=0; i<opts.num_breakpoints; ++i)
+        {
+            if(state->pc == opts.bpoffs[i])
+            {
+                paused = 1;
+                break;
+            }
+        }
+    }
+    if(paused)
+    {
+        print_state(state);
+    }
+}
+
 /* Emulation loop. */
 void emulation_loop()
 { 
@@ -310,23 +334,8 @@ void emulation_loop()
             while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             {
                 cpu_exec(state);
-                paused = opts.use_breakall;
-                /* Stop at breakpoint if necessary. */
-                if(opts.num_breakpoints > 0)
-                {
-                    for(i=0; i<opts.num_breakpoints; ++i)
-                    {
-                        if(state->meta.old_pc == opts.bpoffs[i])
-                        {
-                            paused = 1;
-                        }
-                    }
-                }
-                if(paused)
-                {
-                    print_state(state);
-                    break;
-                }
+                breakpoint_print(state);
+                if (paused) break;
             }
             /* Avoid hogging the CPU... */
             while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
