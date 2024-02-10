@@ -66,8 +66,8 @@ static int hex = 1;
 
 void print_state(cpu_state* state)
 {
-    instr ni;
-    ni.dword = state->i.dword; //*(uint32_t *)&state->m[state->pc];
+    uint16_t pc = state->meta.old_pc;
+    instr ni = state->i; //*(uint32_t *)&state->m[state->pc];
     int i;
     const char *sym_imm = symbols[i_hhll(ni)];
     const char *sym_imm_pt = sym_imm ? sym_imm : "";
@@ -75,7 +75,7 @@ void print_state(cpu_state* state)
     const char sym_rp = sym_imm ? ')' : ' ';
 
     printf("state @ cycle %ld:",state->meta.target_cycles);
-    printf("   %04x [ %s%s ", state->pc, str_ops[i_op(ni)],
+    printf("   %04x [ %s%s ", pc, str_ops[i_op(ni)],
             i_op(ni)==0x12 || i_op(ni)==0x17 ? str_cond[i_yx(ni)&0xf]:"");
     switch(state->meta.type)
     {
@@ -120,12 +120,12 @@ void print_state(cpu_state* state)
             break;
     }
     printf(" ]      %c%s%c\n",
-            symbols[state->pc] ? '(' : ' ',
-            symbols[state->pc] ? symbols[state->pc] : "",
-            symbols[state->pc] ? ')' : ' ');
+            symbols[pc] ? '(' : ' ',
+            symbols[pc] ? symbols[pc] : "",
+            symbols[pc] ? ')' : ' ');
     printf("--------------------------------------------------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
-        state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
+        pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
     printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %02x%02x%02x%02x |\n",
         state->sw,state->sh,state->bgc,i_op(ni),i_yx(ni),i_z(ni),i_res(ni));
     printf("--------------------------------------------------------------\n");
@@ -299,11 +299,19 @@ void breakpoint_print(cpu_state *state)
     int i;
     paused = opts.use_breakall;
     /* Stop at breakpoint if necessary. */
-    if(opts.num_breakpoints > 0)
+    if(i_op(state->i) == 0x30 && i_hhll(state->i) == 0) {
+        printf("BREAK stm rx, 0\n");
+        paused = 1;
+    }
+    if(i_op(state->i) == 0x31 && state->r[i_yx(state->i)>>4] == 0) {
+        printf("BREAK stm rx, ry [ry = 0]\n");
+        paused = 1;
+    }
+    if(!paused && opts.num_breakpoints > 0)
     {
         for(i=0; i<opts.num_breakpoints; ++i)
         {
-            if(state->pc == opts.bpoffs[i])
+            if(state->meta.old_pc == opts.bpoffs[i])
             {
                 paused = 1;
                 break;
