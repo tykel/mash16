@@ -537,22 +537,43 @@ static void draw_imgui(cpu_state *state)
 
     ImGui::EndTable(); // BPW
 
+    // Stack
+    ImGui::BeginTable("StackTable", 1, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerH);
+    ImGui::TableSetupColumn("Stack:", ImGuiTableFlags_None);
+    ImGui::TableHeadersRow();
+    for (auto sp = state->sp - 2; sp >= 0xfdf0; sp -= 2) {
+       ImGui::TableNextRow();
+       ImGui::TableSetColumnIndex(0);
+       std::string sym = symbols[sp] ? std::format("[{}]", symbols[sp]) : "";
+       ImGui::Text("%s $%04x: $%04x %s",
+                   sp == state->sp - 2 ? ">" : " ",
+                   sp, *(reinterpret_cast<uint16_t*>(&state->m[sp])),
+                   sym.c_str());
+    }
+    ImGui::EndTable(); // Stack 
+
     ImGui::TableNextColumn();
 
     // Disassembly of instructions
-    ImGui::Text("Disassembly:");
-    ImGui::BeginTable("DisasmTable", 2, ImGuiTableFlags_SizingStretchProp);
+    ImGui::BeginTable("DisasmTable", 1,
+                      ImGuiTableFlags_BordersOuter | ImGuiTableFlags_SizingStretchProp);
+    ImGui::TableSetupColumn("Disassembly:", ImGuiTableFlags_None);
+    ImGui::TableHeadersRow();
     for (auto count = 0u, a = (unsigned int)std::clamp(state->pc - 24, 0, 0xfffc);
          count < 13 && a <= 0xfffc;
          ++count, a += 4) {
-       ImGui::TableNextRow();
-       ImGui::TableSetColumnIndex(0);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
 
-       auto istr = instr_string(state, a);
-       ImGui::Text("%s $%04x: [%02x %02x %02x %02x] %s",
-                   a == state->pc ? ">" : " ", a,
-                   state->m[a], state->m[a+1], state->m[a+2], state->m[a+3],
-                   istr.c_str());
+        auto istr = instr_string(state, a);
+        if (a == state->pc) {//(istr[0] == '>') {
+            auto col = ImGui::GetColorU32(ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, col);
+        }
+        ImGui::Text("%s $%04x: [%02x %02x %02x %02x] %s",
+                    a == state->pc ? ">" : " ", a,
+                    state->m[a], state->m[a+1], state->m[a+2], state->m[a+3],
+                    istr.c_str());
     }
     ImGui::EndTable();
 
@@ -647,6 +668,7 @@ void emulation_loop()
                 if(evt.key.keysym.sym == SDLK_SPACE)
                 {
                     paused = !paused;
+                    cpu_exec(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_n && paused)
                 {
