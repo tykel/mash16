@@ -1,1 +1,1 @@
-add_library(mash16_core STATIC audio.c cpu.c cpu_ops.c cpu_rec.c cpu_rec_ops.c gpu.c)
+add_library(mash16_core STATIC audio.cpp cpu.cpp cpu_ops.cpp cpu_rec.cpp cpu_rec_ops.cpp gpu.cpp)

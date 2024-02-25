@@ -11,7 +11,7 @@ void panic(const char* format, ...)
 {
    raise(SIGTRAP);
    
-   va_list va = { 0 };
+   va_list va = {};
    va_start(va, format);
    vfprintf(stderr, format, va);
    va_end(va);
@@ -50,19 +50,23 @@ static int read_file(char* fp, uint8_t* buf)
     return (read == len) ? len : 0;
 }
 
-char *get_symbol(cpu_state* state, uint16_t a)
+char *get_symbol(uint16_t a)
 {
    return NULL;
 }
 
-void print_state(cpu_state* state)
+void pause_cpu(void)
+{
+}
+
+void print_state(cpu_state* state, uint16_t pc)
 {
     int i;
 
     printf("state @ cycle %ld:\n",state->meta.target_cycles);
     printf("-------------------+--------------------+---------------------\n");
     printf("| pc:   0x%04x     |    sp:  0x%04x     |    flags: %c%c%c%c     | \n",
-        state->pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
+        pc,state->sp,state->f.c?'C':'_',state->f.z?'Z':'_',state->f.o?'O':'_',state->f.n?'N':'_');
     printf("| spr: %3dx%3d     |    bg:     0x%x     |    instr: %02x%02x%02x%02x |\n",
         state->sw,state->sh,state->bgc,i_op(state->i),i_yx(state->i),i_z(state->i),i_res(state->i));
     printf("+------------------+--------------------+--------------------+\n");
@@ -154,9 +158,9 @@ int main(int argc, char **argv)
           memcmp(&is->bgc, &rs->bgc, (uint8_t*)&is->pal - (uint8_t*)&is->bgc) != 0) {
          printf("states differ:\n");
          printf("interpreter:\n");
-         print_state(is);
+         print_state(is, pc);
          printf("recompiler:\n");
-         print_state(rs);
+         print_state(rs, pc);
          break;
       }
       if (memcmp(is->m, rs->m, MEM_SIZE) != 0) {

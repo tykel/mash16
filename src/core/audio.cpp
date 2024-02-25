@@ -49,11 +49,6 @@ double noise_table[1] = {
     1.0,
 };
 
-double lerp(double v1, double v2, double w)
-{
-    return w * v1 + (1.0 - w) * v2;
-}
-
 /* Initialise the SDL audio system. */
 void audio_init(cpu_state *state, program_opts *opts)
 {

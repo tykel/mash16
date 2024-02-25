@@ -16,8 +16,6 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-extern int use_verbose;
-
 #include "../consts.h"
 #include "cpu.h"
 #include "gpu.h"
@@ -30,9 +28,8 @@ extern int use_verbose;
 #include <time.h>
 
 #define mod(x, y) ((((x)%(y))+(y))%(y))
-#define FLAGS_CZON   (FLAG_C | FLAG_Z | FLAG_O | FLAG_N)
-#define FLAGS_CZN   (FLAG_C | FLAG_Z | FLAG_N)
-#define FLAGS_ZN     (FLAG_Z | FLAG_N)
+
+extern int use_verbose;
 
 typedef enum {
    OP_SUB,
@@ -76,15 +73,21 @@ static void op_flags(cpu_state *state, uint16_t mask, int16_t x, int16_t y, int1
 #define UPDATE_FLAGS_NOT(x)    op_flags(state, FLAGS_ZN, (x), 0, ~(x), OP_OTHER)
 #define UPDATE_FLAGS_NEG(x)    op_flags(state, FLAGS_ZN, (x), 0, -(x), OP_OTHER)
 
+void pause_cpu(void);
 char* get_symbol(uint16_t a);
-void print_state(cpu_state* state);
+void print_state(cpu_state* state, uint16_t pc);
+
+instr_type cpu_op_type(uint8_t op)
+{
+   return op_table[op].type;
+}
 
  /* CPU instructions. */
 void op_error(cpu_state* state)
 {
     fprintf(stderr,"error: unknown opcode encountered! (0x%x)\n",i_op(state->i));
     //fprintf(stderr,"state: pc=%04x\n",state->pc);
-    print_state(state);
+    print_state(state, state->meta.old_pc);
     fprintf(stderr,"call stack:\n");
     uint16_t sp = state->sp + 8;
     while (sp >= 0xfdf0) {
@@ -104,7 +107,7 @@ void op_error(cpu_state* state)
                sp == state->sp ? '>' : ' ', sp, a, s ? s : "", offs);
        sp -= 2;
     }
-    exit(1);
+    pause_cpu();
 }
 
 void op_nop(cpu_state* state)

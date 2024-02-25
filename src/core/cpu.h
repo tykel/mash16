@@ -28,6 +28,10 @@
 #define FLAG_O 64
 #define FLAG_N 128
 
+#define FLAGS_CZON   (FLAG_C | FLAG_Z | FLAG_O | FLAG_N)
+#define FLAGS_CZN   (FLAG_C | FLAG_Z | FLAG_N)
+#define FLAGS_ZN     (FLAG_Z | FLAG_N)
+
 #define C_Z  0x0
 #define C_NZ 0x1
 #define C_N  0x2
@@ -211,7 +215,15 @@ extern size_t page_size;
 
 /* Instruction function pointer table. */
 typedef void (*cpu_op)(cpu_state*);
-extern cpu_op op_table[0x100];
+
+typedef struct {
+   const char *name;
+   instr_type type;
+   int flags;
+   cpu_op impl;
+} cpu_op_entry;
+
+extern cpu_op_entry op_table[];
 
 uint32_t mash16_rand(cpu_state *state);
 
@@ -222,12 +234,14 @@ void cpu_io_update(SDL_KeyboardEvent*,cpu_state*);
 void cpu_io_reset(cpu_state*);
 void cpu_free(cpu_state*);
 
+instr_type cpu_op_type(uint8_t);
+
 void cpu_rec_init(cpu_state*, program_opts*);
 void cpu_rec_compile(cpu_state*, uint16_t);
 void cpu_rec_1bblk(cpu_state*);
 void cpu_rec_validate(cpu_state*, uint16_t);
 void cpu_rec_free(cpu_state*);
-void* cpu_rec_dispatch(cpu_state *, uint8_t);
+void cpu_rec_dispatch(cpu_state *, uint8_t);
 
 void op_error(cpu_state*);
 void op_nop(cpu_state*);

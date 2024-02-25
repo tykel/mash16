@@ -3,6 +3,6 @@ mash16
 build/
 
 # tykel: local files
+tests/
 tags
-c
 archive/

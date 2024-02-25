@@ -5,7 +5,7 @@ static void cpu_rec_op_nop(cpu_state *state)
 {
 }
 
-static uint8_t* cpu_rec_op_cls(cpu_state *state)
+static void cpu_rec_op_cls(cpu_state *state)
 {
    int regTemp = HOSTREG_TEMP_VAR();
 
@@ -1885,7 +1885,7 @@ static void cpu_rec_op_neg_r2(cpu_state *state)
    cpu_rec_flag_n(state, regFN);
 }
 
-void* cpu_rec_dispatch(cpu_state *state, uint8_t op)
+void cpu_rec_dispatch(cpu_state *state, uint8_t op)
 {
    switch (op) {
       case 0x00:  // NOP
@@ -2079,7 +2079,7 @@ void* cpu_rec_dispatch(cpu_state *state, uint8_t op)
          break;
       default:
       {
-         void *op_instr = (void *)op_table[op];
+         void *op_instr = (void *)op_table[op].impl;
 
          cpu_rec_hostreg_release_all(state);
          cpu_rec_hostreg_preserve(state);

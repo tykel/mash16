@@ -56,7 +56,7 @@ static int rex(int reg, int b, int i, int sz, int *need)
    if (need) EMIT(_rex);\
 } while (0)
 
-static enum {
+enum {
    BYTE =   1,
    WORD =   2,
    DWORD =  4,
@@ -153,7 +153,7 @@ int cpu_rec_hostreg_evict_mask(cpu_state *state, unsigned int mask);
 
 #define HOSTREG_TEMP_VAR() cpu_rec_hostreg_var(state, NULL, DWORD, 0)
 
-#define HOSTREG_PTR(zzp) cpu_rec_hostreg_var(state, zzp, sizeof(void*), CPU_VAR_ADDRESS_OF)
+#define HOSTREG_PTR(zzp) cpu_rec_hostreg_var(state, reinterpret_cast<void*>(zzp), sizeof(void*), CPU_VAR_ADDRESS_OF)
 #define HOSTREG_STATE_VAR_RW(zzz, szz)\
    cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ | CPU_VAR_WRITE)
 #define HOSTREG_STATE_VAR_R(zzz, szz)\

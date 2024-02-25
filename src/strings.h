@@ -16,10 +16,10 @@
  *   along with mash16.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef STRINGS_
+#ifndef STRINGS_H
 #define STRINGS_H
 
-extern const char* const str_ops[14*16];
+extern const char* const str_ops[16*16];
 extern const char* const str_cond[16];
 extern const char* const str_help[2];
 

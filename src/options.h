@@ -40,9 +40,12 @@ typedef struct program_opts
     int use_cpu_rec;
     int cpu_rec_1bblk_per_op;
     char *breakpoints[BREAKPOINTS];
-    int bpoffs[BREAKPOINTS];
     int num_breakpoints;
+    char *watchpoints[BREAKPOINTS];
+    int num_watchpoints;
     int use_breakall;
+    int debug_ui;
+    int debug_stdout;
 
     int rng_seed;
 } program_opts;

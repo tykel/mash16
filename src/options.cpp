@@ -195,6 +195,21 @@ void options_parse(int argc, char** argv, program_opts* opts)
                     exit(1);
                 }
             }
+            else if (!strncmp(argv[i],"--watch", 7)) {
+                char *n, *nums;
+                
+                if (strlen(argv[i]) > 8 && argv[i][7] == '@') {
+                    nums = &argv[i][8];
+                    n = strtok(nums, ", ");
+                    while (n != NULL) {
+                        opts->watchpoints[opts->num_watchpoints++] = n;
+                        n = strtok(NULL, ", ");
+                    }
+                } else {
+                    fprintf(stderr, "error: no breakpoint specified\n");
+                    exit(1);
+                }
+            }
             else if(!strncmp(argv[i],"--fullscreen",MAX_STRING))
             {
                 opts->use_fullscreen = 1;
@@ -255,6 +270,40 @@ void options_parse(int argc, char** argv, program_opts* opts)
             else if(!strncmp(argv[i],"--cpu-rec-1bblk-per-op",MAX_STRING))
             {
                 opts->cpu_rec_1bblk_per_op = 1;
+            }
+            else if (!strncmp(argv[i],"--debugger",10))
+            {
+                char *debugger = NULL;
+                if(strlen(argv[i]) > 11 && argv[i][10] == '=')
+                {
+                    debugger = &argv[i][11];
+                }
+                else if(i+1 < argc)
+                {
+                    debugger = argv[++i];
+                }
+                else
+                {
+                    fprintf(stderr,"error: no debugger type supplied\n");
+                    continue;
+                }
+                if(!strncmp(debugger,"ui",2))
+                {
+                    opts->debug_ui = 1;
+                    opts->debug_stdout = 0;
+                }
+                else if(!strncmp(debugger,"stdout",6))
+                {
+                    opts->debug_ui = 0;
+                    opts->debug_stdout = 1;
+                }
+                else if(!strncmp(debugger,"both",4))
+                {
+                    opts->debug_ui = 1;
+                    opts->debug_stdout = 1;
+                }
+                else
+                   fprintf(stderr,"error: invalid debugger type \"%s\"\n",debugger);
             }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {

@@ -10,10 +10,11 @@ void cpu_rec_init(cpu_state* state, program_opts* opts)
 {
    state->rec.jit_base = (void*)ROUNDUP((size_t)state + sizeof(*state), page_size);
    state->rec.jit_next = state->rec.jit_base;
-   memset(state->rec.jit_base, 0x90, 16*1024*1024 - (state->rec.jit_base - (void*)state));
+   memset(state->rec.jit_base, 0x90,
+          16*1024*1024 - (reinterpret_cast<char*>(state->rec.jit_base) - reinterpret_cast<char*>(state)));
    memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
    state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
-   state->rec.dirty_map = calloc(8192, 1);
+   state->rec.dirty_map = reinterpret_cast<uint8_t*>(calloc(8192, 1));
 }
 
 void cpu_rec_free(cpu_state* state)
@@ -289,8 +290,6 @@ static void cpu_rec_compile_end(cpu_state *state)
 
 static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
 {
-    void *op_instr = op_table[state->m[a]];
-    
     // Copy instruction 32 bits to state
     state->i = *(instr*)(&state->m[a]);
 
@@ -357,7 +356,7 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     state->rec.bblk_map[start].end_pc = end;
 
     size = ROUNDUP(nb_instrs * 96, 8);
-    jit_ptr = state->rec.jit_next;
+    jit_ptr = reinterpret_cast<uint8_t *>(state->rec.jit_next);
     printf("> ... bblk->code @ %p (%d Chip16 instructions)\n", jit_ptr, nb_instrs);
     void* page = (void *)((uintptr_t)jit_ptr & ~(sysconf(_SC_PAGESIZE) - 1));
     size_t sizeup = ROUNDUP(((jit_ptr + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
