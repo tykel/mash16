@@ -28,7 +28,7 @@
 extern int use_verbose;
 size_t page_size;
 
-cpu_op_entry op_table[] = {
+cpu_op_entry op_table[256] = {
     // 0x
    { "nop",    OP_NONE,       0,       op_nop },
    { "cls",    OP_NONE,       0,       op_cls },
@@ -68,7 +68,7 @@ cpu_op_entry op_table[] = {
    { "ldi",    OP_SP_HHLL,    0,       op_ldi_sp },
    { "ldm",    OP_R_HHLL,     0,       op_ldm_imm },
    { "ldm",    OP_R_R,        0,       op_ldm_r },
-   { "mov",    OP_HHLL, 0, op_error },
+   { "mov",    OP_R_R,        0,       op_mov },
    { "0x25",   OP_NONE, 0, op_error },
    { "0x26",   OP_NONE, 0, op_error },
    { "0x27",   OP_NONE, 0, op_error },

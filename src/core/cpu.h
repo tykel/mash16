@@ -223,7 +223,7 @@ typedef struct {
    cpu_op impl;
 } cpu_op_entry;
 
-extern cpu_op_entry op_table[];
+extern cpu_op_entry op_table[256];
 
 uint32_t mash16_rand(cpu_state *state);
 

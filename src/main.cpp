@@ -63,6 +63,7 @@ struct watch_entry
 /* Globals used within the file. */
 static program_opts opts;
 static cpu_state* state;
+static cpu_state last_state;
 static char *symbol_strs;
 static char *symbols[0x10000];
 static std::map<uint16_t, watch_entry> watches;
@@ -415,6 +416,14 @@ void breakpoint_handle(cpu_state *state)
     }
 }
 
+static ImVec4 c_red(1.0, 0.0, 0.0, 1.0);
+static ImVec4 c_white(1.0, 1.0, 1.0, 1.0);
+#define maybe_red(rrr) \
+    ((memcmp(&state->rrr,&last_state.rrr,sizeof(state->rrr)) == 0) ? c_white : c_red)
+#define maybe_red2(rr,ss) \
+    (((memcmp(&state->rr,&last_state.rr,sizeof(state->rr)) == 0) &&\
+      (memcmp(&state->ss,&last_state.ss,sizeof(state->ss)) == 0)) ? c_white : c_red)
+
 static void draw_imgui(cpu_state *state)
 {
     ImGui::Begin("CPU state"); 
@@ -429,16 +438,16 @@ static void draw_imgui(cpu_state *state)
     ImGui::TableNextRow();
     {
        ImGui::TableSetColumnIndex(0);
-       ImGui::Text("pc: $%04x ", state->pc);
+       ImGui::TextColored(maybe_red(pc), "pc: $%04x ", state->pc);
        ImGui::TableNextColumn();
-       ImGui::Text("sp: $%04x ", state->sp);
+       ImGui::TextColored(maybe_red(sp), "sp: $%04x ", state->sp);
        ImGui::TableNextColumn();
-       ImGui::Text("f = [ %c %c %c %c ] ",
+       ImGui::TextColored(maybe_red(f), "f = [ %c %c %c %c ] ",
              state->f.c ? 'C' : '_', state->f.z ? 'Z' : '_',
              state->f.o ? 'O' : '_', state->f.n ? 'N' : '_');
        ImGui::TableNextRow();
        ImGui::TableSetColumnIndex(0);
-       ImGui::Text("bgc: $%1x ", state->bgc);
+       ImGui::TextColored(maybe_red(bgc), "bgc: $%1x ", state->bgc);
        ImVec4 bgc_col( 
           state->pal_r[state->bgc] / 255.0,
           state->pal_g[state->bgc] / 255.0,
@@ -453,9 +462,9 @@ static void draw_imgui(cpu_state *state)
                           ImGuiColorEditFlags_NoTooltip,
                           ImVec2(14.f, 14.f));
        ImGui::TableNextColumn();
-       ImGui::Text("flip: %c%c", state->fx ? 'X' : ' ', state->fy ? 'Y' : ' ');
+       ImGui::TextColored(maybe_red2(fx,fy), "flip: %c%c", state->fx ? 'X' : ' ', state->fy ? 'Y' : ' ');
        ImGui::TableNextColumn();
-       ImGui::Text("spr: % 2u x % 2u ", state->sw, state->sh);
+       ImGui::TextColored(maybe_red2(sw,sh), "spr: % 2u x % 2u ", state->sw, state->sh);
     }
     ImGui::EndTable();
 
@@ -465,13 +474,13 @@ static void draw_imgui(cpu_state *state)
     for (auto i = 0; i < 16; i += 4) {
        ImGui::TableNextRow();
        ImGui::TableSetColumnIndex(i % 2);
-       ImGui::Text("r%x: $%04x ", i, state->r[i]);
+       ImGui::TextColored(maybe_red(r[i]), "r%x: $%04x ", i, state->r[i]);
        ImGui::TableNextColumn();
-       ImGui::Text("r%x: $%04x ", i+1, state->r[i+1]);
+       ImGui::TextColored(maybe_red(r[i+1]), "r%x: $%04x ", i+1, state->r[i+1]);
        ImGui::TableNextColumn();
-       ImGui::Text("r%x: $%04x ", i+2, state->r[i+2]);
+       ImGui::TextColored(maybe_red(r[i+2]), "r%x: $%04x ", i+2, state->r[i+2]);
        ImGui::TableNextColumn();
-       ImGui::Text("r%x: $%04x ", i+3, state->r[i+3]);
+       ImGui::TextColored(maybe_red(r[i+3]), "r%x: $%04x ", i+3, state->r[i+3]);
     }
     ImGui::EndTable();
 
@@ -611,6 +620,7 @@ void emulation_loop()
             while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             {
                 breakpoint_handle(state);
+                last_state = *state;
                 if (paused)
                     break;
                 cpu_exec(state);
@@ -668,10 +678,12 @@ void emulation_loop()
                 if(evt.key.keysym.sym == SDLK_SPACE)
                 {
                     paused = !paused;
+                    last_state = *state;
                     cpu_exec(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_n && paused)
                 {
+                    last_state = *state;
                     cpu_exec(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_h && paused)
@@ -927,6 +939,7 @@ int main(int argc, char* argv[])
 
     /* Initialise the chip16 processor state. */
     cpu_init(&state,mem,&opts);
+    last_state = *state;
     audio_init(state,&opts);
     init_pal(state);
     if(opts.use_verbose)
