@@ -726,7 +726,7 @@ static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
    }
    cpu_rec_hostreg_release(state, RCX);
    cpu_rec_hostreg_freeze(state, RCX);
-  
+
    // XOR ecx, ecx
    EMIT(0x33);
    EMIT(MODRM_REG_DIRECT(RCX, RCX));
@@ -745,21 +745,21 @@ static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
    EMIT(0xd1);
    EMIT(MODRM_REG_DIRECT(5, regAddress));
-   // RCL CL, 0
+   // RCL CL, 1
    EMIT(0xd0);
    EMIT(MODRM_REG_DIRECT(2, CL));
    // SHR regAddress, 1
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
    EMIT(0xd1);
    EMIT(MODRM_REG_DIRECT(5, regAddress));
-   // RCL CL, 0
+   // RCL CL, 1
    EMIT(0xd0);
    EMIT(MODRM_REG_DIRECT(2, CL));
    // SHR regAddress, 1
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
    EMIT(0xd1);
    EMIT(MODRM_REG_DIRECT(5, regAddress));
-   // RCL CL, 0
+   // RCL CL, 1
    EMIT(0xd0);
    EMIT(MODRM_REG_DIRECT(2, CL));
    // SHL regBits, CL

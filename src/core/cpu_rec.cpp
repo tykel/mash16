@@ -225,6 +225,14 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
    } else {
       if (flags & CPU_VAR_READ) {
          cpu_rec_hostreg_readvar(state, reg, ptr, size, flags);
+      } else {
+          // We want to clear top bits as WORD/BYTE ops are not zero-extended
+          if (size < 4) {
+             // XOR reg, reg
+             EMIT_REX_RBI(reg, reg, REG_NONE, DWORD);
+             EMIT(0x33);
+             EMIT(MODRM_REG_DIRECT(reg, reg));
+          }
       }
    }
 
@@ -316,10 +324,14 @@ void cpu_rec_validate(cpu_state *state, uint16_t a)
    cpu_rec_bblk *bblk = &state->rec.bblk_map[a];
    int index = a >> 3;
    int bit = a & 7;
-   int mask = ~((1 << bit) - 1);
+   // Fuzz the mask as the address might not be on an instruction boundary.
+   // bit = 4:
+   // pos  76 54 32 10
+   // mask 11 10 01 11
+   int mask = ~(3 << (bit - 1));
    if (state->rec.dirty_map[index] & mask && bblk->code) {
       printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
-      state->rec.dirty_map[index] &= ~mask;
+      state->rec.dirty_map[index] &= mask;
       memset(bblk, 0, sizeof(*bblk));
    }
 }
@@ -355,8 +367,17 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     state->rec.bblk_pcN = end;
     state->rec.bblk_map[start].end_pc = end;
 
-    size = ROUNDUP(nb_instrs * 96, 8);
+    size = ROUNDUP(nb_instrs * 192, 8);
     jit_ptr = reinterpret_cast<uint8_t *>(state->rec.jit_next);
+
+    if ((uintptr_t)jit_ptr + size >= (uintptr_t)state + 16*1024*1024) {
+        printf("insufficient memory remaining in JIT allocation, evict all blocks\n");
+        memset(state->rec.dirty_map, 0, 8192);
+        for (auto p = 0; p < 0x10000; ++p) {
+            memset(state->rec.bblk_map, 0, sizeof(*state->rec.bblk_map));
+        }
+    }
+
     printf("> ... bblk->code @ %p (%d Chip16 instructions)\n", jit_ptr, nb_instrs);
     void* page = (void *)((uintptr_t)jit_ptr & ~(sysconf(_SC_PAGESIZE) - 1));
     size_t sizeup = ROUNDUP(((jit_ptr + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
