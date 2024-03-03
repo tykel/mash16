@@ -5,7 +5,7 @@
 #include "header/header.h"
 #include "options.h"
 
-int use_verbose = 0;
+int use_verbose = 1;
 
 void panic(const char* format, ...)
 {
@@ -161,6 +161,7 @@ int main(int argc, char **argv)
          print_state(is, pc);
          printf("recompiler:\n");
          print_state(rs, pc);
+         panic("raise SIGTRAP");
          break;
       }
       if (memcmp(is->m, rs->m, MEM_SIZE) != 0) {
@@ -169,6 +170,7 @@ int main(int argc, char **argv)
          printf("interpreter: %02x\n", is->m[offs]);
          printf("recompiler: %02x\n", rs->m[offs]);
          printf("pc = 0x%04x\n", is->pc);
+         panic("raise SIGTRAP");
          break;
       }
       if (memcmp(is->vm, rs->vm, 320*240) != 0) {
@@ -177,6 +179,7 @@ int main(int argc, char **argv)
          printf("interpreter: %02x\n", is->vm[offs]);
          printf("recompiler: %02x\n", rs->vm[offs]);
          printf("pc = 0x%04x\n", is->pc);
+         panic("raise SIGTRAP");
          break;
       }
       cpu_rec_1bblk(rs);

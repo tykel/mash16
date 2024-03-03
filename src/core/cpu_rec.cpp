@@ -1,18 +1,20 @@
 #include <errno.h>
 #include <limits.h>
+#include <signal.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
 #include "cpu.h"
 #include "cpu_rec_ops.h"
 
+#define CPU_REC_TOTAL (CPU_REC_PAGES * page_size)
+
 void cpu_rec_init(cpu_state* state, program_opts* opts)
 {
    state->rec.jit_base = (void*)ROUNDUP((size_t)state + sizeof(*state), page_size);
-   state->rec.jit_next = state->rec.jit_base;
-   memset(state->rec.jit_base, 0x90,
-          16*1024*1024 - (reinterpret_cast<char*>(state->rec.jit_base) - reinterpret_cast<char*>(state)));
+   memset(state->rec.jit_base, 0x90, CPU_REC_TOTAL);
    memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
+   state->rec.jit_next_page = state->rec.jit_base;
    state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
    state->rec.dirty_map = reinterpret_cast<uint8_t*>(calloc(8192, 1));
 }
@@ -20,6 +22,13 @@ void cpu_rec_init(cpu_state* state, program_opts* opts)
 void cpu_rec_free(cpu_state* state)
 {
    free(state->rec.dirty_map);
+}
+
+void* cpu_rec_get_page(cpu_state* state)
+{
+    void* page = state->rec.jit_next_page;
+    state->rec.jit_next_page += page_size;
+    return page;
 }
 
 void cpu_rec_hostreg_release(cpu_state *state, int i)
@@ -227,7 +236,7 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
          cpu_rec_hostreg_readvar(state, reg, ptr, size, flags);
       } else {
           // We want to clear top bits as WORD/BYTE ops are not zero-extended
-          if (size < 4) {
+          if (!(flags & CPU_VAR_DIRTY) && size < 4) {
              // XOR reg, reg
              EMIT_REX_RBI(reg, reg, REG_NONE, DWORD);
              EMIT(0x33);
@@ -328,20 +337,21 @@ void cpu_rec_validate(cpu_state *state, uint16_t a)
    // bit = 4:
    // pos  76 54 32 10
    // mask 11 10 01 11
-   int mask = ~(3 << (bit - 1));
+   int mask = 255; //~(3 << (bit - 1));
    if (state->rec.dirty_map[index] & mask && bblk->code) {
-      printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
+      if (use_verbose)
+          printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
       state->rec.dirty_map[index] &= mask;
-      memset(bblk, 0, sizeof(*bblk));
+      bblk->invalid = true;
+      mprotect((void*)bblk->code, page_size, PROT_READ|PROT_WRITE);
    }
 }
 
 void cpu_rec_compile(cpu_state* state, uint16_t a)
 {
-    uint8_t *jit_ptr;
-    size_t size;
     uint16_t start = a, end, nb_instrs;
     int ret, found_branch = 0;
+    cpu_rec_bblk *bblk = &state->rec.bblk_map[start];
 
     for (end = start; end < UINT16_MAX; end += 4)
     {
@@ -365,29 +375,21 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
 
     state->rec.bblk_pc0 = start;
     state->rec.bblk_pcN = end;
-    state->rec.bblk_map[start].end_pc = end;
+    bblk->end_pc = end;
 
-    size = ROUNDUP(nb_instrs * 192, 8);
-    jit_ptr = reinterpret_cast<uint8_t *>(state->rec.jit_next);
-
-    if ((uintptr_t)jit_ptr + size >= (uintptr_t)state + 16*1024*1024) {
-        printf("insufficient memory remaining in JIT allocation, evict all blocks\n");
-        memset(state->rec.dirty_map, 0, 8192);
-        for (auto p = 0; p < 0x10000; ++p) {
-            memset(state->rec.bblk_map, 0, sizeof(*state->rec.bblk_map));
-        }
+    uint8_t* jit_ptr;
+    if (bblk->invalid) {
+        jit_ptr = (uint8_t*)bblk->code;
+        bblk->invalid = false;
+    } else {
+        jit_ptr = (uint8_t*)cpu_rec_get_page(state);
     }
 
-    printf("> ... bblk->code @ %p (%d Chip16 instructions)\n", jit_ptr, nb_instrs);
-    void* page = (void *)((uintptr_t)jit_ptr & ~(sysconf(_SC_PAGESIZE) - 1));
-    size_t sizeup = ROUNDUP(((jit_ptr + size) - (uint8_t *)page), sysconf(_SC_PAGESIZE));
-    if (mprotect(page, sizeup, PROT_READ | PROT_WRITE) < 0) {
-        fprintf(stderr, "mprotect(%p, %zu, rw) failed with errno %d.\n",
-                page, sizeup, errno);
-        exit(1);
-    }
+    if (use_verbose)
+        printf("> ... bblk->code @ %p (%d Chip16 instructions)\n",
+               jit_ptr, nb_instrs);
 
-    uint8_t *jit_end = jit_ptr + size;
+    uint8_t *jit_end = jit_ptr + page_size;
     state->rec.jit_p = jit_ptr;
     cpu_rec_compile_start(state, a);
     for (; a < end; a += 4)
@@ -396,20 +398,8 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         cpu_rec_compile_instr(state, a);
         
         if ((jit_end - state->rec.jit_p) <= 32) {
-           size_t size2 = size * 2;
-           size_t sizeup2 = ROUNDUP(((jit_ptr + size2) - (uint8_t*)page),
-                                    sysconf(_SC_PAGESIZE));
-           printf("> ...... grow block from %zu to %zu bytes\n", size, size2);
-           if (sizeup2 > sizeup) {
-              if (mprotect(page, sizeup2, PROT_READ | PROT_WRITE) < 0) {
-                 fprintf(stderr, "mprotect(%p, %zu, rw) failed with errno %d.\n",
-                         page, sizeup2, errno);
-                 exit(1);
-              }
-              sizeup = sizeup2;
-           }
-           size = size2;
-           jit_end = jit_ptr + size;
+            printf("> ... basic block will exceed JIT page, shortening\n");
+            raise(SIGTRAP);
         }
         if (state->rec.bblk_stop) {
            nb_instrs = (a - start) / 4 + 1;
@@ -418,17 +408,16 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         }
     }
     cpu_rec_compile_end(state);
-    if (mprotect(page, sizeup, PROT_EXEC) < 0) {
+    if (mprotect(jit_ptr, page_size, PROT_EXEC) < 0) {
         fprintf(stderr, "mprotect(%p, %zu, x) failed with errno %d.\n",
-                page, sizeup, errno);
+                jit_ptr, page_size, errno);
         exit(1);
     }
-
-    state->rec.jit_next += (state->rec.jit_p - jit_ptr);
 
     state->rec.bblk_map[start].code = (void (*)(void))(jit_ptr);
     state->rec.bblk_map[start].size = state->rec.jit_p - jit_ptr;
     state->rec.bblk_map[start].cycles = nb_instrs;
-    printf("> ... reserved %zu, final size: %zu bytes\n",
-           size, state->rec.bblk_map[start].size);
+    if (use_verbose)
+        printf("> ... page size %zu, final size: %zu bytes\n",
+               page_size, state->rec.bblk_map[start].size);
 }

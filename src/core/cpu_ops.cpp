@@ -1102,28 +1102,30 @@ void flags_xor(int16_t x, int16_t y, cpu_state* state)
 
 void flags_mul(int16_t x, int16_t y, cpu_state* state)
 {
-    uint32_t res = (uint16_t)x * (uint16_t)y;
+    int16_t res16 = x * y;
+    int32_t res32 = (int32_t)x * y;
     memset(&state->f,0,sizeof(flags));
-    if(!res)
+    if(!res16)
         state->f.z = 1;
-    if(res > UINT16_MAX)
+    if(res32 != res16)
         state->f.c = 1;
-    if((int16_t)res < 0)
+    if(res16 < 0)
         state->f.n = 1;
 }
 
 void flags_div(int16_t x, int16_t y, cpu_state* state)
 {
-    uint16_t res, rem;
+    int16_t res;
+    int16_t rem;
     
-    res = (uint16_t)x / (uint16_t)y;
-    rem = (uint16_t)x % (uint16_t)y;
+    res = x / y;
+    rem = x % y;
     memset(&state->f,0,sizeof(flags));
     if(!res)
         state->f.z = 1;
     if(rem)
         state->f.c = 1;
-    if(*(int16_t*)&res < 0)
+    if(res < 0)
         state->f.n = 1;
 }
 

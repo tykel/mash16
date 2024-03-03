@@ -160,6 +160,8 @@ int cpu_rec_hostreg_evict_mask(cpu_state *state, unsigned int mask);
    cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ)
 #define HOSTREG_STATE_VAR_W(zzz, szz)\
    cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_WRITE)
+#define HOSTREG_STATE_VAR_W_DIRTY(zzz, szz)\
+   cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_WRITE | CPU_VAR_DIRTY)
 
 #endif
 

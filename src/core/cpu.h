@@ -49,6 +49,12 @@
 #define C_LE 0xe
 #define C_RES 0xf
 
+extern int use_verbose;
+extern size_t page_size;
+
+extern const size_t CPU_REC_PAGES;
+extern const size_t CPU_TOTAL_PAGES;
+
 /* Instruction representation. */
 typedef union
 {
@@ -110,6 +116,7 @@ typedef struct cpu_rec_bblk
     size_t size;
     int cycles;
     uint16_t end_pc;
+    bool invalid;
 } cpu_rec_bblk;
 
 #define CPU_HOST_REG_VAR         1  // cache a variable from memory
@@ -132,13 +139,11 @@ typedef struct cpu_rec
     /* A 8,192 entry map of Chip16 addresses to dirty bits. */
     uint8_t *dirty_map;
 
+    /* Pointer to the next available page for a JIT block to use. */
+    void *jit_next_page;
+
     /* Memory pages mmap()-d for JIT. 4 MiB total. */
     void *jit_base;
-
-    /* Currently our scheme only allocates, there is no eviction or
-     * deallocation until exit. So a monotonously increasing "next" pointer is
-     * enough to tell us where to start the next basic block code pointer. */
-    void *jit_next;
 
     /* Pointer to next position in current JIT block. */
     uint8_t *jit_p;
@@ -207,6 +212,7 @@ typedef struct cpu_state
     uint32_t prev_rand;
     cpu_meta meta;
     cpu_rec rec;
+    size_t total_alloc;
 
 } cpu_state;
 

@@ -20,13 +20,18 @@
 #include "cpu.h"
 #include "gpu.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 extern int use_verbose;
 size_t page_size;
+
+const size_t CPU_REC_PAGES = (65536 / 4);
+const size_t CPU_TOTAL_PAGES = CPU_REC_PAGES + 1;
 
 cpu_op_entry op_table[256] = {
     // 0x
@@ -323,12 +328,16 @@ void cpu_init(cpu_state** state, uint8_t* mem, program_opts* opts)
     int i;
 
     page_size = sysconf(_SC_PAGESIZE);
+    size_t total_alloc = page_size * CPU_TOTAL_PAGES;
 
-    if (posix_memalign((void **)state, page_size, 16 * 1024 * 1024) < 0)
+    *state = (cpu_state *)
+        mmap(0, total_alloc, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+    if (state == MAP_FAILED)
     {
-        fprintf(stderr,"error: posix_memalign failed (state)\n");
+        fprintf(stderr, "error: mmap failed (state): errno %d\n", errno);
         exit(1);
     }
+    (*state)->total_alloc = total_alloc;
     cpu_rec_init(*state, opts);
     (*state)->rec.bblk_map = reinterpret_cast<cpu_rec_bblk *>(
           calloc(65536, sizeof(cpu_rec_bblk)));
@@ -399,13 +408,12 @@ void cpu_rec_1bblk(cpu_state* state)
     cpu_rec_bblk* bblk = &state->rec.bblk_map[state->pc];
     state->meta.old_pc = state->pc;
     cpu_rec_validate(state, state->pc);
-    if (bblk->code == NULL) {
-        printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
+    if (bblk->code == NULL || bblk->invalid) {
+        if (use_verbose)
+            printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
         cpu_rec_compile(state, state->pc);
     }
 
-    //printf("> recompiler: run basic block @ 0x%04x, %d cycles [%p]. r3=%d, r5=%04hx\n",
-    //       state->pc, bblk->cycles, bblk->code, state->r[3], state->r[5]);
     bblk->code();
     state->meta.cycles += bblk->cycles;
     state->meta.target_cycles += bblk->cycles;
@@ -505,7 +513,7 @@ void cpu_free(cpu_state* state)
 #endif
     cpu_rec_free(state);
     free(state->rec.bblk_map);
-    free(state);
+    munmap(state, state->total_alloc);
 }
 
 

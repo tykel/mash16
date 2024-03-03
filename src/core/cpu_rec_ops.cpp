@@ -1356,7 +1356,7 @@ static void cpu_rec_op_div_r3(cpu_state *state)
    // The result is in EAX, so fiddle to get RZ mapped to EAX to avoid MOV-ing 
    // if we can.
    cpu_rec_hostreg_release(state, RAX);
-   int regDstReg = HOSTREG_STATE_VAR_W(r[i_z(state->i)], WORD);
+   int regDstReg = HOSTREG_STATE_VAR_W_DIRTY(r[i_z(state->i)], WORD);
 
    if (regDstReg != RAX) {
       EMIT_REX_RBI(regDstReg, RAX, REG_NONE, DWORD);
@@ -1830,11 +1830,6 @@ static void cpu_rec_op_negi(cpu_state *state)
    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
    EMIT(0xb8 + (regXReg & 7));
    EMIT4i(-*(int16_t*)&i_hhll(state->i));
-   // CMP regXReg, 0
-   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
-   EMIT(0x83);
-   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
-   EMIT(0);
 
    cpu_rec_flag_z(state, regFZ);
    cpu_rec_flag_n(state, regFN);
@@ -1850,12 +1845,7 @@ static void cpu_rec_op_neg(cpu_state *state)
    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
    EMIT(0xf7);
    EMIT(MODRM_REG_DIRECT(3, regXReg));
-   // CMP regXReg, 0
-   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
-   EMIT(0x83);
-   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
-   EMIT(0);
-
+   
    cpu_rec_flag_z(state, regFZ);
    cpu_rec_flag_n(state, regFN);
 }
@@ -1875,11 +1865,6 @@ static void cpu_rec_op_neg_r2(cpu_state *state)
    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
    EMIT(0xf7);
    EMIT(MODRM_REG_DIRECT(3, regXReg));
-   // CMP regXReg, 0
-   EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
-   EMIT(0x83);
-   EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
-   EMIT(0);
 
    cpu_rec_flag_z(state, regFZ);
    cpu_rec_flag_n(state, regFN);
