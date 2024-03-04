@@ -14,7 +14,6 @@ void cpu_rec_init(cpu_state* state, program_opts* opts)
    state->rec.jit_base = (void*)ROUNDUP((size_t)state + sizeof(*state), page_size);
    memset(state->rec.jit_base, 0x90, CPU_REC_TOTAL);
    memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
-   state->rec.jit_next_page = state->rec.jit_base;
    state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
    state->rec.dirty_map = reinterpret_cast<uint8_t*>(calloc(8192, 1));
 }
@@ -24,11 +23,9 @@ void cpu_rec_free(cpu_state* state)
    free(state->rec.dirty_map);
 }
 
-void* cpu_rec_get_page(cpu_state* state)
+void* cpu_rec_get_page(cpu_state* state, uint16_t a)
 {
-    void* page = state->rec.jit_next_page;
-    state->rec.jit_next_page += page_size;
-    return page;
+    return state->rec.jit_base + (a >> 2) * page_size;
 }
 
 void cpu_rec_hostreg_release(cpu_state *state, int i)
@@ -382,7 +379,7 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         jit_ptr = (uint8_t*)bblk->code;
         bblk->invalid = false;
     } else {
-        jit_ptr = (uint8_t*)cpu_rec_get_page(state);
+        jit_ptr = (uint8_t*)cpu_rec_get_page(state, a);
     }
 
     if (use_verbose)

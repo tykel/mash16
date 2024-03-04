@@ -139,9 +139,6 @@ typedef struct cpu_rec
     /* A 8,192 entry map of Chip16 addresses to dirty bits. */
     uint8_t *dirty_map;
 
-    /* Pointer to the next available page for a JIT block to use. */
-    void *jit_next_page;
-
     /* Memory pages mmap()-d for JIT. 4 MiB total. */
     void *jit_base;
 
