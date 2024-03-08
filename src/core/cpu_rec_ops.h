@@ -30,6 +30,7 @@ static const uint8_t REX_W = 0x48;
 
 #define OFFSET(p, n) ((char*)(p) - (char*)((state->rec.jit_p) + (n)))
 #define EMIT(b)   (*state->rec.jit_p++ = (b))
+#define EMITi(b)   (*(int8_t*)state->rec.jit_p++ = (int8_t)(b))
 #define EMIT2i(w) do { *(int16_t*)state->rec.jit_p = (int16_t)(w); state->rec.jit_p += sizeof(int16_t); } while (0)
 #define EMIT2u(w) do { *(uint16_t*)state->rec.jit_p = (uint16_t)(w); state->rec.jit_p += sizeof(uint16_t); } while (0)
 #define EMIT4i(dw) do { *(int32_t*)state->rec.jit_p = (int32_t)(dw); state->rec.jit_p += sizeof(int32_t); } while (0)

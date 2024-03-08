@@ -438,9 +438,9 @@ static void draw_imgui(cpu_state *state)
     ImGui::TableNextRow();
     {
        ImGui::TableSetColumnIndex(0);
-       ImGui::TextColored(maybe_red(pc), "pc: $%04x ", state->pc);
+       ImGui::TextColored(maybe_red(pc), "pc: $%04hx ", state->pc);
        ImGui::TableNextColumn();
-       ImGui::TextColored(maybe_red(sp), "sp: $%04x ", state->sp);
+       ImGui::TextColored(maybe_red(sp), "sp: $%04hx ", state->sp);
        ImGui::TableNextColumn();
        ImGui::TextColored(maybe_red(f), "f = [ %c %c %c %c ] ",
              state->f.c ? 'C' : '_', state->f.z ? 'Z' : '_',
@@ -474,13 +474,13 @@ static void draw_imgui(cpu_state *state)
     for (auto i = 0; i < 16; i += 4) {
        ImGui::TableNextRow();
        ImGui::TableSetColumnIndex(i % 2);
-       ImGui::TextColored(maybe_red(r[i]), "r%x: $%04x ", i, state->r[i]);
+       ImGui::TextColored(maybe_red(r[i]), "r%x: $%04hx ", i, state->r[i]);
        ImGui::TableNextColumn();
-       ImGui::TextColored(maybe_red(r[i+1]), "r%x: $%04x ", i+1, state->r[i+1]);
+       ImGui::TextColored(maybe_red(r[i+1]), "r%x: $%04hx ", i+1, state->r[i+1]);
        ImGui::TableNextColumn();
-       ImGui::TextColored(maybe_red(r[i+2]), "r%x: $%04x ", i+2, state->r[i+2]);
+       ImGui::TextColored(maybe_red(r[i+2]), "r%x: $%04hx ", i+2, state->r[i+2]);
        ImGui::TableNextColumn();
-       ImGui::TextColored(maybe_red(r[i+3]), "r%x: $%04x ", i+3, state->r[i+3]);
+       ImGui::TextColored(maybe_red(r[i+3]), "r%x: $%04hx ", i+3, state->r[i+3]);
     }
     ImGui::EndTable();
 
@@ -562,6 +562,31 @@ static void draw_imgui(cpu_state *state)
     ImGui::EndTable(); // Stack 
 
     ImGui::TableNextColumn();
+
+    if (opts.use_cpu_rec) {
+        auto bblk = &state->rec.bblk_map[state->pc];
+        ImGui::BeginTable("CpuRecTable", 1,
+                      ImGuiTableFlags_BordersOuter | ImGuiTableFlags_SizingStretchProp);
+        ImGui::TableSetupColumn("CPU Recompiler state @ PC", ImGuiTableFlags_None);
+        ImGui::TableHeadersRow();
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("bblk.code: %p", bblk->code);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("bblk.size: %zu B", bblk->size);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("bblk.cycles: %d", bblk->cycles);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("bblk.end_pc: $%04hx", bblk->end_pc);
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("bblk.invalid: %s", bblk->invalid ? "yes" : "no");
+        ImGui::EndTable();
+    }
 
     // Disassembly of instructions
     ImGui::BeginTable("DisasmTable", 1,

@@ -327,21 +327,20 @@ static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
 
 void cpu_rec_validate(cpu_state *state, uint16_t a)
 {
-   cpu_rec_bblk *bblk = &state->rec.bblk_map[a];
-   int index = a >> 3;
-   int bit = a & 7;
-   // Fuzz the mask as the address might not be on an instruction boundary.
-   // bit = 4:
-   // pos  76 54 32 10
-   // mask 11 10 01 11
-   int mask = 255; //~(3 << (bit - 1));
-   if (state->rec.dirty_map[index] & mask && bblk->code) {
-      if (use_verbose)
-          printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
-      state->rec.dirty_map[index] &= mask;
-      bblk->invalid = true;
-      mprotect((void*)bblk->code, page_size, PROT_READ|PROT_WRITE);
-   }
+    cpu_rec_bblk *bblk = &state->rec.bblk_map[a];
+    int i = a >> 3;
+    int bit = a & 7;
+    int mask = 1 << bit;
+    if (state->rec.dirty_map[i] & mask) {
+        state->rec.dirty_map[i] &= ~mask;
+        if (bblk->code) {
+            if (use_verbose)
+                printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
+            bblk->invalid = true;
+            // Reset page protections so we can rewrite that basic block.
+            mprotect((void*)bblk->code, page_size, PROT_READ|PROT_WRITE);
+        }
+    }
 }
 
 void cpu_rec_compile(cpu_state* state, uint16_t a)

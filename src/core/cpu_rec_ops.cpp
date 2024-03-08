@@ -481,11 +481,11 @@ static void cpu_rec_op_jx_cx(cpu_state *state, int cx)
    case 6:
       {
          int regFO = HOSTREG_STATE_VAR_R(f.o, BYTE);
-         // CMP regFO, (cond - 5)
+         // CMP regFO, (6 - cond)
          EMIT_REX_RBI(REG_NONE, regFO, REG_NONE, BYTE);
          EMIT(0x80);
          EMIT(MODRM_REG_OPX_IMM8(7, regFO));
-         EMIT(cond - 5);
+         EMIT(6 - cond);
          // JZ end
          EMIT(0x75);
          EMIT(xbytes);
@@ -726,6 +726,42 @@ static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
    }
    cpu_rec_hostreg_release(state, RCX);
    cpu_rec_hostreg_freeze(state, RCX);
+    
+   // Invalidate `a`:
+   // - it could be the last byte of instruction @ [a-3 .. a]
+   // - it could be the first byte of instruction @ [a .. a+3]
+   // - or anything in between.
+   // So invalidate range [a-3 .. a+3]
+   //
+   // movabs regPtrDM, state->rec.dirty_map
+   // add regAddress, 3
+   // xor ecx, ecx
+   // mov regBits, 127
+   // shr regAddress, 1
+   // rcr cl, 1
+   // shr regAddress, 1
+   // rcr cl, 1
+   // shr regAddress, 1
+   // rcr cl, 1
+   // shr cl, 5
+   // shl regBits, cl
+   // or [regPtrDM + regAddress], regBits
+   // shr regBits, 8
+   // or [regPtrDM + regAddress - 1], regBits
+   //
+   //
+   // [a + 3] -> array index i, bit index b
+   // bits = 7
+   // SHL bits, b 
+   // dirty_map[i] = bits.l
+   // SHR bits, 8
+   // dirty_map[i-1] = bits.l
+
+   // Add regAddress, 3
+   EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(0, regAddress));
+   EMIT(3);
 
    // XOR ecx, ecx
    EMIT(0x33);
@@ -737,37 +773,52 @@ static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
    cpu_rec_hostreg_release(state, regAddress);
    cpu_rec_hostreg_freeze(state, regAddress);
 
-   // MOV regBits, 1
+   // MOV regBits, 127
    EMIT_REX_RBI(REG_NONE, regBits, REG_NONE, DWORD);
    EMIT(0xb8 + (regBits & 7));
-   EMIT4i(1);
+   EMIT4i(127);
    // SHR regAddress, 1
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
    EMIT(0xd1);
    EMIT(MODRM_REG_DIRECT(5, regAddress));
-   // RCL CL, 1
+   // RCR CL, 1
    EMIT(0xd0);
-   EMIT(MODRM_REG_DIRECT(2, CL));
+   EMIT(MODRM_REG_DIRECT(3, CL));
    // SHR regAddress, 1
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
    EMIT(0xd1);
    EMIT(MODRM_REG_DIRECT(5, regAddress));
-   // RCL CL, 1
+   // RCR CL, 1
    EMIT(0xd0);
-   EMIT(MODRM_REG_DIRECT(2, CL));
+   EMIT(MODRM_REG_DIRECT(3, CL));
    // SHR regAddress, 1
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
    EMIT(0xd1);
    EMIT(MODRM_REG_DIRECT(5, regAddress));
-   // RCL CL, 1
+   // RCR CL, 1
    EMIT(0xd0);
-   EMIT(MODRM_REG_DIRECT(2, CL));
+   EMIT(MODRM_REG_DIRECT(3, CL));
+   // SHR CL, 5
+   EMIT(0xc0);
+   EMIT(MODRM_REG_DIRECT(5, CL));
+   EMIT(5);
    // SHL regBits, CL
    EMIT_REX_RBI(REG_NONE, regBits, REG_NONE, DWORD);
    EMIT(0xd3);
    EMIT(MODRM_REG_DIRECT(4, regBits));
    // MOVABS regPtrDM, state->rec.dirty_map
    int regPtrDM = HOSTREG_STATE_VAR_R(rec.dirty_map, QWORD);
+   // OR [regPtrDM + regAddress - 1], regBits
+   EMIT_REX_RBI(regBits, regPtrDM, regAddress, BYTE);
+   EMIT(0x08);
+   EMIT(MODRM_REG_SIB_DISP8(regBits));
+   EMIT(SIB(0, regAddress, regPtrDM));
+   EMITi(-1);
+   // SHR regBits, 8
+   EMIT_REX_RBI(REG_NONE, regBits, REG_NONE, DWORD);
+   EMIT(0xc1);
+   EMIT(MODRM_REG_DIRECT(5, regBits));
+   EMIT(8);
    // OR [regPtrDM + regAddress], regBits
    EMIT_REX_RBI(regBits, regPtrDM, regAddress, BYTE);
    EMIT(0x08);
@@ -1618,7 +1669,7 @@ static void cpu_rec_op_popall(cpu_state *state)
       EMIT(0x8b);
       EMIT(MODRM_REG_SIB_DISP8(regXReg));
       EMIT(SIB(0, regSP, regPtrM));
-      EMIT(-2 * i - 2);
+      EMITi(-2 * i - 2);
    }
    cpu_rec_hostreg_unfreeze(state, regPtrM);
    
