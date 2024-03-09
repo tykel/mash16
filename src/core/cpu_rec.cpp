@@ -4,6 +4,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <vector>
+
 #include "cpu.h"
 #include "cpu_rec_ops.h"
 
@@ -365,6 +367,8 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
     int ret, found_branch = 0;
     cpu_rec_bblk *bblk = &state->rec.bblk_map[start];
 
+    std::vector<std::pair<uint16_t, uint16_t>> imm_stores;
+
     for (end = start; end < UINT16_MAX; end += 4)
     {
         uint8_t op = state->m[end];
@@ -372,15 +376,35 @@ void cpu_rec_compile(cpu_state* state, uint16_t a)
         // RET - we know we hit the end of a subroutine, so return.
         // CALL - we transfer to another basic block, so return.
         // JMP - ditto.
-        // STM - we might modify the rest of the basic block - return.
-        if ((op & 0xf0) == 0x10 ||
-            (op & 0xf0) == 0x30) {
+        if ((op & 0xf0) == 0x10) {
             end += 4;
             break;
+        }
+        // STM - we might modify the rest of the basic block - return.
+        // For opcode 0x30 we can examine the immediate address and see if it
+        // will indeed affect the basic block or not.
+        if ((op & 0xf0) == 0x30) {
+            if (op == 0x30) {
+                uint16_t hhll = *(uint16_t *)&state->m[end+2];
+                if (hhll >= end + 4) {
+                    imm_stores.push_back({end, hhll});
+                }
+            } else {
+                end += 4;
+                break;
+            }
         }
         if (state->rec.bblk_1per_op != 0) {
            end += 4;
            break;
+        }
+    }
+    // We look back at our immediate stores, and if any wrote to an address
+    // within the basic block, we know we must truncate the basic block to that
+    // address.
+    for (auto const& [store_pc, store_addr] : imm_stores) {
+        if (store_addr < end) {
+            end = store_pc + 4;
         }
     }
     nb_instrs = (end - a) / 4;
