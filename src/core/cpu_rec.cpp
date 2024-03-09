@@ -328,18 +328,22 @@ static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
 void cpu_rec_validate(cpu_state *state, uint16_t a)
 {
     cpu_rec_bblk *bblk = &state->rec.bblk_map[a];
-    int i = a >> 3;
-    int bit = a & 7;
-    int mask = 1 << bit;
-    if (state->rec.dirty_map[i] & mask) {
-        state->rec.dirty_map[i] &= ~mask;
-        if (bblk->code) {
-            if (use_verbose)
-                printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
+    for (auto aa = a; aa < bblk->end_pc; aa += 4) {
+        int i = aa >> 3;
+        int bit = aa & 7;
+        int mask = 1 << bit;
+        if (state->rec.dirty_map[i] & mask) {
+            // Don't break yet, as we want to clear all bits corresponding to
+            // this basic block.
+            state->rec.dirty_map[i] &= ~mask;
             bblk->invalid = true;
-            // Reset page protections so we can rewrite that basic block.
-            mprotect((void*)bblk->code, page_size, PROT_READ|PROT_WRITE);
         }
+    }
+    if (bblk->code && bblk->invalid) {
+        if (use_verbose)
+            printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
+        // Reset page protections so we can rewrite that basic block.
+        mprotect((void*)bblk->code, page_size, PROT_READ|PROT_WRITE);
     }
 }
 

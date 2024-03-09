@@ -732,30 +732,6 @@ static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
    // - it could be the first byte of instruction @ [a .. a+3]
    // - or anything in between.
    // So invalidate range [a-3 .. a+3]
-   //
-   // movabs regPtrDM, state->rec.dirty_map
-   // add regAddress, 3
-   // xor ecx, ecx
-   // mov regBits, 127
-   // shr regAddress, 1
-   // rcr cl, 1
-   // shr regAddress, 1
-   // rcr cl, 1
-   // shr regAddress, 1
-   // rcr cl, 1
-   // shr cl, 5
-   // shl regBits, cl
-   // or [regPtrDM + regAddress], regBits
-   // shr regBits, 8
-   // or [regPtrDM + regAddress - 1], regBits
-   //
-   //
-   // [a + 3] -> array index i, bit index b
-   // bits = 7
-   // SHL bits, b 
-   // dirty_map[i] = bits.l
-   // SHR bits, 8
-   // dirty_map[i-1] = bits.l
 
    // Add regAddress, 3
    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
