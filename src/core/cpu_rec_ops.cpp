@@ -840,6 +840,8 @@ static void cpu_rec_op_stm(cpu_state *state)
    EMIT(MODRM_REG_SIB(regSrcReg));
    EMIT(SIB(0, regAddressReg, regPtrM));
 
+   cpu_rec_hostreg_convert_to_tempvar(state, regAddressReg);
+
    cpu_rec_emit_invalidate(state, regAddressReg);
 }
 

@@ -252,6 +252,18 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
 }
 
 /*
+ * Helper function to release a register (with write-back if WRITE flag set),
+ * but preserve the register contents as a temp variable for further use.
+ */
+void cpu_rec_hostreg_convert_to_tempvar(cpu_state *state, int hostreg)
+{
+    auto reg = state->rec.host[hostreg];
+    reg.use = 0;
+    cpu_rec_hostreg_release(state, hostreg);
+    state->rec.host[hostreg] = reg;
+}
+
+/*
  * Ignore the registers which the SysV x86_64 calling preserves across
  * function calls.
  * Otherwise we'd have to push/pop.

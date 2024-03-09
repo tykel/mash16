@@ -127,6 +127,7 @@ enum {
 // - map a variable (with result write-back):
 //    int regPc = cpu_rec_hostreg_var(state, &state->pc, 2, CPU_VAR_READ | CPU_VAR_WRITE);
 int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags);
+void cpu_rec_hostreg_convert_to_tempvar(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_preserve(cpu_state *state);
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_unfreeze(cpu_state *state, int hostreg);
