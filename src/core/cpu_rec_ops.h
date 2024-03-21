@@ -20,6 +20,7 @@
 #define CPU_REC_OPS_H
 
 #include <inttypes.h>
+#include <stddef.h>
 
 #define ROUNDUP(n, d) ((((n) + (d)-1) / (d)) * (d))
 
@@ -224,6 +225,9 @@ enum {
 // - map a variable (with result write-back):
 //    int regPc = cpu_rec_hostreg_var(state, &state->pc, 2, CPU_VAR_READ |
 //    CPU_VAR_WRITE);
+
+typedef struct cpu_state cpu_state;
+
 int cpu_rec_hostreg_var(cpu_state *state, void *ptr, size_t size, int flags);
 void cpu_rec_hostreg_convert_to_w_var(cpu_state *state, void *ptr, size_t size,
                                       int reg);

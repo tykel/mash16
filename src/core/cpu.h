@@ -169,6 +169,7 @@ typedef struct cpu_rec {
     int bblk_stop;
 
     int bblk_1per_op;
+    int bblk_no_fallback;
 } cpu_rec;
 
 /* Holds CPU functionality. */

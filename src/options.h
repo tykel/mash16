@@ -39,6 +39,7 @@ typedef struct program_opts
     int use_cpu_limit;
     int use_cpu_rec;
     int cpu_rec_1bblk_per_op;
+    int cpu_rec_no_fallback;
     char *breakpoints[BREAKPOINTS];
     int num_breakpoints;
     char *watchpoints[BREAKPOINTS];

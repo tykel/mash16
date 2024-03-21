@@ -406,15 +406,25 @@ void cpu_rec_1bblk(cpu_state *state)
     cpu_rec_bblk *bblk = &state->rec.bblk_map[state->pc];
     state->meta.old_pc = state->pc;
     cpu_rec_validate(state, state->pc);
-    if (bblk->code == NULL || bblk->invalid) {
+    if (bblk->code == NULL || (bblk->invalid && state->rec.bblk_no_fallback)) {
         if (use_verbose)
             printf("> recompiler: compile basic block @ 0x%04x\n", state->pc);
         cpu_rec_compile(state, state->pc);
     }
 
-    bblk->code();
-    state->meta.cycles += bblk->cycles;
-    state->meta.target_cycles += bblk->cycles;
+    if (bblk->code && (!bblk->invalid || state->rec.bblk_no_fallback)) {
+        bblk->code();
+        state->meta.cycles += bblk->cycles;
+        state->meta.target_cycles += bblk->cycles;
+    } else {
+        // Fall back to the interpreter for this basic block.
+        // It was invalidated so will probably be so again.
+        // To avoid a recurring very heavy JIT cost, just run this particular
+        // section outside the JIT.
+        while ((state->m[state->pc] & 0xf0) != 0x10) {
+            cpu_step(state);
+        }
+    }
 }
 
 /* Update I/O port contents with gamepad input. */
