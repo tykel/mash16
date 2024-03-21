@@ -254,6 +254,19 @@ int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags)
 }
 
 /*
+ * Reassign hostreg to a different ptr.
+ */
+void cpu_rec_hostreg_convert_to_w_var(cpu_state *state, void *ptr, size_t size, int reg)
+{
+    cpu_rec_hostreg_release(state, reg);
+    state->rec.host[reg].use = CPU_HOST_REG_VAR;
+    state->rec.host[reg].ptr = ptr;
+    state->rec.host[reg].size = size;
+    state->rec.host[reg].flags = CPU_VAR_WRITE;
+    state->rec.host[reg].last_access_time = state->rec.time;
+}
+
+/*
  * Helper function to release a register (with write-back if WRITE flag set),
  * but preserve the register contents as a temp variable for further use.
  */

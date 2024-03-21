@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 
    os.filename = argv[1];
    os.rng_seed = time(NULL);
-   os.cpu_rec_1bblk_per_op = 0;
+   os.cpu_rec_1bblk_per_op = 1;
 
    /* Read our rom file into memory */
    buf = NULL;

@@ -39,14 +39,14 @@ static void cpu_rec_op_cls(cpu_state *state)
    // JNZ @
    EMIT(0x75);
    EMIT(OFFSET(branchTarget, 1));
-   
+
    int regBgc = HOSTREG_STATE_VAR_W(bgc, BYTE);
    //state->bgc = 0;
    // XOR reg, reg
    EMIT_REX_RBI(regBgc, regBgc, REG_NONE, DWORD);
    EMIT(0x33);
    EMIT(MODRM_REG_DIRECT(regBgc, regBgc));
-   
+
 
    cpu_rec_hostreg_release(state, regBgc);
    cpu_rec_hostreg_release(state, regPtrVM);
@@ -61,7 +61,7 @@ static void cpu_rec_op_cls(cpu_state *state)
    EMIT_REX_RBI(regPal0, regPalR0, REG_NONE, DWORD);
    EMIT(0x8b);
    EMIT(MODRM_REG_DIRECT(regPal0, regPalR0));
-   
+
 
    // SHL regPal0, 8
    EMIT_REX_RBI(REG_NONE, regPal0, REG_NONE, DWORD);
@@ -92,7 +92,7 @@ static void cpu_rec_op_cls(cpu_state *state)
 
    cpu_rec_hostreg_release(state, regPalRI0);
    cpu_rec_hostreg_release(state, regPalR0);
-   
+
    int regPalGI0 = HOSTREG_STATE_VAR_W(pal_g[0], BYTE);
    // MOV regPalGI0, regPalG0
    EMIT_REX_RBI(regPalGI0, regPalG0, REG_NONE, DWORD);
@@ -101,13 +101,13 @@ static void cpu_rec_op_cls(cpu_state *state)
 
    cpu_rec_hostreg_release(state, regPalGI0);
    cpu_rec_hostreg_release(state, regPalG0);
-   
+
    int regPalBI0 = HOSTREG_STATE_VAR_W(pal_b[0], BYTE);
    // MOV regPalBI0, regPalB0
    EMIT_REX_RBI(regPalBI0, regPalB0, REG_NONE, DWORD);
    EMIT(0x8b);
    EMIT(MODRM_REG_DIRECT(regPalBI0, regPalB0));
-   
+
 
    cpu_rec_hostreg_release(state, regPalBI0);
    cpu_rec_hostreg_release(state, regPalB0);
@@ -125,7 +125,7 @@ static void cpu_rec_op_vblnk(cpu_state *state)
    EMIT_REX_RBI(REG_NONE, regVblnk, REG_NONE, DWORD);
    EMIT(0xfe);
    EMIT(MODRM_REG_DIRECT(0, regVblnk));
-   
+
 
    cpu_rec_hostreg_release(state, regVblnk);
 }
@@ -139,9 +139,9 @@ static void cpu_rec_op_bgc(cpu_state *state)
    EMIT(0xc7);
    EMIT(MODRM_REG_IMM8(regBgc));
    EMIT4u(bgc);
-   
 
- 
+
+
    if (bgc != 0) {
       // MOV regPal0, regPalBgc
       int regPalBgc = HOSTREG_STATE_VAR_R(pal[bgc], DWORD);
@@ -169,7 +169,7 @@ static void cpu_rec_op_bgc(cpu_state *state)
       EMIT(MODRM_REG_DIRECT(regPalGI0, regPalGBgc));
       cpu_rec_hostreg_release(state, regPalGBgc);
       cpu_rec_hostreg_release(state, regPalGI0);
-      
+
       // MOV regPalBI0, regPalBBgc
       int regPalBBgc = HOSTREG_STATE_VAR_R(pal_b[bgc], BYTE);
       int regPalBI0 = HOSTREG_STATE_VAR_W(pal_b[0], BYTE);
@@ -189,19 +189,19 @@ static void cpu_rec_op_spr(cpu_state *state)
     //state->sh = i_hhll(state->i) >> 8;
 
     int regSW = HOSTREG_STATE_VAR_W(sw, BYTE);
-   
+
     EMIT_REX_RBI(REG_NONE, regSW, REG_NONE, BYTE);
     EMIT(0xb8 + (regSW & 7));
     EMIT4u(i_hhll(state->i) & 0xff);
-   
+
     cpu_rec_hostreg_release(state, regSW);
 
     int regSH = HOSTREG_STATE_VAR_W(sh, BYTE);
-   
+
     EMIT_REX_RBI(REG_NONE, regSH, REG_NONE, BYTE);
     EMIT(0xb8 + (regSH & 7));
     EMIT4u(i_hhll(state->i) >> 8);
-   
+
     cpu_rec_hostreg_release(state, regSH);
 }
 
@@ -210,7 +210,7 @@ static void cpu_rec_op_rnd(cpu_state *state)
    //state->r[i_yx(state->i) & 0x0f] = rand() % (i_hhll(state->i) + 1);
    cpu_rec_hostreg_release_all(state);
    cpu_rec_hostreg_preserve(state);
-   
+
    int regPtrRand = HOSTREG_PTR(mash16_rand);
 
    // MOVABS rdi, state
@@ -266,7 +266,7 @@ static void cpu_rec_op_flip(cpu_state *state)
    EMIT_REX_RBI(REG_NONE, regFY, REG_NONE, DWORD);
    EMIT(0xb8 + (regFY & 7));
    EMIT4u(i_res(state->i) & 1);
-   
+
    cpu_rec_hostreg_release(state, regFX);
 }
 
@@ -566,7 +566,7 @@ static void cpu_rec_op_jx_cx(cpu_state *state, int cx)
          int regFZ = HOSTREG_STATE_VAR_R(f.z, BYTE);
          int rexNeededNO = 0;
          int rexNO = rex(regFN, regFO, REG_NONE, BYTE, &rexNeededNO);
-         
+
          // CMP regFZ, 0
          EMIT_REX_RBI(REG_NONE, regFZ, REG_NONE, BYTE);
          EMIT(0x80);
@@ -726,7 +726,7 @@ static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
    }
    cpu_rec_hostreg_release(state, RCX);
    cpu_rec_hostreg_freeze(state, RCX);
-    
+
    // Invalidate `a`:
    // - it could be the last byte of instruction @ [a-3 .. a]
    // - it could be the first byte of instruction @ [a .. a+3]
@@ -1323,6 +1323,111 @@ static void cpu_rec_op_mul_r2(cpu_state *state)
    cpu_rec_flag_n(state, regFN);
 }
 
+static void cpu_rec_op_mul_r3(cpu_state *state)
+{
+   int regXZReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) & 15], WORD);
+   int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
+   int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // IMUL regXReg, regYReg
+   EMIT(P_WORD);
+   EMIT_REX_RBI(regXZReg, regYReg, REG_NONE, WORD);
+   EMIT(0x0f);
+   EMIT(0xaf);
+   EMIT(MODRM_REG_DIRECT(regXZReg, regYReg));
+
+   cpu_rec_flag_c(state, regFC);
+
+   // CMP regXReg, 0
+   EMIT(P_WORD);
+   EMIT_REX_RBI(REG_NONE, regXZReg, REG_NONE, DWORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(7, regXZReg));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+
+   cpu_rec_hostreg_convert_to_w_var(state, &state->r[i_z(state->i)], WORD, regXZReg);
+}
+
+static void cpu_rec_op_divi(cpu_state *state)
+{
+   cpu_rec_hostreg_release(state, RAX);
+   cpu_rec_hostreg_freeze(state, RAX);
+
+   cpu_rec_hostreg_release(state, RCX);
+   cpu_rec_hostreg_freeze(state, RCX);
+
+   cpu_rec_hostreg_release(state, RDX);
+   cpu_rec_hostreg_freeze(state, RDX);
+
+   int regXReg = HOSTREG_STATE_VAR_RW_DIRTY(r[i_yx(state->i) & 0x0f], WORD);
+
+   // RY can be in any register.
+   int regSrcYReg = HOSTREG_TEMP_VAR();
+   int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
+   int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+   int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
+
+   // MOV regSrcYReg, hhll
+   EMIT_REX_RBI(REG_NONE, regSrcYReg, REG_NONE, DWORD);
+   EMIT(0xb8 + (regSrcYReg & 7));
+   EMIT4u(i_hhll(state->i));
+
+   if (regXReg != EAX) {
+       // MOV EAX, regSrcXReg
+       EMIT_REX_RBI(EAX, regXReg, REG_NONE, DWORD);
+       EMIT(0x8b);
+       EMIT(MODRM_REG_DIRECT(EAX, regXReg));
+   }
+
+   // CWD
+   EMIT(P_WORD);
+   EMIT(0x99);
+
+   // IDIV regSrcYReg
+   EMIT(P_WORD);
+   EMIT_REX_RBI(REG_NONE, regSrcYReg, REG_NONE, WORD);
+   EMIT(0xf7);
+   EMIT(MODRM_REG_DIRECT(7, regSrcYReg));
+
+   // CMP ax, 0
+   EMIT(P_WORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(7, AX));
+   EMIT(0);
+
+   cpu_rec_flag_z(state, regFZ);
+   cpu_rec_flag_n(state, regFN);
+
+   // CMP dx, 0
+   EMIT(P_WORD);
+   EMIT(0x83);
+   EMIT(MODRM_REG_DIRECT(7, DX));
+   EMIT(0);
+
+   // SETNE regFC
+   EMIT_REX_RBI(REG_NONE, regFC, REG_NONE, BYTE);
+   EMIT(0x0f);
+   EMIT(0x95);
+   EMIT(MODRM_REG_DIRECT(0, regFC));
+
+   // MOV regXReg, EAX
+   if (regXReg != RAX) {
+      EMIT_REX_RBI(regXReg, RAX, REG_NONE, DWORD);
+      EMIT(0x8b);
+      EMIT(MODRM_REG_DIRECT(regXReg, RAX));
+   }
+
+   //cpu_rec_hostreg_release(state, regXReg);
+   cpu_rec_hostreg_release(state, RAX);
+   cpu_rec_hostreg_release(state, RCX);
+   cpu_rec_hostreg_release(state, RDX);
+}
+
 static void cpu_rec_op_div_r3(cpu_state *state)
 {
    // If this reg was cached, flush it
@@ -1331,15 +1436,15 @@ static void cpu_rec_op_div_r3(cpu_state *state)
 
    cpu_rec_hostreg_release(state, RAX);
    cpu_rec_hostreg_freeze(state, RAX);
-   
+
    cpu_rec_hostreg_release(state, RCX);
    cpu_rec_hostreg_freeze(state, RCX);
-   
+
    cpu_rec_hostreg_release(state, RDX);
    cpu_rec_hostreg_freeze(state, RDX);
-   
+
    regSrcXReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) & 0x0f], WORD);
-  
+
    // RY can be in any register.
    int regSrcYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
    int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
@@ -1354,7 +1459,7 @@ static void cpu_rec_op_div_r3(cpu_state *state)
    // CWD
    EMIT(P_WORD);
    EMIT(0x99);
-   
+
    // IDIV regSrcYReg
    EMIT(P_WORD);
    EMIT_REX_RBI(REG_NONE, regSrcYReg, REG_NONE, WORD);
@@ -1366,7 +1471,7 @@ static void cpu_rec_op_div_r3(cpu_state *state)
    EMIT(0x83);
    EMIT(MODRM_REG_DIRECT(7, AX));
    EMIT(0);
-   
+
    cpu_rec_flag_z(state, regFZ);
    cpu_rec_flag_n(state, regFN);
 
@@ -1375,13 +1480,13 @@ static void cpu_rec_op_div_r3(cpu_state *state)
    EMIT(0x83);
    EMIT(MODRM_REG_DIRECT(7, DX));
    EMIT(0);
-   
+
    // SETNE regFC
    EMIT_REX_RBI(REG_NONE, regFC, REG_NONE, BYTE);
    EMIT(0x0f);
    EMIT(0x95);
    EMIT(MODRM_REG_DIRECT(0, regFC));
-   
+
    // The result is in EAX, so fiddle to get RZ mapped to EAX to avoid MOV-ing 
    // if we can.
    cpu_rec_hostreg_release(state, RAX);
@@ -1587,7 +1692,7 @@ static void cpu_rec_op_pop(cpu_state *state)
    int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
    int regPtrM = HOSTREG_PTR(state->m);
    int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
-   
+
    // SUB regSP, 2
    EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
    EMIT(0x83);
@@ -1608,7 +1713,7 @@ static void cpu_rec_op_pushall(cpu_state *state)
    int regPtrM = HOSTREG_PTR(state->m);
    cpu_rec_hostreg_freeze(state, regSP);
    cpu_rec_hostreg_freeze(state, regPtrM);
-   
+
    for (int i = 0; i < 16; ++i) {
       int regXReg = HOSTREG_STATE_VAR_R(r[i], WORD);
 
@@ -1621,13 +1726,13 @@ static void cpu_rec_op_pushall(cpu_state *state)
       EMIT(2 * i);
    }
    cpu_rec_hostreg_unfreeze(state, regPtrM);
-   
+
    // ADD regSP, 32
    EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
    EMIT(0x83);
    EMIT(MODRM_REG_DIRECT(0, regSP));
    EMIT(32);
-   
+
    cpu_rec_hostreg_unfreeze(state, regSP);
 }
 
@@ -1650,13 +1755,13 @@ static void cpu_rec_op_popall(cpu_state *state)
       EMITi(-2 * i - 2);
    }
    cpu_rec_hostreg_unfreeze(state, regPtrM);
-   
+
    // SUB regSP, 32
    EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
    EMIT(0x83);
    EMIT(MODRM_REG_DIRECT(5, regSP));
    EMIT(32);
-   
+
    cpu_rec_hostreg_unfreeze(state, regSP);
 }
 
@@ -1724,7 +1829,7 @@ static void cpu_rec_op_popf(cpu_state *state)
    int regSP = HOSTREG_STATE_VAR_RW(sp, WORD);
    int regPtrM = HOSTREG_PTR(state->m);
    int regTemp = HOSTREG_TEMP_VAR();
-   
+
    // SUB regSP, 2
    EMIT_REX_RBI(REG_NONE, regSP, REG_NONE, DWORD);
    EMIT(0x83);
@@ -1737,7 +1842,7 @@ static void cpu_rec_op_popf(cpu_state *state)
    EMIT(0x8b);
    EMIT(MODRM_REG_SIB(regTemp));
    EMIT(SIB(0, regSP, regPtrM));
-   
+
    int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
    int regFO = HOSTREG_STATE_VAR_W(f.o, BYTE);
    int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
@@ -1874,7 +1979,7 @@ static void cpu_rec_op_neg(cpu_state *state)
    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
    EMIT(0xf7);
    EMIT(MODRM_REG_DIRECT(3, regXReg));
-   
+
    cpu_rec_flag_z(state, regFZ);
    cpu_rec_flag_n(state, regFN);
 }
@@ -2034,6 +2139,12 @@ void cpu_rec_dispatch(cpu_state *state, uint8_t op)
       case 0x91:  // MUL r2
          cpu_rec_op_mul_r2(state);
          break;
+      case 0x92:  // MUL r3
+         cpu_rec_op_mul_r3(state);
+         break;
+      case 0xa0:  // DIVI
+         cpu_rec_op_divi(state);
+         break;
       case 0xa2:  // DIV r3
          cpu_rec_op_div_r3(state);
          break;
@@ -2097,7 +2208,7 @@ void cpu_rec_dispatch(cpu_state *state, uint8_t op)
 
          cpu_rec_hostreg_release_all(state);
          cpu_rec_hostreg_preserve(state);
-         
+
          ptrdiff_t disp = (uint8_t *)state - state->rec.jit_p;
          EMIT_REX_RBI(RDX, REG_NONE, REG_NONE, QWORD);
          if (disp <= INT32_MAX && disp >= INT32_MIN) {
@@ -2119,7 +2230,7 @@ void cpu_rec_dispatch(cpu_state *state, uint8_t op)
 
          // XCHG eax, eax == NOP
          EMIT(0x90);
-         
+
          break;
       }
    }

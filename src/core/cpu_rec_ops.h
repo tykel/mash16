@@ -127,6 +127,7 @@ enum {
 // - map a variable (with result write-back):
 //    int regPc = cpu_rec_hostreg_var(state, &state->pc, 2, CPU_VAR_READ | CPU_VAR_WRITE);
 int cpu_rec_hostreg_var(cpu_state *state, void* ptr, size_t size, int flags);
+void cpu_rec_hostreg_convert_to_w_var(cpu_state *state, void *ptr, size_t size, int reg);
 void cpu_rec_hostreg_convert_to_tempvar(cpu_state *state, int hostreg);
 void cpu_rec_hostreg_preserve(cpu_state *state);
 void cpu_rec_hostreg_freeze(cpu_state *state, int hostreg);
@@ -158,6 +159,8 @@ int cpu_rec_hostreg_evict_mask(cpu_state *state, unsigned int mask);
 #define HOSTREG_PTR(zzp) cpu_rec_hostreg_var(state, reinterpret_cast<void*>(zzp), sizeof(void*), CPU_VAR_ADDRESS_OF)
 #define HOSTREG_STATE_VAR_RW(zzz, szz)\
    cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ | CPU_VAR_WRITE)
+#define HOSTREG_STATE_VAR_RW_DIRTY(zzz, szz)\
+   cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ | CPU_VAR_WRITE | CPU_VAR_DIRTY)
 #define HOSTREG_STATE_VAR_R(zzz, szz)\
    cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_READ)
 #define HOSTREG_STATE_VAR_W(zzz, szz)\

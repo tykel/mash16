@@ -752,14 +752,14 @@ void emulation_loop()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 1.0);
-    glVertex3f(-1.f,-1.f,0.0);
-    glTexCoord2f(1.0, 1.0);
-    glVertex3f(1.f, -1.f, 0.0);
-    glTexCoord2f(1.0, 0.0);
-    glVertex3f(1.f, 1.f, 0.0);
-    glTexCoord2f(0.0, 0.0);
-    glVertex3f(-1.f, 1.f, 0.0);
+        glTexCoord2f(0.0, 1.0);
+        glVertex3f(-1.f,-1.f,0.0);
+        glTexCoord2f(1.0, 1.0);
+        glVertex3f(1.f, -1.f, 0.0);
+        glTexCoord2f(1.0, 0.0);
+        glVertex3f(1.f, 1.f, 0.0);
+        glTexCoord2f(0.0, 0.0);
+        glVertex3f(-1.f, 1.f, 0.0);
     glEnd();
     glDisable(GL_TEXTURE_2D);
 
