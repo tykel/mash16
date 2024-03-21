@@ -20,22 +20,22 @@
 #define GPU_H
 
 /* Default palette colours. */
-#define PAL_TRANS   0x00000000
-#define PAL_BLACK   0x00000000
-#define PAL_GRAY    0x00888888
-#define PAL_RED     0x003239bf
-#define PAL_PINK    0x00ae7ade
+#define PAL_TRANS 0x00000000
+#define PAL_BLACK 0x00000000
+#define PAL_GRAY 0x00888888
+#define PAL_RED 0x003239bf
+#define PAL_PINK 0x00ae7ade
 #define PAL_DKBROWN 0x00213d4c
-#define PAL_BROWN   0x00259f90
-#define PAL_ORANGE  0x005294e4
-#define PAL_YELLOW  0x0079d9ea
-#define PAL_GREEN   0x003b7a53
+#define PAL_BROWN 0x00259f90
+#define PAL_ORANGE 0x005294e4
+#define PAL_YELLOW 0x0079d9ea
+#define PAL_GREEN 0x003b7a53
 #define PAL_LTGREEN 0x004ad5ab
-#define PAL_DKBLUE  0x00382e25
-#define PAL_BLUE    0x007f4600
-#define PAL_LTBLUE  0x00ccab68
+#define PAL_DKBLUE 0x00382e25
+#define PAL_BLUE 0x007f4600
+#define PAL_LTBLUE 0x00ccab68
 #define PAL_SKYBLUE 0x00e4debc
-#define PAL_WHITE   0x00ffffff
+#define PAL_WHITE 0x00ffffff
 /*
 #define PAL_TRANS   0x00000000
 #define PAL_BLACK   0x00000000
@@ -59,9 +59,9 @@
 
 #include <GL/gl.h>
 
-void init_pal(cpu_state*);
-void load_pal(uint8_t*,int,cpu_state*);
-void blit_screen(GLuint,cpu_state*,int);
-void blit_screen1x(cpu_state*);
+void init_pal(cpu_state *);
+void load_pal(uint8_t *, int, cpu_state *);
+void blit_screen(GLuint, cpu_state *, int);
+void blit_screen1x(cpu_state *);
 
 #endif
