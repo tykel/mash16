@@ -19,10 +19,9 @@ void cpu_rec_init(cpu_state *state, program_opts *opts)
     memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
     state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
     state->rec.bblk_no_fallback = opts->cpu_rec_no_fallback;
-    state->rec.dirty_map = reinterpret_cast<uint8_t *>(calloc(8192, 1));
 }
 
-void cpu_rec_free(cpu_state *state) { free(state->rec.dirty_map); }
+void cpu_rec_free(cpu_state *state) { }
 
 void *cpu_rec_get_page(cpu_state *state, uint16_t a)
 {

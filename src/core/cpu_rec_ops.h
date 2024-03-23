@@ -274,4 +274,48 @@ int cpu_rec_hostreg_evict_mask(cpu_state *state, unsigned int mask);
 #define HOSTREG_STATE_VAR_W_DIRTY(zzz, szz)                                    \
     cpu_rec_hostreg_var(state, &state->zzz, szz, CPU_VAR_WRITE | CPU_VAR_DIRTY)
 
+#if 0
+
+// Functions to create instruction list.
+typedef cpu_rec_vreg int;
+struct cpu_rec_operand {
+    enum {
+        CPU_REC_REG,    // direct register
+        CPU_REC_IMM,    // direct immediate number
+        CPU_REC_RM      // indirect register (+ optional scale + offset)
+    } type;
+    union {
+        cpu_rec_vreg reg;
+        uint64_t imm;
+        struct {
+            cpu_rec_vreg base;
+            cpu_rec_vreg index;
+            int scale;
+        } rm;
+    }
+};
+
+void cpu_rec__mov(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__add(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__sub(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__imul(state, cpu_rec_operand dst, cpu_rec_operand op1, cpu_rec_operand op2);
+void cpu_rec__idiv(state, cpu_rec_operand dst, cpu_rec_operand op1, cpu_rec_operand op2);
+void cpu_rec__and(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__or(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__xor(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__neg(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__not(state, cpu_rec_operand dst, cpu_rec_operand src);
+void cpu_rec__cmp(state, cpu_rec_operand op1, cpu_rec_operand op2);
+void cpu_rec__tst(state, cpu_rec_operand op1, cpu_rec_operand op2);
+void cpu_rec__jmp(state, cpu_rec_operand dst);
+void cpu_rec__call(state, cpu_rec_operand dst);
+enum cpu_rec_cc;
+void cpu_rec__jcc(state, cpu_rec_operand dst, cpu_rec_cc cc);
+void cpu_rec__setcc(state, cpu_rec_operand dst, cpu_rec_cc cc);
+
+// Functions to process instruction list and emit assembly.
+void cpu_rec_emit_list(state);
+
+#endif
+
 #endif
