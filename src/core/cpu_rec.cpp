@@ -275,7 +275,7 @@ void cpu_rec_hostreg_convert_to_w_var(cpu_state *state, void *ptr, size_t size,
 void cpu_rec_hostreg_convert_to_tempvar(cpu_state *state, int hostreg)
 {
     auto reg = state->rec.host[hostreg];
-    reg.use = 0;
+    reg.use = CPU_HOST_REG_FROZEN;
     cpu_rec_hostreg_release(state, hostreg);
     state->rec.host[hostreg] = reg;
 }
@@ -357,17 +357,6 @@ static void cpu_rec_compile_instr(cpu_state *state, uint16_t a)
 void cpu_rec_validate(cpu_state *state, uint16_t a)
 {
     cpu_rec_bblk *bblk = &state->rec.bblk_map[a];
-    for (auto aa = a; aa < bblk->end_pc; aa += 4) {
-        int i = aa >> 3;
-        int bit = aa & 7;
-        int mask = 1 << bit;
-        if (state->rec.dirty_map[i] & mask) {
-            // Don't break yet, as we want to clear all bits corresponding to
-            // this basic block.
-            state->rec.dirty_map[i] &= ~mask;
-            bblk->invalid = true;
-        }
-    }
     if (bblk->code && bblk->invalid) {
         if (use_verbose)
             printf("> invalidate dirty bblk @ 0x%04x [%p]\n", a, bblk->code);
@@ -428,12 +417,12 @@ void cpu_rec_compile(cpu_state *state, uint16_t a)
     bblk->end_pc = end;
 
     uint8_t *jit_ptr;
-    if (bblk->invalid) {
+    if (bblk->invalid && bblk->code) {
         jit_ptr = (uint8_t *)bblk->code;
-        bblk->invalid = false;
     } else {
         jit_ptr = (uint8_t *)cpu_rec_get_page(state, a);
     }
+    bblk->invalid = false;
 
     if (use_verbose)
         printf("> ... bblk->code @ %p (%d Chip16 instructions)\n", jit_ptr,

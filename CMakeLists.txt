@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.15)
 
 project(mash16 VERSION 2.0 LANGUAGES CXX)
 
+option(ENABLE_PROFILING "Enable run-time profiling output for gprof" OFF)
+
 find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
 find_package(SDL2 REQUIRED CONFIG COMPONENTS SDL2main)
 find_package(OpenGL REQUIRED)
@@ -12,6 +14,11 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
    add_compile_options(-O0 -g -ggdb)
 else()
    add_compile_options(-O3)
+endif()
+
+if(ENABLE_PROFILING)
+    add_compile_options(-pg -fno-inline-functions)
+    add_link_options(-pg)
 endif()
 
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive

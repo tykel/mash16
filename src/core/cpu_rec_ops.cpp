@@ -682,96 +682,71 @@ static void cpu_rec_op_mov(cpu_state *state)
 
 static void cpu_rec_emit_invalidate(cpu_state *state, int regAddress)
 {
-    if (regAddress == RCX) {
-        int regTemp = HOSTREG_TEMP_VAR();
+    static_assert(sizeof(bool) == BYTE);
+    cpu_rec_bblk *bblk;
 
-        // MOV regTemp, regAddress
-        EMIT_REX_RBI(regTemp, regAddress, REG_NONE, DWORD);
-        EMIT(0x8b);
-        EMIT(MODRM_REG_DIRECT(regTemp, regAddress));
+    // IMUL regSrcAddress, sizeof(*bblk)
+    EMIT_REX_RBI(regAddress, regAddress, REG_NONE, DWORD);
+    EMIT(0x6b);
+    EMIT(MODRM_REG_DIRECT(regAddress, regAddress));
+    EMIT(sizeof(*bblk));
 
-        regAddress = regTemp;
-    }
-    cpu_rec_hostreg_release(state, RCX);
-    cpu_rec_hostreg_freeze(state, RCX);
+    int regBblkMap = HOSTREG_STATE_VAR_R(rec.bblk_map, QWORD);
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid) - 3 * sizeof(*bblk)], 1
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid) - 2 * sizeof(*bblk)], 1
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid) - 1 * sizeof(*bblk)], 1
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid)], 1
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid) + 1 * sizeof(*bblk)], 1
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid) + 2 * sizeof(*bblk)], 1
+    // mov [regBblkMap + regAddress + STRUCT_OFFSET(bblk, invalid) + 3 * sizeof(*bblk)], 1
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid) - 3*sizeof(*bblk));
+    EMIT(1);
 
-    // Invalidate `a`:
-    // - it could be the last byte of instruction @ [a-3 .. a]
-    // - it could be the first byte of instruction @ [a .. a+3]
-    // - or anything in between.
-    // So invalidate range [a-3 .. a+3]
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid) - 2*sizeof(*bblk));
+    EMIT(1);
 
-    // Add regAddress, 3
-    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
-    EMIT(0x83);
-    EMIT(MODRM_REG_DIRECT(0, regAddress));
-    EMIT(3);
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid) - 1*sizeof(*bblk));
+    EMIT(1);
 
-    // XOR ecx, ecx
-    EMIT(0x33);
-    EMIT(MODRM_REG_DIRECT(RCX, RCX));
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid));
+    EMIT(1);
 
-    int regBits = HOSTREG_TEMP_VAR();
-    int regIndex = HOSTREG_TEMP_VAR();
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid) + 1*sizeof(*bblk));
+    EMIT(1);
 
-    cpu_rec_hostreg_release(state, regAddress);
-    cpu_rec_hostreg_freeze(state, regAddress);
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid) + 2*sizeof(*bblk));
+    EMIT(1);
 
-    // MOV regBits, 127
-    EMIT_REX_RBI(REG_NONE, regBits, REG_NONE, DWORD);
-    EMIT(0xb8 + (regBits & 7));
-    EMIT4i(127);
-    // SHR regAddress, 1
-    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
-    EMIT(0xd1);
-    EMIT(MODRM_REG_DIRECT(5, regAddress));
-    // RCR CL, 1
-    EMIT(0xd0);
-    EMIT(MODRM_REG_DIRECT(3, CL));
-    // SHR regAddress, 1
-    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
-    EMIT(0xd1);
-    EMIT(MODRM_REG_DIRECT(5, regAddress));
-    // RCR CL, 1
-    EMIT(0xd0);
-    EMIT(MODRM_REG_DIRECT(3, CL));
-    // SHR regAddress, 1
-    EMIT_REX_RBI(REG_NONE, regAddress, REG_NONE, DWORD);
-    EMIT(0xd1);
-    EMIT(MODRM_REG_DIRECT(5, regAddress));
-    // RCR CL, 1
-    EMIT(0xd0);
-    EMIT(MODRM_REG_DIRECT(3, CL));
-    // SHR CL, 5
-    EMIT(0xc0);
-    EMIT(MODRM_REG_DIRECT(5, CL));
-    EMIT(5);
-    // SHL regBits, CL
-    EMIT_REX_RBI(REG_NONE, regBits, REG_NONE, DWORD);
-    EMIT(0xd3);
-    EMIT(MODRM_REG_DIRECT(4, regBits));
-    // MOVABS regPtrDM, state->rec.dirty_map
-    int regPtrDM = HOSTREG_STATE_VAR_R(rec.dirty_map, QWORD);
-    // OR [regPtrDM + regAddress - 1], regBits
-    EMIT_REX_RBI(regBits, regPtrDM, regAddress, BYTE);
-    EMIT(0x08);
-    EMIT(MODRM_REG_SIB_DISP8(regBits));
-    EMIT(SIB(0, regAddress, regPtrDM));
-    EMITi(-1);
-    // SHR regBits, 8
-    EMIT_REX_RBI(REG_NONE, regBits, REG_NONE, DWORD);
-    EMIT(0xc1);
-    EMIT(MODRM_REG_DIRECT(5, regBits));
-    EMIT(8);
-    // OR [regPtrDM + regAddress], regBits
-    EMIT_REX_RBI(regBits, regPtrDM, regAddress, BYTE);
-    EMIT(0x08);
-    EMIT(MODRM_REG_SIB(regBits));
-    EMIT(SIB(0, regAddress, regPtrDM));
-
-    cpu_rec_hostreg_release(state, RCX);
-    cpu_rec_hostreg_release(state, regBits);
-    cpu_rec_hostreg_release(state, regAddress);
+    EMIT_REX_RBI(REG_NONE, regBblkMap, regAddress, BYTE);
+    EMIT(0xc6);
+    EMIT(MODRM_REG_SIB_DISP8(0));
+    EMIT(SIB(0, regAddress, regBblkMap));
+    EMIT(STRUCT_OFFSET(bblk, invalid) + 3*sizeof(*bblk));
+    EMIT(1);
 }
 
 static void cpu_rec_op_stm_imm(cpu_state *state)
