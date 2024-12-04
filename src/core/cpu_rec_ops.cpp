@@ -1875,8 +1875,8 @@ static void cpu_rec_op_not(cpu_state *state)
 
 static void cpu_rec_op_not_r2(cpu_state *state)
 {
-    int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
-    int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i)], WORD);
+    int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i) & 0x0f], WORD);
+    int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
     int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
     int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
 
@@ -1930,8 +1930,8 @@ static void cpu_rec_op_neg(cpu_state *state)
 
 static void cpu_rec_op_neg_r2(cpu_state *state)
 {
-    int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i)], WORD);
-    int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i)], WORD);
+    int regXReg = HOSTREG_STATE_VAR_W(r[i_yx(state->i) & 0x0f], WORD);
+    int regYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
     int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
     int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
 
