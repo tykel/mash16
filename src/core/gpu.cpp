@@ -38,13 +38,13 @@ void load_pal(uint8_t *pal, int alpha, cpu_state *state)
         uint32_t col =
             (pal[i * b] << 16) | (pal[i * b + 1] << 8) | (pal[i * b + 2]);
         state->pal[i] = col;
-        state->pal_b[i] = pal[i * b];
+        state->pal_b[i] = pal[i * b + 2];
         state->pal_g[i] = pal[i * b + 1];
-        state->pal_r[i] = pal[i * b + 2];
+        state->pal_r[i] = pal[i * b];
     }
-    state->pal_b0 = pal[0];
-    state->pal_g0 = pal[1];
-    state->pal_r0 = pal[2];
+    state->pal_b0 = state->pal_b[0];
+    state->pal_g0 = state->pal_g[0];
+    state->pal_r0 = state->pal_r[0];
 }
 
 /* (Public) blitting functions. */
