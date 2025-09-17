@@ -33,6 +33,7 @@ extern int use_verbose;
 
 typedef enum {
     OP_SUB,
+    OP_MUL,
     OP_OTHER,
 } op_type;
 
@@ -44,6 +45,11 @@ static void op_flags(cpu_state *state, uint16_t mask, int16_t x, int16_t y,
         uint32_t ux32 = ux, uy32 = uy;
         if (type == OP_SUB)
             state->f.c = !!((ux32 - uy32) & 0x10000);
+        else if (type == OP_MUL) {
+            int32_t x32 = x, y32 = y;
+            int32_t res32 = x32 * y32;
+            state->f.c = !!(res32 & 0xffff0000) != !!(res & 0x8000);
+        }
         else
             state->f.c = !!((ux32 + uy32) & 0x10000);
     }
@@ -72,7 +78,7 @@ static void op_flags(cpu_state *state, uint16_t mask, int16_t x, int16_t y,
 #define UPDATE_FLAGS_XOR(x, y)                                                 \
     op_flags(state, FLAGS_ZN, (x), (y), (x) ^ (y), OP_OTHER)
 #define UPDATE_FLAGS_MUL(x, y)                                                 \
-    op_flags(state, FLAGS_CZN, (x), (y), (x) * (y), OP_OTHER)
+    op_flags(state, FLAGS_CZN, (x), (y), (x) * (y), OP_MUL)
 #define UPDATE_FLAGS_DIV(x, y)                                                 \
     op_flags(state, FLAGS_CZN, (x), (y), (x) / (y), OP_OTHER)
 #define UPDATE_FLAGS_SHL(x, y)                                                 \
