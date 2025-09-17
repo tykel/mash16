@@ -399,7 +399,7 @@ void breakpoint_handle(cpu_state *state)
         break;
     }
     if (is_store) {
-        const auto& it = watches.find(state->pc);
+        const auto& it = watches.find(hhll);
         if (it != watches.cend() && it->second.enabled) {
             printf("> hit watchpoint @ 0x%04x: op %02x\n",
                    it->first, i_op(state->i));
