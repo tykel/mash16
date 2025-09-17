@@ -275,6 +275,18 @@ void options_parse(int argc, char** argv, program_opts* opts)
             {
                 opts->cpu_rec_no_fallback = 1;
             }
+            else if(!strncmp(argv[i],"--rng-seed",10))
+            {
+                if(strlen(argv[i]) > 11 && argv[i][10] == '=')
+                    opts->rng_seed = atoi(&argv[i][11]);
+                else if(i+1 < argc)
+                    opts->rng_seed = atoi(argv[++i]);
+                else
+                {
+                    fprintf(stderr,"error: no rng seed provided\n");
+                    continue;
+                }
+            }
             else if (!strncmp(argv[i],"--debugger",10))
             {
                 char *debugger = NULL;
