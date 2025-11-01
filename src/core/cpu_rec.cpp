@@ -25,7 +25,7 @@ void cpu_rec_free(cpu_state *state) { }
 
 void *cpu_rec_get_page(cpu_state *state, uint16_t a)
 {
-    return state->rec.jit_base + (a >> 2) * page_size;
+    return (static_cast<char*>(state->rec.jit_base)) + (a >> 2) * page_size;
 }
 
 void cpu_rec_hostreg_release(cpu_state *state, int i)
