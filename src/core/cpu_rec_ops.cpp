@@ -1860,11 +1860,11 @@ static void cpu_rec_op_not(cpu_state *state)
     int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
 
     // NOT regXReg
-    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, WORD);
     EMIT(0xf7);
     EMIT(MODRM_REG_DIRECT(2, regXReg));
     // CMP regXReg, 0
-    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, WORD);
     EMIT(0x83);
     EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
     EMIT(0);

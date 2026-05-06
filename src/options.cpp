@@ -321,6 +321,10 @@ void options_parse(int argc, char** argv, program_opts* opts)
                 else
                    fprintf(stderr,"error: invalid debugger type \"%s\"\n",debugger);
             }
+            else if(!strncmp(argv[i],"--cpu-rec-debug",15))
+            {
+                opts->cpu_rec_debug = 1;
+            }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {
                 printf("%s",str_help[0]);

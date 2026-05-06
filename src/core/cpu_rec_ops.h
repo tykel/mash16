@@ -30,37 +30,50 @@ static const uint8_t REX_W = 0x48;
 #define STRUCT_OFFSET(P, M) ((char *)&((P)->M) - (char *)(P))
 
 #define OFFSET(p, n) ((char *)(p) - (char *)((state->rec.jit_p) + (n)))
+#include <string.h>
+
 #define EMIT(b) (*state->rec.jit_p++ = (b))
-#define EMITi(b) (*(int8_t *)state->rec.jit_p++ = (int8_t)(b))
+#define EMITi(b)                                                              \
+    do {                                                                       \
+        int8_t _v = (int8_t)(b);                                               \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
+    } while (0)
 #define EMIT2i(w)                                                              \
     do {                                                                       \
-        *(int16_t *)state->rec.jit_p = (int16_t)(w);                           \
-        state->rec.jit_p += sizeof(int16_t);                                   \
+        int16_t _v = (int16_t)(w);                                             \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
     } while (0)
 #define EMIT2u(w)                                                              \
     do {                                                                       \
-        *(uint16_t *)state->rec.jit_p = (uint16_t)(w);                         \
-        state->rec.jit_p += sizeof(uint16_t);                                  \
+        uint16_t _v = (uint16_t)(w);                                           \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
     } while (0)
 #define EMIT4i(dw)                                                             \
     do {                                                                       \
-        *(int32_t *)state->rec.jit_p = (int32_t)(dw);                          \
-        state->rec.jit_p += sizeof(int32_t);                                   \
+        int32_t _v = (int32_t)(dw);                                            \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
     } while (0)
 #define EMIT4u(dw)                                                             \
     do {                                                                       \
-        *(uint32_t *)state->rec.jit_p = (uint32_t)(dw);                        \
-        state->rec.jit_p += sizeof(uint32_t);                                  \
+        uint32_t _v = (uint32_t)(dw);                                          \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
     } while (0)
 #define EMIT8i(qw)                                                             \
     do {                                                                       \
-        *(int64_t *)state->rec.jit_p = (int64_t)(qw);                          \
-        state->rec.jit_p += sizeof(int64_t);                                   \
+        int64_t _v = (int64_t)(qw);                                            \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
     } while (0)
 #define EMIT8u(qw)                                                             \
     do {                                                                       \
-        *(uint64_t *)state->rec.jit_p = (uint64_t)(qw);                        \
-        state->rec.jit_p += sizeof(uint64_t);                                  \
+        uint64_t _v = (uint64_t)(qw);                                          \
+        memcpy(state->rec.jit_p, &_v, sizeof(_v));                            \
+        state->rec.jit_p += sizeof(_v);                                       \
     } while (0)
 
 static int rex(int reg, int b, int i, int sz, int *need)

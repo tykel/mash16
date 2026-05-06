@@ -248,6 +248,8 @@ void cpu_rec_validate(cpu_state *, uint16_t);
 void cpu_rec_free(cpu_state *);
 void cpu_rec_dispatch(cpu_state *, uint8_t);
 
+void cpu_step_interp_and_rec(cpu_state *);
+
 void op_error(cpu_state *);
 void op_nop(cpu_state *);
 void op_cls(cpu_state *);

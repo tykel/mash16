@@ -62,7 +62,8 @@ struct watch_entry
 
 /* Globals used within the file. */
 static program_opts opts;
-static cpu_state* state;
+static cpu_state* state;        // CPU state; if interp. and JIT both run, JIT.
+static cpu_state* state_i;      // Only used if interp. and JIT both run: interp
 static cpu_state last_state;
 static char *symbol_strs;
 static char *symbols[0x10000];
@@ -86,6 +87,7 @@ static bool paused = false;
 
 void pause_cpu(void)
 {
+    printf("> pausing cpu\n");
    paused = true;
 }
 
@@ -364,6 +366,11 @@ void sanitize_options(program_opts* opts)
         cpu_exec = cpu_rec_1bblk;
         printf("> using experimental recompiler core\n");
     }
+    if(opts->cpu_rec_debug)
+    {
+        cpu_exec = cpu_step_interp_and_rec;
+        printf("> using side-by-side JIT/interpreter debug\n");
+    }
 
     if(input_errors)
         exit(1);
@@ -372,7 +379,7 @@ void sanitize_options(program_opts* opts)
 void breakpoint_handle(cpu_state *state)
 {
     int i;
-    paused = opts.use_breakall;
+    paused = paused ? true : opts.use_breakall;
     
     /* Stop at watch point if necessary. */
     auto is_store = false;
@@ -880,7 +887,7 @@ int main(int argc, char* argv[])
 
     /* Get a buffer without header. */
     mem = NULL;
-    if(!(mem = (uint8_t *)malloc(MEM_SIZE)))
+    if(!(mem = (uint8_t *)malloc(MEM_SIZE * 2)))
     {
         fprintf(stderr,"error: malloc failed (mem)\n");
         exit(1);

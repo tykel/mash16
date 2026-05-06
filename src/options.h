@@ -47,6 +47,7 @@ typedef struct program_opts
     int use_breakall;
     int debug_ui;
     int debug_stdout;
+    int cpu_rec_debug;
 
     int rng_seed;
 } program_opts;

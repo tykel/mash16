@@ -179,8 +179,11 @@ void op_drw_r(cpu_state *state)
 
     x = state->r[i_yx(state->i) & 0x0f];
     y = state->r[i_yx(state->i) >> 4];
+    //printf("op_drw_r %p: state->m=%p, state->vm=%p, x=%u, y=%u, sw=%u, sh=%u\n",
+    //        state, state->m, state->vm, x, y, state->sw, state->sh);
     state->f.c = op_drw(&state->m[(uint16_t)state->r[i_z(state->i)]], state->vm,
                         x, y, state->sw, state->sh, state->fx, state->fy);
+    //printf("op_drw_r %p: %d -> C\n", state, state->f.c);
     state->meta.type = OP_R_R_R;
 }
 

@@ -11,7 +11,8 @@ find_package(Git REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-   add_compile_options(-O0 -g -ggdb)
+   add_compile_options(-O0 -g -ggdb -fno-omit-frame-pointer -fsanitize=address)
+   add_link_options(-fsanitize=address)
 else()
    add_compile_options(-O3)
 endif()
@@ -51,6 +52,7 @@ add_subdirectory(src)
 
 add_executable(mash16 src/options.cpp src/strings.cpp src/main.cpp)
 add_executable(cpu_test src/options.cpp src/strings.cpp src/cpu_test.cpp)
+add_executable(jit_sanity_test src/options.cpp src/strings.cpp src/core/jit_sanity_test.cpp)
 
 # Link SDL2
 if(TARGET SDL2::SDL2main)
@@ -58,5 +60,6 @@ if(TARGET SDL2::SDL2main)
 endif()
 target_link_libraries(mash16 PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
 target_link_libraries(cpu_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
+target_link_libraries(jit_sanity_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
 
 install(TARGETS mash16 DESTINATION bin)

@@ -13,15 +13,28 @@
 
 void cpu_rec_init(cpu_state *state, program_opts *opts)
 {
-    state->rec.jit_base =
-        (void *)ROUNDUP((size_t)state + sizeof(*state), page_size);
+    /* Allocate a dedicated code cache region (read/write). Compile into it
+     * while writable, then flip to RX when installing. */
+    void *code = mmap(NULL, CPU_REC_TOTAL, PROT_READ | PROT_WRITE,
+                      MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    if (code == MAP_FAILED) {
+        fprintf(stderr, "error: mmap failed (jit cache): errno %d\n", errno);
+        exit(1);
+    }
+    state->rec.jit_base = code;
     memset(state->rec.jit_base, 0x90, CPU_REC_TOTAL);
     memset(&state->rec.host[0], 0, sizeof(state->rec.host[0]) * 16);
     state->rec.bblk_1per_op = opts->cpu_rec_1bblk_per_op;
     state->rec.bblk_no_fallback = opts->cpu_rec_no_fallback;
 }
 
-void cpu_rec_free(cpu_state *state) { }
+void cpu_rec_free(cpu_state *state)
+{
+    if (state->rec.jit_base) {
+        munmap(state->rec.jit_base, CPU_REC_TOTAL);
+        state->rec.jit_base = NULL;
+    }
+}
 
 void *cpu_rec_get_page(cpu_state *state, uint16_t a)
 {
@@ -414,6 +427,8 @@ void cpu_rec_compile(cpu_state *state, uint16_t a)
     state->rec.bblk_pc0 = start;
     state->rec.bblk_pcN = end;
     bblk->end_pc = end;
+    /* Reset the early-stop flag for this compilation. */
+    state->rec.bblk_stop = 0;
 
     uint8_t *jit_ptr;
     if (bblk->invalid && bblk->code) {
@@ -436,7 +451,9 @@ void cpu_rec_compile(cpu_state *state, uint16_t a)
 
         if ((jit_end - state->rec.jit_p) <= 32) {
             printf("> ... basic block will exceed JIT page, shortening\n");
-            raise(SIGTRAP);
+            /* Gracefully end the block - avoid signals in normal execution. */
+            state->rec.bblk_stop = 1;
+            break;
         }
         if (state->rec.bblk_stop) {
             nb_instrs = (a - start) / 4 + 1;
@@ -446,8 +463,9 @@ void cpu_rec_compile(cpu_state *state, uint16_t a)
         }
     }
     cpu_rec_compile_end(state);
-    if (mprotect(jit_ptr, page_size, PROT_EXEC) < 0) {
-        fprintf(stderr, "mprotect(%p, %zu, x) failed with errno %d.\n", jit_ptr,
+    /* Make page executable and readable (RX). */
+    if (mprotect(jit_ptr, page_size, PROT_READ | PROT_EXEC) < 0) {
+        fprintf(stderr, "mprotect(%p, %zu, RX) failed with errno %d.\n", jit_ptr,
                 page_size, errno);
         exit(1);
     }

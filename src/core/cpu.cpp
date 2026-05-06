@@ -27,6 +27,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+// We'd like to pause emulation if we hit a state difference in JIT debug mode
+void pause_cpu(void);
+
 extern int use_verbose;
 size_t page_size;
 
@@ -384,6 +387,20 @@ void cpu_init(cpu_state **state, uint8_t *mem, program_opts *opts)
 
     /* Load default palette. */
     init_pal(*state);
+
+    /* Copy state to debug interp. state, at (state + (sizeof(cpu_state))) */
+    printf("memcpy(%p, %p, %zu)\n", (char*)(*state) + sizeof(cpu_state), *state, sizeof(cpu_state));
+    memcpy((char*)(*state) + sizeof(cpu_state), *state, sizeof(cpu_state));
+    /* We want separate memory to catch a failed write op in either state. */
+    /* Allocate a dedicated memory buffer for the second state's RAM instead
+     * of assuming contiguous caller-provided buffers. */
+    ((*state) + 1)->m = (uint8_t *)malloc(MEM_SIZE);
+    if (!((*state) + 1)->m) {
+        fprintf(stderr, "error: malloc failed (interp->m)\n");
+        exit(1);
+    }
+    memcpy(((*state) + 1)->m, (*state)->m, MEM_SIZE);
+    ((*state) + 1)->vm = reinterpret_cast<uint8_t *>(calloc(320 * 240, 1));
 }
 
 /* Execute 1 CPU cycle. */
@@ -424,6 +441,58 @@ void cpu_rec_1bblk(cpu_state *state)
         while ((state->m[state->pc] & 0xf0) != 0x10) {
             cpu_step(state);
         }
+    }
+}
+
+bool cpu_compare_states(cpu_state *state)
+{
+    bool same = true;
+    cpu_state *interp = &state[1];
+    for (auto i = 0u; i < 16; ++i) {
+        if (state->r[i] != interp->r[i]) {
+            printf("> reg mismatch @ r%u: JIT 0x%04x, interp. 0x%04x\n", state->r[i], interp->r[i]);
+            same = false;
+        }
+    }
+    if (state->sp != interp->sp) {
+        printf("> reg mismatch @ sp: JIT 0x%04x, interp. 0x%04x\n", state->sp, interp->sp);
+        same = false;
+    }
+    if (state->bgc != interp->bgc) {
+        printf("> reg mismatch @ bgc: JIT 0x%04x, interp. 0x%04x\n", state->bgc, interp->bgc);
+        same = false;
+    }
+    if (memcmp(&state->f,&interp->f, sizeof(flags)) != 0) {
+        printf("> reg mismatch @ flags CZON: JIT 0x%u%u%u%u, interp. 0x%u%u%u%u\n",
+                state->f.c, state->f.z, state->f.o, state->f.n,
+                interp->f.c, interp->f.z, interp->f.o, interp->f.n);
+        same = false;
+    }
+    if (state->pc != interp->pc) {
+        printf("> reg mismatch @ pc: JIT 0x%04x, interp. 0x%04x\n", state->pc, interp->pc);
+        same = false;
+    }
+    for (auto i = 0u; i < 0xfff0; i += 2) {
+        if (state->m[i] != interp->m[i]) {
+            printf("> mem mismatch @ 0x%04x: JIT 0x%04x, interp. 0x%04x\n", i, state->m[i], interp->m[i]);
+        same = false;
+        }
+    }
+    return same;
+}
+
+/* Execute a basic block with the JIT, then the same with the interpreter. */
+void cpu_step_interp_and_rec(cpu_state *state)
+{
+    cpu_state* interp = &state[1];
+    memcpy(&interp->m[0xfff0], &state->m[0xfff0], 8);
+    cpu_rec_1bblk(state);
+    while (interp->pc != state->pc) {
+        cpu_step(interp);
+    }
+    if (!cpu_compare_states(state)) {
+        printf("> warning: rec/interp states differ!\n");
+        pause_cpu();
     }
 }
 
@@ -503,6 +572,11 @@ void cpu_io_reset(cpu_state *state)
 void cpu_free(cpu_state *state)
 {
     free(state->vm);
+    /* Free the second state's RAM buffer if it was separately allocated. */
+    if ((&state[1])->m && (&state[1])->m != state->m) {
+        free((&state[1])->m);
+    }
+    free((&state[1])->vm);
 #ifdef HAVE_BANK_SEL
     int i;
     for (i = 0; i < 256; ++i) {
@@ -510,6 +584,23 @@ void cpu_free(cpu_state *state)
     }
 #endif
     cpu_rec_free(state);
+
+    /* Free palette buffers allocated in cpu_init. */
+    if (state->pal) {
+        free(state->pal);
+    }
+    if (state->pal_r) {
+        free(state->pal_r);
+    }
+    if (state->pal_g) {
+        free(state->pal_g);
+    }
+    if (state->pal_b) {
+        free(state->pal_b);
+    }
+
     free(state->rec.bblk_map);
+    memset(&state[1], 0, sizeof(*state));
     munmap(state, state->total_alloc);
 }
+
