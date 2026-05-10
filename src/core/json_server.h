@@ -4,6 +4,7 @@
 #include <string>
 #include <thread>
 #include <atomic>
+#include <vector>
 #include "inspector.h"
 
 namespace mash16 {
@@ -19,8 +20,10 @@ public:
 
 private:
     void run(const std::string& socket_path);
+    void streamSubscription(int client);
 
     std::thread thread_;
+    std::vector<std::thread> subscribe_threads_;
     std::atomic_bool running_;
     Inspector *inspector_;
     int server_fd_;

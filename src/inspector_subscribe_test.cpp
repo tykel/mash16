@@ -41,29 +41,80 @@ int main()
         write(fd, req.c_str(), req.size());
         shutdown(fd, SHUT_WR);
 
-        // Give server a moment to accept
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        // Trigger an event by stepping
-        insp.step();
-        // For this unit test, explicitly push a test event so subscriber receives something
-        {
-            Inspector::Event ev;
-            ev.type = "test_event";
-            ev.payload = "{\"type\":\"test_event\",\"msg\":\"ping\"}";
-            insp.pushEvent(ev);
-        }
-
         // set a recv timeout so test won't block forever if no events arrive
         struct timeval tv; tv.tv_sec = 2; tv.tv_usec = 0;
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
         char buf[8192]; ssize_t n = read(fd, buf, sizeof(buf)-1);
-        if(n>0) { buf[n]=0; std::cout << "subscribe response: " << buf << std::endl; }
-        else if (n == 0) { std::cout << "subscribe: peer closed" << std::endl; }
-        else { std::cout << "subscribe: read timeout or error: errno=" << errno << " (" << strerror(errno) << ")" << std::endl; }
+        if(n<=0) {
+            std::cerr << "subscribe ack failed: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+            close(fd);
+            srv.stop();
+            free(cpu.m);
+            return 3;
+        }
+        buf[n]=0; std::cout << "subscribe response: " << buf << std::endl;
+
+        int fd2 = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd2 < 0 || connect(fd2, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+            std::cerr << "second client connect failed: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+            close(fd);
+            if (fd2 >= 0) close(fd2);
+            srv.stop();
+            free(cpu.m);
+            return 4;
+        }
+        std::string req2 = "{\"method\":\"getRegisters\"}";
+        write(fd2, req2.c_str(), req2.size());
+        shutdown(fd2, SHUT_WR);
+        setsockopt(fd2, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        char buf2[4096]; ssize_t n2 = read(fd2, buf2, sizeof(buf2)-1);
+        close(fd2);
+        if (n2 <= 0) {
+            std::cerr << "second client did not receive response" << std::endl;
+            close(fd);
+            srv.stop();
+            free(cpu.m);
+            return 5;
+        }
+        buf2[n2] = 0;
+        std::string response2(buf2);
+        if (response2.find("\"pc\"") == std::string::npos) {
+            std::cerr << "unexpected second client response: " << response2 << std::endl;
+            close(fd);
+            srv.stop();
+            free(cpu.m);
+            return 6;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        Inspector::Event ev;
+        ev.type = "test_event";
+        ev.payload = "{\"type\":\"test_event\",\"msg\":\"ping\"}";
+        insp.pushEvent(ev);
+        n = read(fd, buf, sizeof(buf)-1);
+        if (n <= 0) {
+            std::cerr << "subscribe event failed: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+            close(fd);
+            srv.stop();
+            free(cpu.m);
+            return 7;
+        }
+        buf[n] = 0;
+        std::string event_response(buf);
+        if (event_response.find("\"test_event\"") == std::string::npos) {
+            std::cerr << "unexpected subscribe event: " << event_response << std::endl;
+            close(fd);
+            srv.stop();
+            free(cpu.m);
+            return 8;
+        }
         close(fd);
     } else {
         std::cerr << "client connect failed after retries: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 9;
     }
 
     srv.stop();

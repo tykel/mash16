@@ -70,6 +70,10 @@ void JsonServer::stop() {
     if (inspector_) inspector_->wakeEventWaiters();
 
     if (thread_.joinable()) thread_.join();
+    for (auto &thread : subscribe_threads_) {
+        if (thread.joinable()) thread.join();
+    }
+    subscribe_threads_.clear();
 }
 
 static std::string json_escape(const std::string &s) {
@@ -238,33 +242,8 @@ void JsonServer::run(const std::string& socket_path) {
             for (size_t i=0;i<bps.size();++i) { if (i) o<<","; o<<bps[i]; }
             o<<"]}\n"; resp = o.str();
         } else if (method == "subscribe") {
-            // Keep this connection open and stream events as newline-delimited JSON
-            // Send a simple ack first
-            std::string ack = "{\"result\":\"subscribed\"}\n";
-            write(client, ack.c_str(), ack.size());
-            inspector_->eventSubscriberAttached();
-            // Stream events until client disconnects or server stops
-            while (running_) {
-                Inspector::Event ev;
-                bool ok = inspector_->popEventBlocking(ev, 5000);
-                if (!ok) continue; // timeout, loop
-                std::string line = ev.payload + "\n";
-                ssize_t w = send(client, line.c_str(), line.size(), MSG_NOSIGNAL);
-                if (w < 0) {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        // client not ready for writes; drop this event (or could requeue)
-                        continue;
-                    }
-                    // broken pipe or other error -> disconnect
-                    perror("send");
-                    break;
-                } else if (w == 0) {
-                    break; // client closed
-                }
-            }
-            inspector_->eventSubscriberDetached();
-            close(client);
-            continue; // do not close again
+            subscribe_threads_.emplace_back(&JsonServer::streamSubscription, this, client);
+            continue;
         } else if (method == "run") {
             inspector_->run();
             resp = "{\"result\":true}\n";
@@ -335,6 +314,31 @@ void JsonServer::run(const std::string& socket_path) {
 
     // unlink socket
     unlink(socket_path.c_str());
+}
+
+void JsonServer::streamSubscription(int client) {
+    // Keep this connection open and stream events as newline-delimited JSON.
+    std::string ack = "{\"result\":\"subscribed\"}\n";
+    send(client, ack.c_str(), ack.size(), MSG_NOSIGNAL);
+    inspector_->eventSubscriberAttached();
+    while (running_) {
+        Inspector::Event ev;
+        bool ok = inspector_->popEventBlocking(ev, 5000);
+        if (!ok) continue;
+        std::string line = ev.payload + "\n";
+        ssize_t w = send(client, line.c_str(), line.size(), MSG_NOSIGNAL);
+        if (w < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            perror("send");
+            break;
+        } else if (w == 0) {
+            break;
+        }
+    }
+    inspector_->eventSubscriberDetached();
+    close(client);
 }
 
 } // namespace mash16
