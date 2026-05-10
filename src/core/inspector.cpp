@@ -33,6 +33,7 @@ bool Inspector::writeMemory(uint16_t addr, const std::vector<uint8_t>& data) {
     if (addr >= MEM_SIZE) return false;
     size_t avail = std::min<size_t>(data.size(), MEM_SIZE - addr);
     memcpy(cpu_->m + addr, data.data(), avail);
+    cpu_rec_invalidate(cpu_, addr, avail);
     // Emit memory write event
     Event ev;
     ev.type = "mem_write";
@@ -90,6 +91,7 @@ bool Inspector::restore(const std::vector<uint8_t>& data) {
     memcpy(&cpu_->f, data.data() + offset, sizeof(cpu_->f)); offset += sizeof(cpu_->f);
     if (cpu_->m)
         memcpy(cpu_->m, data.data() + offset, MEM_SIZE);
+    cpu_rec_invalidate(cpu_, 0, MEM_SIZE);
     return true;
 }
 

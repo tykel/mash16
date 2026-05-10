@@ -243,6 +243,7 @@ instr_type cpu_op_type(uint8_t);
 
 void cpu_rec_init(cpu_state *, program_opts *);
 void cpu_rec_compile(cpu_state *, uint16_t);
+void cpu_rec_invalidate(cpu_state *, uint16_t, size_t);
 void cpu_rec_1bblk(cpu_state *);
 void cpu_rec_validate(cpu_state *, uint16_t);
 void cpu_rec_free(cpu_state *);
