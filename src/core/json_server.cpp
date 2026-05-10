@@ -123,6 +123,39 @@ static bool extract_uint_param(const std::string &req, const std::string &key, u
     return true;
 }
 
+static bool extract_string_param(const std::string &req, const std::string &key, std::string &out) {
+    auto p = req.find("\"" + key + "\"");
+    if (p == std::string::npos) return false;
+    auto colon = req.find(':', p);
+    if (colon == std::string::npos) return false;
+    auto quote = req.find('"', colon + 1);
+    if (quote == std::string::npos) return false;
+
+    out.clear();
+    bool escaped = false;
+    for (size_t i = quote + 1; i < req.size(); ++i) {
+        char c = req[i];
+        if (escaped) {
+            switch (c) {
+                case '"': out.push_back('"'); break;
+                case '\\': out.push_back('\\'); break;
+                case 'n': out.push_back('\n'); break;
+                case 'r': out.push_back('\r'); break;
+                case 't': out.push_back('\t'); break;
+                default: out.push_back(c); break;
+            }
+            escaped = false;
+        } else if (c == '\\') {
+            escaped = true;
+        } else if (c == '"') {
+            return true;
+        } else {
+            out.push_back(c);
+        }
+    }
+    return false;
+}
+
 void JsonServer::run(const std::string& socket_path) {
     // server_fd_ should already be created/bound/listening by start()
     if (server_fd_ < 0) {
@@ -274,35 +307,26 @@ void JsonServer::run(const std::string& socket_path) {
             resp = o.str();
         } else if (method == "restore") {
             // expect param: data: "base64..."
-            auto p = req.find("\"data\"");
-            if (p == std::string::npos) { resp = "{\"error\":\"missing data\"}\n"; }
+            std::string b64;
+            if (!extract_string_param(req, "data", b64)) { resp = "{\"error\":\"missing data\"}\n"; }
             else {
-                auto q1 = req.find('"', p);
-                if (q1==std::string::npos) { resp = "{\"error\":\"bad data\"}\n"; }
-                else {
-                    auto q2 = req.find('"', q1+1);
-                    if (q2==std::string::npos) { resp = "{\"error\":\"bad data\"}\n"; }
-                    else {
-                        std::string b64 = req.substr(q1+1, q2-q1-1);
-                        // decode base64
-                        std::string tbl(256, -1);
-                        for (int i = 0; i < 64; ++i) tbl[(unsigned char)B64[i]] = i;
-                        std::vector<uint8_t> out;
-                        int val=0, valb=-8;
-                        for (unsigned char c : b64) {
-                            if (isspace(c) || c=='=') break;
-                            if (tbl[c] == (char)-1) continue;
-                            val = (val<<6) + tbl[c];
-                            valb += 6;
-                            if (valb>=0) {
-                                out.push_back((uint8_t)((val>>valb)&0xFF));
-                                valb -= 8;
-                            }
-                        }
-                        bool ok = inspector_->restore(out);
-                        resp = ok ? "{\"result\":true}\n" : "{\"error\":\"restore failed\"}\n";
+                // decode base64
+                std::string tbl(256, -1);
+                for (int i = 0; i < 64; ++i) tbl[(unsigned char)B64[i]] = i;
+                std::vector<uint8_t> out;
+                int val=0, valb=-8;
+                for (unsigned char c : b64) {
+                    if (isspace(c) || c=='=') break;
+                    if (tbl[c] == (char)-1) continue;
+                    val = (val<<6) + tbl[c];
+                    valb += 6;
+                    if (valb>=0) {
+                        out.push_back((uint8_t)((val>>valb)&0xFF));
+                        valb -= 8;
                     }
                 }
+                bool ok = inspector_->restore(out);
+                resp = ok ? "{\"result\":true}\n" : "{\"error\":\"restore failed\"}\n";
             }
         } else {
             resp = "{\"error\":\"unknown method\"}\n";
