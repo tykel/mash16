@@ -26,6 +26,10 @@ int use_verbose;
 #include "core/gpu.h"
 #include "core/audio.h"
 #include "core/cpu.h"
+#ifdef BUILD_INSPECTOR
+#include "core/inspector.h"
+#include "core/json_server.h"
+#endif
 
 #include <imgui.h>
 #include <backends/imgui_impl_sdl2.h>
@@ -45,6 +49,7 @@ int use_verbose;
 #include <format>
 #include <map>
 #include <string>
+#include <sstream>
 
 #pragma pack(push,1)
 typedef struct sym_entry
@@ -78,6 +83,27 @@ static bool show_debugger = false;
 
 void (*cpu_exec)(cpu_state* state);
 
+#ifdef BUILD_INSPECTOR
+static mash16::Inspector *g_inspector = nullptr;
+
+static void exec_and_emit(cpu_state* st) {
+    uint16_t pc_before = st->pc;
+    cpu_exec(st);
+    uint16_t pc_after = st->pc;
+    if (g_inspector) {
+        mash16::Inspector::Event ev;
+        ev.type = "instruction";
+        std::ostringstream o;
+        o << "{\"type\":\"instruction\",\"pc_before\":" << pc_before
+          << ",\"pc_after\":" << pc_after << ",\"bytes\": ["
+          << (int)st->m[pc_before] << "," << (int)st->m[pc_before+1] << "," << (int)st->m[pc_before+2] << "," << (int)st->m[pc_before+3]
+          << "]}";
+        ev.payload = o.str();
+        g_inspector->pushEvent(ev);
+    }
+}
+#endif
+
 /* Timing variables. */
 static int t = 0, oldt = 0;
 static int fps = 0, lastsec = 0;
@@ -89,6 +115,18 @@ void pause_cpu(void)
 {
     printf("> pausing cpu\n");
    paused = true;
+}
+
+void resume_cpu(void)
+{
+    printf("> resuming cpu\n");
+    paused = false;
+}
+
+void step_cpu(void)
+{
+    last_state = *state;
+    exec_and_emit(state);
 }
 
 /* State printing options. */
@@ -411,14 +449,41 @@ void breakpoint_handle(cpu_state *state)
             printf("> hit watchpoint @ 0x%04x: op %02x\n",
                    it->first, i_op(state->i));
             paused = true;
+            if (g_inspector) {
+                mash16::Inspector::Event ev;
+                std::ostringstream o; o << "{\"type\":\"watchpoint\",\"addr\":" << it->first << "}";
+                ev.payload = o.str(); ev.type = "watchpoint"; g_inspector->pushEvent(ev);
+            }
         }
     }
     
-    if (!paused && !breakps.empty()) {
-        const auto& it = breakps.find(state->pc);
-        if (it != breakps.cend() && it->second.enabled) {
-            printf("> hit breakpoint @ 0x%04x\n", it->first);
-            paused = true;
+    if (!paused) {
+        // check legacy UI breakpoints
+        if (!breakps.empty()) {
+            const auto& it = breakps.find(state->pc);
+            if (it != breakps.cend() && it->second.enabled) {
+                printf("> hit breakpoint @ 0x%04x\n", it->first);
+                paused = true;
+                if (g_inspector) {
+                    mash16::Inspector::Event ev;
+                    std::ostringstream o; o << "{\"type\":\"breakpoint\",\"addr\":" << it->first << "}";
+                    ev.payload = o.str(); ev.type = "breakpoint"; g_inspector->pushEvent(ev);
+                }
+            }
+        }
+        // check inspector-managed breakpoints
+        if (!paused && g_inspector) {
+            auto bps = g_inspector->listBreakpoints();
+            for (auto bp : bps) {
+                if (bp == state->pc) {
+                    printf("> hit inspector breakpoint @ 0x%04x\n", bp);
+                    paused = true;
+                    mash16::Inspector::Event ev;
+                    std::ostringstream o; o << "{\"type\":\"breakpoint\",\"addr\":" << bp << "}";
+                    ev.payload = o.str(); ev.type = "breakpoint"; g_inspector->pushEvent(ev);
+                    break;
+                }
+            }
         }
     }
 }
@@ -655,7 +720,7 @@ void emulation_loop()
                 last_state = *state;
                 if (paused)
                     break;
-                cpu_exec(state);
+                exec_and_emit(state);
             }
             /* Avoid hogging the CPU... */
             while((double)(t = SDL_GetTicks()) - oldt < FRAME_DT)
@@ -670,7 +735,7 @@ void emulation_loop()
             {
                 for(i=0; i<600; ++i)
                 {
-                    cpu_exec(state);
+                    exec_and_emit(state);
                     /* Don't forget to count our frames! */
                     if(state->meta.wait_vblnk)
                     {
@@ -711,12 +776,12 @@ void emulation_loop()
                 {
                     paused = !paused;
                     last_state = *state;
-                    cpu_exec(state);
+                    exec_and_emit(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_n && paused)
                 {
                     last_state = *state;
-                    cpu_exec(state);
+                    exec_and_emit(state);
                 }
                 else if(evt.key.keysym.sym == SDLK_h && paused)
                 {
@@ -812,6 +877,7 @@ int main(int argc, char* argv[])
     opts.rng_seed = time(NULL);
     opts.debug_ui = 1;
     opts.debug_stdout = 0;
+    opts.inspector_socket = NULL;
     cpu_exec = cpu_step;
 
     options_parse(argc,argv,&opts);
@@ -981,8 +1047,44 @@ int main(int argc, char* argv[])
         if(!read_palette(opts.pal_filename, state->pal))
             fprintf(stderr,"error: palette in %s could not be read, potential corruption\n",opts.pal_filename);
 
+#ifdef BUILD_INSPECTOR
+    mash16::Inspector *inspector = nullptr;
+    mash16::JsonServer *inspector_server = nullptr;
+    if (opts.inspector_socket) {
+        inspector = new mash16::Inspector(state);
+        // copy existing breakpoints from command-line UI into inspector
+        for (const auto & [a,e] : breakps) inspector->setBreakpoint(a);
+
+        // expose control hooks
+        mash16::inspector_set_control_hooks(resume_cpu, pause_cpu, step_cpu);
+
+        // make available to main and breakpoint handler
+        g_inspector = inspector;
+
+        inspector_server = new mash16::JsonServer();
+        if (!inspector_server->start(opts.inspector_socket, inspector)) {
+            fprintf(stderr, "error: inspector server failed to start\n");
+            delete inspector_server;
+            inspector_server = nullptr;
+            delete inspector;
+            inspector = nullptr;
+            g_inspector = nullptr;
+        } else {
+            printf("> inspector listening on %s\n", opts.inspector_socket);
+        }
+    }
+#endif
+
     while(!stop)
         emulation_loop();
+
+#ifdef BUILD_INSPECTOR
+    if (inspector_server) {
+        inspector_server->stop();
+        delete inspector_server;
+    }
+    if (inspector) delete inspector;
+#endif
 
     /* Tidy up before exit. */
     audio_free();

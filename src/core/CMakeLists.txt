@@ -1,1 +1,5 @@
-add_library(mash16_core STATIC audio.cpp cpu.cpp cpu_ops.cpp cpu_rec.cpp cpu_rec_ops.cpp gpu.cpp)
+set(core_SRCS audio.cpp cpu.cpp cpu_ops.cpp cpu_rec.cpp cpu_rec_ops.cpp gpu.cpp)
+if(BUILD_INSPECTOR)
+    list(APPEND core_SRCS inspector.cpp json_server.cpp)
+endif()
+add_library(mash16_core STATIC ${core_SRCS})

@@ -325,6 +325,20 @@ void options_parse(int argc, char** argv, program_opts* opts)
             {
                 opts->cpu_rec_debug = 1;
             }
+            else if(!strncmp(argv[i],"--inspector-socket",19))
+            {
+                char *sock;
+                if(strlen(argv[i]) > 20 && argv[i][19] == '=')
+                    sock = &argv[i][20];
+                else if(i+1 < argc)
+                    sock = argv[++i];
+                else
+                {
+                    fprintf(stderr,"error: no inspector socket provided\n");
+                    continue;
+                }
+                opts->inspector_socket = sock;
+            }
             else if(!strncmp(argv[i],"--help",MAX_STRING))
             {
                 printf("%s",str_help[0]);

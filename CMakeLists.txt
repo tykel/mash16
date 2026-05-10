@@ -4,12 +4,17 @@ project(mash16 VERSION 2.0 LANGUAGES CXX)
 
 option(ENABLE_PROFILING "Enable run-time profiling output for gprof" OFF)
 
+option(BUILD_INSPECTOR "Build inspector introspection module" OFF)
+
 find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
 find_package(SDL2 REQUIRED CONFIG COMPONENTS SDL2main)
 find_package(OpenGL REQUIRED)
 find_package(Git REQUIRED)
 
 set(CMAKE_CXX_STANDARD 20)
+if(BUILD_INSPECTOR)
+    add_compile_definitions(BUILD_INSPECTOR)
+endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
    add_compile_options(-O0 -g -ggdb -fno-omit-frame-pointer -fsanitize=address)
    add_link_options(-fsanitize=address)
@@ -54,6 +59,13 @@ add_executable(mash16 src/options.cpp src/strings.cpp src/main.cpp)
 add_executable(cpu_test src/options.cpp src/strings.cpp src/cpu_test.cpp)
 add_executable(jit_sanity_test src/options.cpp src/strings.cpp src/core/jit_sanity_test.cpp)
 
+if(BUILD_INSPECTOR)
+    add_executable(inspector_server_test src/options.cpp src/strings.cpp src/inspector_server_test.cpp)
+    target_link_libraries(inspector_server_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
+    add_executable(inspector_subscribe_test src/options.cpp src/strings.cpp src/inspector_subscribe_test.cpp)
+    target_link_libraries(inspector_subscribe_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
+endif()
+
 # Link SDL2
 if(TARGET SDL2::SDL2main)
     target_link_libraries(mash16 PRIVATE SDL2::SDL2main)
@@ -63,3 +75,8 @@ target_link_libraries(cpu_test PRIVATE mash16_header mash16_core SDL2::SDL2 Open
 target_link_libraries(jit_sanity_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
 
 install(TARGETS mash16 DESTINATION bin)
+
+if(BUILD_INSPECTOR)
+    add_executable(inspector_test src/options.cpp src/strings.cpp src/inspector_test.cpp)
+    target_link_libraries(inspector_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
+endif()

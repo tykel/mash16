@@ -50,6 +50,8 @@ typedef struct program_opts
     int cpu_rec_debug;
 
     int rng_seed;
+    /* If non-null, start inspector server listening on this Unix socket path. */
+    char *inspector_socket;
 } program_opts;
 
 int read_palette(char const *,uint32_t *);

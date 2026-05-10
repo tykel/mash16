@@ -68,7 +68,9 @@ const char* const str_help[2] =
         "  --audio-volume=N       set audio volume to N (0-255)\n"
         "  --fullscreen           use fullscreen mode\n"
         "  --video-scaler=N       scale video N times (1,2,3)\n"
-        "  --palette=FILE         use the palette defined in FILE (text)\n",
+        "  --palette=FILE         use the palette defined in FILE (text)\n"
+  "  --inspector-socket=PATH start Inspector JSON socket at PATH (Unix domain). "
+  "Requires build with BUILD_INSPECTOR. The Inspector exposes a simple JSON API (methods: getRegisters, readMemory, writeMemory, setBreakpoint, clearBreakpoint, listBreakpoints, run, pause, step, subscribe, snapshot, restore) for programmatic introspection and control.\n",
 
         "  --no-cpu-limit         disable 1 MHz clock limit\n"
         "  --cpu-rec              use (experimental) recompiler core\n"
