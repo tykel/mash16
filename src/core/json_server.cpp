@@ -156,6 +156,43 @@ static bool extract_string_param(const std::string &req, const std::string &key,
     return false;
 }
 
+static void read_request(int client, std::string &req) {
+    char buf[4096];
+    for (;;) {
+        struct pollfd pfd;
+        pfd.fd = client;
+        pfd.events = POLLIN | POLLHUP;
+#ifdef POLLRDHUP
+        pfd.events |= POLLRDHUP;
+#endif
+        int rv = poll(&pfd, 1, 1000);
+        if (rv < 0) {
+            if (errno == EINTR) continue;
+            perror("poll client");
+            break;
+        }
+        if (rv == 0) break;
+
+        for (;;) {
+            ssize_t n = read(client, buf, sizeof(buf));
+            if (n > 0) {
+                req.append(buf, buf + n);
+                continue;
+            }
+            if (n == 0) return;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+            if (errno == EINTR) continue;
+            perror("read");
+            return;
+        }
+
+        if (pfd.revents & POLLHUP) break;
+#ifdef POLLRDHUP
+        if (pfd.revents & POLLRDHUP) break;
+#endif
+    }
+}
+
 void JsonServer::run(const std::string& socket_path) {
     // server_fd_ should already be created/bound/listening by start()
     if (server_fd_ < 0) {
@@ -189,16 +226,7 @@ void JsonServer::run(const std::string& socket_path) {
         fprintf(stderr, "> accepted client fd=%d (non-blocking=%d)\n", client, flags>=0);
 
         std::string req;
-        char buf[4096];
-        ssize_t n;
-        // Read available data (non-blocking read loop). If nothing available yet, break and continue.
-        while ((n = read(client, buf, sizeof(buf))) > 0) {
-            req.append(buf, buf + n);
-            // continue until EOF
-        }
-        if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
-            perror("read");
-        }
+        read_request(client, req);
         fprintf(stderr, "> request len=%zu\n", req.size());
         if (req.size() > 0) {
             std::string shown = req.substr(0, std::min<size_t>(req.size(), 512));

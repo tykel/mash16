@@ -62,6 +62,22 @@ static std::string send_request(const std::string& path, const std::string& req)
     return resp;
 }
 
+static std::string send_split_request(const std::string& path, const std::string& first, const std::string& second)
+{
+    int fd = connect_client(path);
+    if (fd < 0) return "";
+    write(fd, first.data(), first.size());
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    write(fd, second.data(), second.size());
+    shutdown(fd, SHUT_WR);
+    std::string resp;
+    char buf[4096];
+    ssize_t n;
+    while ((n = read(fd, buf, sizeof(buf))) > 0) resp.append(buf, buf + n);
+    close(fd);
+    return resp;
+}
+
 int main()
 {
     cpu_state cpu;
@@ -87,6 +103,14 @@ int main()
         return 3;
     }
 
+    resp = send_split_request(path, "{\"method\":\"get", "Registers\"}");
+    if (resp.find("\"pc\"") == std::string::npos) {
+        std::cerr << "split request failed: response=" << resp << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 4;
+    }
+
     auto snapshot = insp.snapshot();
     std::string restore_req = std::string("{\"method\":\"restore\",\"data\":\"") + base64_encode(snapshot) + "\"}";
     cpu.m[0] = 0xaa;
@@ -95,7 +119,7 @@ int main()
         std::cerr << "restore failed: response=" << resp << " mem0=" << (int)cpu.m[0] << std::endl;
         srv.stop();
         free(cpu.m);
-        return 4;
+        return 5;
     }
 
     srv.stop();
