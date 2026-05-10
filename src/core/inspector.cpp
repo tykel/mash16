@@ -6,10 +6,11 @@
 
 namespace mash16 {
 
-Inspector::Inspector(cpu_state *cpu) : cpu_(cpu) {}
+Inspector::Inspector(cpu_state *cpu, std::recursive_mutex *cpu_mtx)
+    : cpu_(cpu), cpu_mtx_(cpu_mtx ? cpu_mtx : &local_cpu_mtx_) {}
 
 Inspector::Registers Inspector::getRegisters() {
-    std::lock_guard<std::mutex> lk(mtx_);
+    std::lock_guard<std::recursive_mutex> lk(*cpu_mtx_);
     Registers regs;
     for (int i = 0; i < 16; ++i) regs.r[i] = cpu_->r[i];
     regs.pc = cpu_->pc;
@@ -19,7 +20,7 @@ Inspector::Registers Inspector::getRegisters() {
 }
 
 std::vector<uint8_t> Inspector::readMemory(uint16_t addr, size_t size) {
-    std::lock_guard<std::mutex> lk(mtx_);
+    std::lock_guard<std::recursive_mutex> lk(*cpu_mtx_);
     if (!cpu_ || !cpu_->m) return {};
     if (addr >= MEM_SIZE) return {};
     size_t avail = std::min<size_t>(size, MEM_SIZE - addr);
@@ -27,7 +28,7 @@ std::vector<uint8_t> Inspector::readMemory(uint16_t addr, size_t size) {
 }
 
 bool Inspector::writeMemory(uint16_t addr, const std::vector<uint8_t>& data) {
-    std::lock_guard<std::mutex> lk(mtx_);
+    std::lock_guard<std::recursive_mutex> lk(*cpu_mtx_);
     if (!cpu_ || !cpu_->m) return false;
     if (addr >= MEM_SIZE) return false;
     size_t avail = std::min<size_t>(data.size(), MEM_SIZE - addr);
@@ -61,7 +62,7 @@ std::vector<uint16_t> Inspector::listBreakpoints() {
 }
 
 std::vector<uint8_t> Inspector::snapshot() {
-    std::lock_guard<std::mutex> lk(mtx_);
+    std::lock_guard<std::recursive_mutex> lk(*cpu_mtx_);
     std::vector<uint8_t> out;
     out.reserve(sizeof(cpu_->r) + sizeof(cpu_->pc) + sizeof(cpu_->sp) + sizeof(cpu_->f) + MEM_SIZE);
 
@@ -79,7 +80,7 @@ std::vector<uint8_t> Inspector::snapshot() {
 }
 
 bool Inspector::restore(const std::vector<uint8_t>& data) {
-    std::lock_guard<std::mutex> lk(mtx_);
+    std::lock_guard<std::recursive_mutex> lk(*cpu_mtx_);
     size_t expected = sizeof(cpu_->r) + sizeof(cpu_->pc) + sizeof(cpu_->sp) + sizeof(cpu_->f) + MEM_SIZE;
     if (data.size() < expected) return false;
     size_t offset = 0;

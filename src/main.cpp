@@ -46,8 +46,10 @@ int use_verbose;
 #include <ctime>
 
 #include <algorithm>
+#include <atomic>
 #include <format>
 #include <map>
+#include <mutex>
 #include <string>
 #include <sstream>
 
@@ -113,24 +115,26 @@ static int t = 0, oldt = 0;
 static int fps = 0, lastsec = 0;
 static int stop = 0;
 
-static bool paused = false;
+static std::atomic_bool paused = false;
+static std::atomic_bool step_requested = false;
+static std::recursive_mutex cpu_state_mtx;
 
 void pause_cpu(void)
 {
     printf("> pausing cpu\n");
-   paused = true;
+    paused.store(true);
 }
 
 void resume_cpu(void)
 {
     printf("> resuming cpu\n");
-    paused = false;
+    paused.store(false);
 }
 
 void step_cpu(void)
 {
-    last_state = *state;
-    exec_and_emit(state);
+    paused.store(true);
+    step_requested.store(true);
 }
 
 /* State printing options. */
@@ -421,7 +425,7 @@ void sanitize_options(program_opts* opts)
 void breakpoint_handle(cpu_state *state)
 {
     int i;
-    paused = paused ? true : opts.use_breakall;
+    paused.store(paused.load() ? true : opts.use_breakall);
     
     /* Stop at watch point if necessary. */
     auto is_store = false;
@@ -452,7 +456,7 @@ void breakpoint_handle(cpu_state *state)
         if (it != watches.cend() && it->second.enabled) {
             printf("> hit watchpoint @ 0x%04x: op %02x\n",
                    it->first, i_op(state->i));
-            paused = true;
+            paused.store(true);
 #ifdef BUILD_INSPECTOR
             if (g_inspector) {
                 mash16::Inspector::Event ev;
@@ -463,13 +467,13 @@ void breakpoint_handle(cpu_state *state)
         }
     }
     
-    if (!paused) {
+    if (!paused.load()) {
         // check legacy UI breakpoints
         if (!breakps.empty()) {
             const auto& it = breakps.find(state->pc);
             if (it != breakps.cend() && it->second.enabled) {
                 printf("> hit breakpoint @ 0x%04x\n", it->first);
-                paused = true;
+                paused.store(true);
 #ifdef BUILD_INSPECTOR
                 if (g_inspector) {
                     mash16::Inspector::Event ev;
@@ -481,12 +485,12 @@ void breakpoint_handle(cpu_state *state)
         }
 #ifdef BUILD_INSPECTOR
         // check inspector-managed breakpoints
-        if (!paused && g_inspector) {
+        if (!paused.load() && g_inspector) {
             auto bps = g_inspector->listBreakpoints();
             for (auto bp : bps) {
                 if (bp == state->pc) {
                     printf("> hit inspector breakpoint @ 0x%04x\n", bp);
-                    paused = true;
+                    paused.store(true);
                     mash16::Inspector::Event ev;
                     std::ostringstream o; o << "{\"type\":\"breakpoint\",\"addr\":" << bp << "}";
                     ev.payload = o.str(); ev.type = "breakpoint"; g_inspector->pushEvent(ev);
@@ -711,9 +715,17 @@ void emulation_loop()
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
    
-    if (paused) {
+    if (paused.load()) {
+        {
+            std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
+            if (step_requested.exchange(false)) {
+                last_state = *state;
+                exec_and_emit(state);
+            }
+        }
         SDL_Delay(FRAME_DT);
         
+        std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
         if (opts.debug_ui) {
             draw_imgui(state);
         }
@@ -726,9 +738,10 @@ void emulation_loop()
         {
             while(!state->meta.wait_vblnk && state->meta.cycles < FRAME_CYCLES)
             {
+                std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
                 breakpoint_handle(state);
                 last_state = *state;
-                if (paused)
+                if (paused.load())
                     break;
                 exec_and_emit(state);
             }
@@ -745,6 +758,7 @@ void emulation_loop()
             {
                 for(i=0; i<600; ++i)
                 {
+                    std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
                     exec_and_emit(state);
                     /* Don't forget to count our frames! */
                     if(state->meta.wait_vblnk)
@@ -781,28 +795,37 @@ void emulation_loop()
         switch(evt.type)
         {
             case SDL_KEYDOWN:
-                cpu_io_update(&evt.key,state);
+                {
+                    std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
+                    cpu_io_update(&evt.key,state);
+                }
                 if(evt.key.keysym.sym == SDLK_SPACE)
                 {
-                    paused = !paused;
+                    std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
+                    paused.store(!paused.load());
                     last_state = *state;
                     exec_and_emit(state);
                 }
-                else if(evt.key.keysym.sym == SDLK_n && paused)
+                else if(evt.key.keysym.sym == SDLK_n && paused.load())
                 {
+                    std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
                     last_state = *state;
                     exec_and_emit(state);
                 }
-                else if(evt.key.keysym.sym == SDLK_h && paused)
+                else if(evt.key.keysym.sym == SDLK_h && paused.load())
                 {
                     hex = !hex;
+                    std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
                     print_state(state, state->meta.old_pc);
                 }
                 else if(evt.key.keysym.sym == SDLK_ESCAPE)
                     stop = 1;
                 break;
             case SDL_KEYUP:
-                cpu_io_update(&evt.key,state);
+                {
+                    std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
+                    cpu_io_update(&evt.key,state);
+                }
                 break;
             case SDL_QUIT:
                 stop = 1;
@@ -812,9 +835,12 @@ void emulation_loop()
         }
     }
     /* Draw. */
-    blit_screen(screen,state,opts.video_scaler);
+    {
+        std::lock_guard<std::recursive_mutex> lk(cpu_state_mtx);
+        blit_screen(screen,state,opts.video_scaler);
+    }
 
-    if (paused) {
+    if (paused.load()) {
     }
     ImGui::Render();
 
@@ -1061,7 +1087,7 @@ int main(int argc, char* argv[])
     mash16::Inspector *inspector = nullptr;
     mash16::JsonServer *inspector_server = nullptr;
     if (opts.inspector_socket) {
-        inspector = new mash16::Inspector(state);
+        inspector = new mash16::Inspector(state, &cpu_state_mtx);
         // copy existing breakpoints from command-line UI into inspector
         for (const auto & [a,e] : breakps) inspector->setBreakpoint(a);
 

@@ -25,7 +25,7 @@ public:
         flags f;
     };
 
-    explicit Inspector(cpu_state *cpu);
+    explicit Inspector(cpu_state *cpu, std::recursive_mutex *cpu_mtx = nullptr);
 
     Registers getRegisters();
     std::vector<uint8_t> readMemory(uint16_t addr, size_t size);
@@ -57,6 +57,8 @@ public:
 
 private:
     cpu_state *cpu_;
+    std::recursive_mutex local_cpu_mtx_;
+    std::recursive_mutex *cpu_mtx_;
     std::mutex mtx_;
     std::vector<uint16_t> breakpoints_;
 
