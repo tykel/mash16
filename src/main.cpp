@@ -102,6 +102,10 @@ static void exec_and_emit(cpu_state* st) {
         g_inspector->pushEvent(ev);
     }
 }
+#else
+static void exec_and_emit(cpu_state* st) {
+    cpu_exec(st);
+}
 #endif
 
 /* Timing variables. */
@@ -449,11 +453,13 @@ void breakpoint_handle(cpu_state *state)
             printf("> hit watchpoint @ 0x%04x: op %02x\n",
                    it->first, i_op(state->i));
             paused = true;
+#ifdef BUILD_INSPECTOR
             if (g_inspector) {
                 mash16::Inspector::Event ev;
                 std::ostringstream o; o << "{\"type\":\"watchpoint\",\"addr\":" << it->first << "}";
                 ev.payload = o.str(); ev.type = "watchpoint"; g_inspector->pushEvent(ev);
             }
+#endif
         }
     }
     
@@ -464,13 +470,16 @@ void breakpoint_handle(cpu_state *state)
             if (it != breakps.cend() && it->second.enabled) {
                 printf("> hit breakpoint @ 0x%04x\n", it->first);
                 paused = true;
+#ifdef BUILD_INSPECTOR
                 if (g_inspector) {
                     mash16::Inspector::Event ev;
                     std::ostringstream o; o << "{\"type\":\"breakpoint\",\"addr\":" << it->first << "}";
                     ev.payload = o.str(); ev.type = "breakpoint"; g_inspector->pushEvent(ev);
                 }
+#endif
             }
         }
+#ifdef BUILD_INSPECTOR
         // check inspector-managed breakpoints
         if (!paused && g_inspector) {
             auto bps = g_inspector->listBreakpoints();
@@ -485,6 +494,7 @@ void breakpoint_handle(cpu_state *state)
                 }
             }
         }
+#endif
     }
 }
 
