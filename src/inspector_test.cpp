@@ -31,6 +31,27 @@ int main() {
     auto bps = insp.listBreakpoints();
     std::cout << "breakpoints:"; for (auto bp : bps) std::cout << " " << std::hex << bp; std::cout << std::dec << "\n";
 
+    Inspector::Event ev;
+    insp.pushEvent({"dropped", "{\"type\":\"dropped\"}"});
+    if (insp.popEventBlocking(ev, 1)) {
+        std::cerr << "event queued without subscriber\n";
+        free(cpu.m);
+        return 3;
+    }
+
+    insp.eventSubscriberAttached();
+    for (size_t i = 0; i < Inspector::MAX_EVENT_QUEUE + 10; ++i) {
+        insp.pushEvent({"test", "{\"type\":\"test\"}"});
+    }
+    size_t count = 0;
+    while (insp.popEventBlocking(ev, 1)) ++count;
+    insp.eventSubscriberDetached();
+    if (count != Inspector::MAX_EVENT_QUEUE) {
+        std::cerr << "unexpected queued event count: " << count << "\n";
+        free(cpu.m);
+        return 4;
+    }
+
     free(cpu.m);
     return 0;
 }

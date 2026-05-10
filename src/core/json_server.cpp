@@ -242,6 +242,7 @@ void JsonServer::run(const std::string& socket_path) {
             // Send a simple ack first
             std::string ack = "{\"result\":\"subscribed\"}\n";
             write(client, ack.c_str(), ack.size());
+            inspector_->eventSubscriberAttached();
             // Stream events until client disconnects or server stops
             while (running_) {
                 Inspector::Event ev;
@@ -261,6 +262,7 @@ void JsonServer::run(const std::string& socket_path) {
                     break; // client closed
                 }
             }
+            inspector_->eventSubscriberDetached();
             close(client);
             continue; // do not close again
         } else if (method == "run") {

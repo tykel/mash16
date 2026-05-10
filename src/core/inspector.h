@@ -46,9 +46,14 @@ public:
     /* Event queue API for streaming execution events. */
     void pushEvent(const Event& ev);
     bool popEventBlocking(Event &out, int timeout_ms);
+    void eventSubscriberAttached();
+    void eventSubscriberDetached();
+    bool hasEventSubscribers();
 
     /* Wake any threads waiting on the event queue (used during shutdown). */
     void wakeEventWaiters();
+
+    static constexpr size_t MAX_EVENT_QUEUE = 4096;
 
 private:
     cpu_state *cpu_;
@@ -59,6 +64,7 @@ private:
     std::mutex event_mtx_;
     std::condition_variable event_cv_;
     std::deque<Event> event_q_;
+    size_t event_subscribers_ = 0;
 };
 
     /* Control hooks implemented in main.cpp to allow the Inspector to control

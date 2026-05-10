@@ -90,7 +90,7 @@ static void exec_and_emit(cpu_state* st) {
     uint16_t pc_before = st->pc;
     cpu_exec(st);
     uint16_t pc_after = st->pc;
-    if (g_inspector) {
+    if (g_inspector && g_inspector->hasEventSubscribers()) {
         mash16::Inspector::Event ev;
         ev.type = "instruction";
         std::ostringstream o;

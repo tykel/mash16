@@ -119,6 +119,10 @@ void Inspector::step() {
 
 void Inspector::pushEvent(const Event& ev) {
     std::lock_guard<std::mutex> lk(event_mtx_);
+    if (event_subscribers_ == 0) return;
+    if (event_q_.size() >= MAX_EVENT_QUEUE) {
+        event_q_.pop_front();
+    }
     event_q_.push_back(ev);
     event_cv_.notify_one();
 }
@@ -138,6 +142,21 @@ bool Inspector::popEventBlocking(Event &out, int timeout_ms) {
     out = event_q_.front();
     event_q_.pop_front();
     return true;
+}
+
+void Inspector::eventSubscriberAttached() {
+    std::lock_guard<std::mutex> lk(event_mtx_);
+    ++event_subscribers_;
+}
+
+void Inspector::eventSubscriberDetached() {
+    std::lock_guard<std::mutex> lk(event_mtx_);
+    if (event_subscribers_ > 0) --event_subscribers_;
+}
+
+bool Inspector::hasEventSubscribers() {
+    std::lock_guard<std::mutex> lk(event_mtx_);
+    return event_subscribers_ > 0;
 }
 
 void Inspector::wakeEventWaiters() {
