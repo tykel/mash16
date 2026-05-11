@@ -76,6 +76,36 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "press_controller_button",
+        "description": "Inject a controller button press.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "button": {
+                    "type": "string",
+                    "enum": ["up", "down", "left", "right", "select", "start", "a", "b"],
+                },
+                "player": {"type": "integer", "minimum": 1, "maximum": 2},
+            },
+            "required": ["button"],
+        },
+    },
+    {
+        "name": "release_controller_button",
+        "description": "Inject a controller button release.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "button": {
+                    "type": "string",
+                    "enum": ["up", "down", "left", "right", "select", "start", "a", "b"],
+                },
+                "player": {"type": "integer", "minimum": 1, "maximum": 2},
+            },
+            "required": ["button"],
+        },
+    },
 ]
 
 
@@ -97,6 +127,18 @@ def tool_call(path, name, args):
             path,
             "disassemble",
             {"target": args.get("target", "pc"), "count": args.get("count", 8)},
+        )
+    if name == "press_controller_button":
+        return inspector_call(
+            path,
+            "pressControllerButton",
+            {"button": args["button"], "player": args.get("player", 1)},
+        )
+    if name == "release_controller_button":
+        return inspector_call(
+            path,
+            "releaseControllerButton",
+            {"button": args["button"], "player": args.get("player", 1)},
         )
     raise ValueError(f"unknown tool: {name}")
 

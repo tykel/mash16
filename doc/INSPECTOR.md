@@ -32,6 +32,13 @@ Supported methods (prototype)
   Request: {"method":"writeMemory","addr":0x2000,"bytes":[1,2,3,4]}
   Response: {"result":true}
 
+- pressControllerButton / releaseControllerButton
+  Request: {"method":"pressControllerButton","button":"a","player":1}
+  Request: {"method":"releaseControllerButton","button":"a","player":1}
+  Response: {"result":true}
+  Buttons: "up", "down", "left", "right", "select", "start", "a", "b".
+  Player defaults to 1 and may be 1 or 2.
+
 - setBreakpoint / clearBreakpoint / listBreakpoints
   setBreakpoint: {"method":"setBreakpoint","addr":0x3000}
   clearBreakpoint: {"method":"clearBreakpoint","addr":0x3000}
@@ -70,4 +77,3 @@ Contributing & next steps
 - Replace ad-hoc JSON parsing with a proper JSON library (nlohmann::json) and adopt JSON-RPC 2.0 semantics.
 - Add authentication or local-only permissioning for TCP sockets if enabled.
 - Add documented event types, backpressure, and subscription filters.
-

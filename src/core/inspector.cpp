@@ -6,6 +6,7 @@
 #include <chrono>
 #include <iomanip>
 #include <cstdlib>
+#include <cctype>
 
 namespace mash16 {
 
@@ -90,6 +91,44 @@ bool Inspector::writeMemory(uint16_t addr, const std::vector<uint8_t>& data) {
             break;
         }
     }
+    return true;
+}
+
+static std::optional<uint8_t> controller_button_mask(const std::string& button) {
+    std::string name = button;
+    std::transform(name.begin(), name.end(), name.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (name == "up") return PAD_UP;
+    if (name == "down") return PAD_DOWN;
+    if (name == "left") return PAD_LEFT;
+    if (name == "right") return PAD_RIGHT;
+    if (name == "select") return PAD_SELECT;
+    if (name == "start") return PAD_START;
+    if (name == "a") return PAD_A;
+    if (name == "b") return PAD_B;
+    return std::nullopt;
+}
+
+bool Inspector::setControllerButton(uint32_t player, const std::string& button, bool pressed) {
+    auto mask = controller_button_mask(button);
+    if (!mask || player < 1 || player > 2) return false;
+
+    std::lock_guard<std::recursive_mutex> lk(*cpu_mtx_);
+    if (!cpu_ || !cpu_->m) return false;
+
+    uint16_t addr = player == 1 ? IO_PAD1_ADDR : IO_PAD2_ADDR;
+    if (pressed) cpu_->m[addr] |= *mask;
+    else cpu_->m[addr] &= static_cast<uint8_t>(~*mask);
+
+    Event ev;
+    ev.type = "controller";
+    std::ostringstream o;
+    o << "{\"type\":\"controller\",\"player\":" << static_cast<int>(player)
+      << ",\"button\":\"" << button << "\",\"pressed\":"
+      << (pressed ? "true" : "false")
+      << ",\"state\":" << static_cast<int>(cpu_->m[addr]) << "}";
+    ev.payload = o.str();
+    pushEvent(ev);
     return true;
 }
 

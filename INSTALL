@@ -8,3 +8,15 @@ followed by
 
 this time as root.
 
+For a local user install from the Ninja build directories, build the release and
+debug artifacts and then run the opt-in install target:
+
+    ninja -C build mash16
+    ninja -C build-debug mash16 mash16-inspect
+    ninja -C build install-user
+
+This installs the release build as ~/bin/mash16, the debug inspector CLI as
+~/bin/mash16-inspect, and a ~/bin/mash16-debug symlink to the debug emulator.
+Override the destination with:
+
+    cmake -S . -B build -DMASH16_USER_BIN=/path/to/bin

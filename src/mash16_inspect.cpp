@@ -114,7 +114,8 @@ static void usage()
 {
     std::cerr << "usage: mash16-inspect [--socket PATH] [--json] COMMAND [ARGS]\n"
               << "commands: status, regs, mem ADDR SIZE, disasm TARGET COUNT, break TARGET,\n"
-              << "          clear-break TARGET, run-until TARGET, step [COUNT]\n";
+              << "          clear-break TARGET, run-until TARGET, step [COUNT],\n"
+              << "          press BUTTON [PLAYER], release BUTTON [PLAYER]\n";
 }
 
 int main(int argc, char **argv)
@@ -148,6 +149,10 @@ int main(int argc, char **argv)
     else if (cmd == "step") {
         std::string count = args.size() >= 2 ? args[1] : "1";
         req = request_for("step", "{\"count\":" + count + "}");
+    } else if ((cmd == "press" || cmd == "release") && args.size() >= 2) {
+        std::string player = args.size() >= 3 ? args[2] : "1";
+        std::string method = cmd == "press" ? "pressControllerButton" : "releaseControllerButton";
+        req = request_for(method, "{\"button\":\"" + json_escape(args[1]) + "\",\"player\":" + player + "}");
     } else {
         usage();
         return 2;
@@ -172,6 +177,8 @@ int main(int argc, char **argv)
         std::cout << "\n";
     } else if (cmd == "disasm") {
         print_disasm_text(resp);
+    } else if (cmd == "press" || cmd == "release") {
+        std::cout << "ok\n";
     } else {
         std::cout << resp;
     }

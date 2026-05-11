@@ -521,6 +521,7 @@ std::string JsonServer::handleRequest(const std::string& text, int client, bool&
             "initialize","capabilities","state","pause","resume","step","waitStopped",
             "runUntil","runFor","setBreakpoint","clearBreakpoint","listBreakpoints",
             "setWatchpoint","clearWatchpoint","listWatchpoints","readMemory","writeMemory",
+            "pressControllerButton","releaseControllerButton",
             "readRegisters","writeRegister","disassemble","symbols","resolveSymbol",
             "evaluate","snapshot","restore","trace","subscribe",
             "getRegisters","run"
@@ -548,6 +549,19 @@ std::string JsonServer::handleRequest(const std::string& text, int client, bool&
         if (!bytes_param(params, bytes)) return response_error(id, -32602, "missing bytes", rpc);
         bool ok = inspector_->writeMemory(static_cast<uint16_t>(addr), bytes);
         return ok ? response_result(id, Json::boolean(true), rpc) : response_error(id, -32000, "write failed", rpc);
+    }
+    if (method == "pressControllerButton" || method == "releaseControllerButton") {
+        std::string button;
+        uint32_t player = 1;
+        uint_param(params, "player", player);
+        if (!string_param(params, "button", button))
+            return response_error(id, -32602, "missing button", rpc);
+        bool ok = inspector_->setControllerButton(
+            player,
+            button,
+            method == "pressControllerButton");
+        return ok ? response_result(id, Json::boolean(true), rpc) :
+            response_error(id, -32602, "unknown player/button", rpc);
     }
     if (method == "writeRegister") {
         std::string name;

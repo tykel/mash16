@@ -53,6 +53,7 @@ public:
     bool writeRegister(const std::string& name, int32_t value);
     std::vector<uint8_t> readMemory(uint16_t addr, size_t size);
     bool writeMemory(uint16_t addr, const std::vector<uint8_t>& data);
+    bool setControllerButton(uint32_t player, const std::string& button, bool pressed);
 
     void setBreakpoint(uint16_t addr);
     void clearBreakpoint(uint16_t addr);

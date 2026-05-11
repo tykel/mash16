@@ -156,6 +156,54 @@ int main()
         return 8;
     }
 
+    cli_cmd =
+        "if [ -x ./mash16-inspect ]; then ./mash16-inspect --socket " + path +
+        " press b; else ./build-debug/mash16-inspect --socket " + path +
+        " press b; fi";
+    pipe = popen(cli_cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "mash16-inspect press popen failed" << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 9;
+    }
+    cli_resp.clear();
+    while (fgets(cli_buf, sizeof(cli_buf), pipe)) cli_resp += cli_buf;
+    cli_status = pclose(pipe);
+    if (cli_status != 0 || cli_resp.find("ok") == std::string::npos ||
+        !(cpu.m[IO_PAD1_ADDR] & PAD_B)) {
+        std::cerr << "mash16-inspect press failed: status=" << cli_status
+                  << " response=" << cli_resp
+                  << " pad1=" << (int)cpu.m[IO_PAD1_ADDR] << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 9;
+    }
+
+    cli_cmd =
+        "if [ -x ./mash16-inspect ]; then ./mash16-inspect --socket " + path +
+        " release b; else ./build-debug/mash16-inspect --socket " + path +
+        " release b; fi";
+    pipe = popen(cli_cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "mash16-inspect release popen failed" << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 10;
+    }
+    cli_resp.clear();
+    while (fgets(cli_buf, sizeof(cli_buf), pipe)) cli_resp += cli_buf;
+    cli_status = pclose(pipe);
+    if (cli_status != 0 || cli_resp.find("ok") == std::string::npos ||
+        (cpu.m[IO_PAD1_ADDR] & PAD_B)) {
+        std::cerr << "mash16-inspect release failed: status=" << cli_status
+                  << " response=" << cli_resp
+                  << " pad1=" << (int)cpu.m[IO_PAD1_ADDR] << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 10;
+    }
+
     resp = send_request(path,
         "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"setBreakpoint\",\"params\":{\"addr\":512}}\n"
         "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"listBreakpoints\"}\n");
@@ -165,7 +213,7 @@ int main()
         std::cerr << "newline-delimited json-rpc failed: response=" << resp << std::endl;
         srv.stop();
         free(cpu.m);
-        return 9;
+        return 11;
     }
 
     auto snapshot = insp.snapshot();
@@ -176,7 +224,54 @@ int main()
         std::cerr << "restore failed: response=" << resp << " mem0=" << (int)cpu.m[0] << std::endl;
         srv.stop();
         free(cpu.m);
-        return 10;
+        return 12;
+    }
+
+    cpu.m[IO_PAD1_ADDR] = 0;
+    resp = send_request(path,
+        "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"pressControllerButton\","
+        "\"params\":{\"button\":\"a\",\"player\":1}}\n");
+    if (resp.find("\"result\":true") == std::string::npos || !(cpu.m[IO_PAD1_ADDR] & PAD_A)) {
+        std::cerr << "controller press failed: response=" << resp
+                  << " pad1=" << (int)cpu.m[IO_PAD1_ADDR] << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 13;
+    }
+
+    resp = send_request(path,
+        "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"releaseControllerButton\","
+        "\"params\":{\"button\":\"a\",\"player\":1}}\n");
+    if (resp.find("\"result\":true") == std::string::npos || (cpu.m[IO_PAD1_ADDR] & PAD_A)) {
+        std::cerr << "controller release failed: response=" << resp
+                  << " pad1=" << (int)cpu.m[IO_PAD1_ADDR] << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 14;
+    }
+
+    cpu.m[IO_PAD2_ADDR] = 0;
+    resp = send_request(path,
+        "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"pressControllerButton\","
+        "\"params\":{\"button\":\"start\",\"player\":2}}\n");
+    if (resp.find("\"result\":true") == std::string::npos || !(cpu.m[IO_PAD2_ADDR] & PAD_START)) {
+        std::cerr << "controller player 2 press failed: response=" << resp
+                  << " pad2=" << (int)cpu.m[IO_PAD2_ADDR] << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 15;
+    }
+
+    cpu.m[IO_PAD1_ADDR] = 0;
+    resp = send_request(path,
+        "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"pressControllerButton\","
+        "\"params\":{\"button\":\"b\",\"player\":257}}\n");
+    if (resp.find("\"error\"") == std::string::npos || (cpu.m[IO_PAD1_ADDR] & PAD_B)) {
+        std::cerr << "invalid controller player accepted: response=" << resp
+                  << " pad1=" << (int)cpu.m[IO_PAD1_ADDR] << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 16;
     }
 
     srv.stop();

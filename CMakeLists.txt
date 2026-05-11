@@ -8,6 +8,9 @@ option(ENABLE_PROFILING "Enable run-time profiling output for gprof" OFF)
 
 option(BUILD_INSPECTOR "Build inspector introspection module" OFF)
 
+set(MASH16_USER_BIN "$ENV{HOME}/bin" CACHE PATH "User bin directory for local mash16 installs")
+set(MASH16_DEBUG_BUILD_DIR "${PROJECT_SOURCE_DIR}/build-debug" CACHE PATH "Debug build directory for local mash16 installs")
+
 find_package(SDL2 REQUIRED CONFIG REQUIRED COMPONENTS SDL2)
 find_package(SDL2 REQUIRED CONFIG COMPONENTS SDL2main)
 find_package(OpenGL REQUIRED)
@@ -63,6 +66,7 @@ add_executable(jit_sanity_test src/options.cpp src/strings.cpp src/core/jit_sani
 add_test(NAME jit_sanity_test COMMAND jit_sanity_test)
 
 if(BUILD_INSPECTOR)
+    set_target_properties(mash16 PROPERTIES EXPORT_NAME "mash16-debug")
     add_executable(mash16-inspect src/mash16_inspect.cpp)
     add_executable(inspector_server_test src/options.cpp src/strings.cpp src/inspector_server_test.cpp)
     target_link_libraries(inspector_server_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
@@ -88,4 +92,17 @@ if(BUILD_INSPECTOR)
     add_executable(inspector_test src/options.cpp src/strings.cpp src/inspector_test.cpp)
     target_link_libraries(inspector_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
     add_test(NAME inspector_test COMMAND inspector_test)
+endif()
+
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_custom_target(install-user
+        COMMAND /bin/sh "${PROJECT_SOURCE_DIR}/scripts/install-user.sh"
+                "$<TARGET_FILE:mash16>"
+                "${MASH16_DEBUG_BUILD_DIR}/mash16"
+                "${MASH16_DEBUG_BUILD_DIR}/mash16-inspect"
+                "${MASH16_USER_BIN}"
+        DEPENDS mash16
+        COMMENT "Installing mash16 user binaries to ${MASH16_USER_BIN}"
+        VERBATIM
+    )
 endif()
