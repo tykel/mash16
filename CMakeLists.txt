@@ -63,6 +63,7 @@ add_executable(jit_sanity_test src/options.cpp src/strings.cpp src/core/jit_sani
 add_test(NAME jit_sanity_test COMMAND jit_sanity_test)
 
 if(BUILD_INSPECTOR)
+    add_executable(mash16-inspect src/mash16_inspect.cpp)
     add_executable(inspector_server_test src/options.cpp src/strings.cpp src/inspector_server_test.cpp)
     target_link_libraries(inspector_server_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
     add_executable(inspector_subscribe_test src/options.cpp src/strings.cpp src/inspector_subscribe_test.cpp)
@@ -83,6 +84,7 @@ target_link_libraries(jit_sanity_test PRIVATE mash16_header mash16_core SDL2::SD
 install(TARGETS mash16 DESTINATION bin)
 
 if(BUILD_INSPECTOR)
+    install(TARGETS mash16-inspect DESTINATION bin)
     add_executable(inspector_test src/options.cpp src/strings.cpp src/inspector_test.cpp)
     target_link_libraries(inspector_test PRIVATE mash16_header mash16_core SDL2::SDL2 OpenGL::GL imgui_impl_sdl2 imgui_impl_opengl2)
     add_test(NAME inspector_test COMMAND inspector_test)

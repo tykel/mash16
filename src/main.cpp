@@ -465,6 +465,22 @@ void breakpoint_handle(cpu_state *state)
             }
 #endif
         }
+#ifdef BUILD_INSPECTOR
+        if (!paused.load() && g_inspector) {
+            auto inspector_watches = g_inspector->listWatchpoints();
+            for (auto watch : inspector_watches) {
+                if (watch == hhll) {
+                    printf("> hit inspector watchpoint @ 0x%04x: op %02x\n",
+                           watch, i_op(state->i));
+                    paused.store(true);
+                    mash16::Inspector::Event ev;
+                    std::ostringstream o; o << "{\"type\":\"watchpoint\",\"addr\":" << watch << "}";
+                    ev.payload = o.str(); ev.type = "watchpoint"; g_inspector->pushEvent(ev);
+                    break;
+                }
+            }
+        }
+#endif
     }
     
     if (!paused.load()) {
@@ -1090,6 +1106,9 @@ int main(int argc, char* argv[])
         inspector = new mash16::Inspector(state, &cpu_state_mtx);
         // copy existing breakpoints from command-line UI into inspector
         for (const auto & [a,e] : breakps) inspector->setBreakpoint(a);
+        for (int a = 0; a < 0x10000; ++a) {
+            if (symbols[a]) inspector->setSymbol(static_cast<uint16_t>(a), symbols[a]);
+        }
 
         // expose control hooks
         mash16::inspector_set_control_hooks(resume_cpu, pause_cpu, step_cpu);

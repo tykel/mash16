@@ -87,6 +87,28 @@ int main()
             return 6;
         }
 
+        int fd3 = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd3 < 0 || connect(fd3, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+            std::cerr << "third client connect failed: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+            close(fd);
+            if (fd3 >= 0) close(fd3);
+            srv.stop();
+            free(cpu.m);
+            return 7;
+        }
+        write(fd3, req.c_str(), req.size());
+        shutdown(fd3, SHUT_WR);
+        setsockopt(fd3, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        char buf3[8192]; ssize_t n3 = read(fd3, buf3, sizeof(buf3)-1);
+        if (n3 <= 0) {
+            std::cerr << "second subscriber ack failed" << std::endl;
+            close(fd);
+            close(fd3);
+            srv.stop();
+            free(cpu.m);
+            return 8;
+        }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         Inspector::Event ev;
         ev.type = "test_event";
@@ -96,25 +118,47 @@ int main()
         if (n <= 0) {
             std::cerr << "subscribe event failed: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
             close(fd);
+            close(fd3);
             srv.stop();
             free(cpu.m);
-            return 7;
+            return 9;
         }
         buf[n] = 0;
         std::string event_response(buf);
         if (event_response.find("\"test_event\"") == std::string::npos) {
             std::cerr << "unexpected subscribe event: " << event_response << std::endl;
             close(fd);
+            close(fd3);
             srv.stop();
             free(cpu.m);
-            return 8;
+            return 10;
+        }
+        n3 = read(fd3, buf3, sizeof(buf3)-1);
+        if (n3 <= 0) {
+            std::cerr << "second subscriber event failed: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
+            close(fd);
+            close(fd3);
+            srv.stop();
+            free(cpu.m);
+            return 11;
+        }
+        buf3[n3] = 0;
+        std::string event_response3(buf3);
+        if (event_response3.find("\"test_event\"") == std::string::npos) {
+            std::cerr << "unexpected second subscriber event: " << event_response3 << std::endl;
+            close(fd);
+            close(fd3);
+            srv.stop();
+            free(cpu.m);
+            return 12;
         }
         close(fd);
+        close(fd3);
     } else {
         std::cerr << "client connect failed after retries: errno=" << errno << " (" << strerror(errno) << ")" << std::endl;
         srv.stop();
         free(cpu.m);
-        return 9;
+        return 13;
     }
 
     srv.stop();

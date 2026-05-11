@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <cstdio>
 int use_verbose = 0;
 #include "core/inspector.h"
 #include "core/json_server.h"
@@ -111,6 +112,62 @@ int main()
         return 4;
     }
 
+    resp = send_request(path, "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"initialize\"}\n");
+    if (resp.find("\"jsonrpc\":\"2.0\"") == std::string::npos ||
+        resp.find("\"id\":7") == std::string::npos ||
+        resp.find("\"state\"") == std::string::npos) {
+        std::cerr << "json-rpc initialize failed: response=" << resp << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 5;
+    }
+
+    cpu.pc = 0;
+    cpu.m[0] = 0x00; cpu.m[1] = 0x00; cpu.m[2] = 0x00; cpu.m[3] = 0x00;
+    resp = send_request(path, "{\"jsonrpc\":\"2.0\",\"id\":\"s\",\"method\":\"state\"}\n");
+    if (resp.find("\"instruction\"") == std::string::npos ||
+        resp.find("\"text\":\"nop\"") == std::string::npos) {
+        std::cerr << "json-rpc state failed: response=" << resp << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 6;
+    }
+
+    std::string cli_cmd =
+        "if [ -x ./mash16-inspect ]; then ./mash16-inspect --socket " + path +
+        " --json status; else ./build-debug/mash16-inspect --socket " + path +
+        " --json status; fi";
+    FILE *pipe = popen(cli_cmd.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "mash16-inspect popen failed" << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 7;
+    }
+    char cli_buf[4096];
+    std::string cli_resp;
+    while (fgets(cli_buf, sizeof(cli_buf), pipe)) cli_resp += cli_buf;
+    int cli_status = pclose(pipe);
+    if (cli_status != 0 || cli_resp.find("\"instruction\"") == std::string::npos) {
+        std::cerr << "mash16-inspect status failed: status=" << cli_status
+                  << " response=" << cli_resp << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 8;
+    }
+
+    resp = send_request(path,
+        "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"setBreakpoint\",\"params\":{\"addr\":512}}\n"
+        "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"listBreakpoints\"}\n");
+    if (resp.find("\"id\":8") == std::string::npos ||
+        resp.find("\"id\":9") == std::string::npos ||
+        resp.find("512") == std::string::npos) {
+        std::cerr << "newline-delimited json-rpc failed: response=" << resp << std::endl;
+        srv.stop();
+        free(cpu.m);
+        return 9;
+    }
+
     auto snapshot = insp.snapshot();
     std::string restore_req = std::string("{\"method\":\"restore\",\"data\":\"") + base64_encode(snapshot) + "\"}";
     cpu.m[0] = 0xaa;
@@ -119,7 +176,7 @@ int main()
         std::cerr << "restore failed: response=" << resp << " mem0=" << (int)cpu.m[0] << std::endl;
         srv.stop();
         free(cpu.m);
-        return 5;
+        return 10;
     }
 
     srv.stop();

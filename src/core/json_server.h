@@ -20,7 +20,8 @@ public:
 
 private:
     void run(const std::string& socket_path);
-    void streamSubscription(int client);
+    std::string handleRequest(const std::string& text, int client, bool& keep_open);
+    void streamSubscription(int client, bool rpc, std::string id_json);
 
     std::thread thread_;
     std::vector<std::thread> subscribe_threads_;

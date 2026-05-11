@@ -70,7 +70,7 @@ const char* const str_help[2] =
         "  --video-scaler=N       scale video N times (1,2,3)\n"
         "  --palette=FILE         use the palette defined in FILE (text)\n"
   "  --inspector-socket=PATH start Inspector JSON socket at PATH (Unix domain). "
-  "Requires build with BUILD_INSPECTOR. The Inspector exposes a simple JSON API (methods: getRegisters, readMemory, writeMemory, setBreakpoint, clearBreakpoint, listBreakpoints, run, pause, step, subscribe, snapshot, restore) for programmatic introspection and control.\n",
+  "Requires build with BUILD_INSPECTOR. The Inspector exposes newline-delimited JSON-RPC 2.0 plus deprecated legacy JSON methods. Use mash16-inspect for command-line access.\n",
 
         "  --no-cpu-limit         disable 1 MHz clock limit\n"
         "  --cpu-rec              use (experimental) recompiler core\n"
@@ -88,4 +88,3 @@ const char* const str_help[2] =
         "\nCopyright (C) 2012-2024 tykel\n"
         "http://github.com/tykel/mash16\n"
 };
-
