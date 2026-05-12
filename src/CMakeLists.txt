@@ -1,2 +1,5 @@
 add_subdirectory(core)
 add_subdirectory(header)
+if(BUILD_INSPECTOR)
+    add_subdirectory(inspector)
+endif()

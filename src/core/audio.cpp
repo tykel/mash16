@@ -139,7 +139,12 @@ void audio_play(int16_t f, int16_t dt, int adsr)
 }
 
 /* Stop playing audio. */
-void audio_stop() { SDL_PauseAudio(1); }
+void audio_stop()
+{
+    if (!use_audio)
+        return;
+    SDL_PauseAudio(1);
+}
 
 /* Reload the sound parameters. */
 void audio_update(cpu_state *state)

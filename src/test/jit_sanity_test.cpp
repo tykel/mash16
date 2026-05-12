@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cpu.h"
-#include "../options.h"
+#include "core/cpu.h"
+#include "options.h"
 
 int use_verbose = 0;
 

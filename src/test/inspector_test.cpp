@@ -2,7 +2,7 @@
 #include <cstring>
 #include <vector>
 int use_verbose = 0;
-#include "core/inspector.h"
+#include "inspector/inspector.h"
 
 using namespace mash16;
 

@@ -4,8 +4,8 @@
 #include <string>
 #include <iostream>
 #include <thread>
-#include "core/inspector.h"
-#include "core/json_server.h"
+#include "inspector/inspector.h"
+#include "inspector/json_server.h"
 
 int use_verbose = 0;
 using namespace mash16;

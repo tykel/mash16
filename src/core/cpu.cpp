@@ -389,7 +389,6 @@ void cpu_init(cpu_state **state, uint8_t *mem, program_opts *opts)
     init_pal(*state);
 
     /* Copy state to debug interp. state, at (state + (sizeof(cpu_state))) */
-    printf("memcpy(%p, %p, %zu)\n", (char*)(*state) + sizeof(cpu_state), *state, sizeof(cpu_state));
     memcpy((char*)(*state) + sizeof(cpu_state), *state, sizeof(cpu_state));
     /* We want separate memory to catch a failed write op in either state. */
     /* Allocate a dedicated memory buffer for the second state's RAM instead
@@ -603,4 +602,3 @@ void cpu_free(cpu_state *state)
     memset(&state[1], 0, sizeof(*state));
     munmap(state, state->total_alloc);
 }
-

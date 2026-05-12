@@ -8,8 +8,8 @@
 #include <vector>
 #include <cstdio>
 int use_verbose = 0;
-#include "core/inspector.h"
-#include "core/json_server.h"
+#include "inspector/inspector.h"
+#include "inspector/json_server.h"
 
 using namespace mash16;
 

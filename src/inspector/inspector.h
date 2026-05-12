@@ -10,7 +10,7 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include "cpu.h"
+#include "core/cpu.h"
 
 namespace mash16 {
 

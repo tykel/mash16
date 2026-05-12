@@ -27,8 +27,8 @@ int use_verbose;
 #include "core/audio.h"
 #include "core/cpu.h"
 #ifdef BUILD_INSPECTOR
-#include "core/inspector.h"
-#include "core/json_server.h"
+#include "inspector/inspector.h"
+#include "inspector/json_server.h"
 #endif
 
 #include <imgui.h>

@@ -824,6 +824,14 @@ static void cpu_rec_flag_n(cpu_state *state, int regFN)
     EMIT(MODRM_REG_DIRECT(0, regFN));
 }
 
+static void cpu_rec_flag_clear(cpu_state *state, int regF)
+{
+    // XOR regF, regF
+    EMIT_REX_RBI(regF, regF, REG_NONE, DWORD);
+    EMIT(0x33);
+    EMIT(MODRM_REG_DIRECT(regF, regF));
+}
+
 static void cpu_rec_op_addi(cpu_state *state)
 {
     int regSrcReg = HOSTREG_STATE_VAR_RW(r[i_yx(state->i)], WORD);
@@ -1313,6 +1321,7 @@ static void cpu_rec_op_divi(cpu_state *state)
     int regSrcYReg = HOSTREG_TEMP_VAR();
     int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
     int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+    int regFO = HOSTREG_STATE_VAR_W(f.o, BYTE);
     int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
 
     // MOV regSrcYReg, hhll
@@ -1357,6 +1366,7 @@ static void cpu_rec_op_divi(cpu_state *state)
     EMIT(0x0f);
     EMIT(0x95);
     EMIT(MODRM_REG_DIRECT(0, regFC));
+    cpu_rec_flag_clear(state, regFO);
 
     // MOV regXReg, EAX
     if (regXReg != RAX) {
@@ -1393,6 +1403,7 @@ static void cpu_rec_op_div_r3(cpu_state *state)
     int regSrcYReg = HOSTREG_STATE_VAR_R(r[i_yx(state->i) >> 4], WORD);
     int regFC = HOSTREG_STATE_VAR_W(f.c, BYTE);
     int regFZ = HOSTREG_STATE_VAR_W(f.z, BYTE);
+    int regFO = HOSTREG_STATE_VAR_W(f.o, BYTE);
     int regFN = HOSTREG_STATE_VAR_W(f.n, BYTE);
 
     // MOV EAX, regSrcXReg
@@ -1430,6 +1441,7 @@ static void cpu_rec_op_div_r3(cpu_state *state)
     EMIT(0x0f);
     EMIT(0x95);
     EMIT(MODRM_REG_DIRECT(0, regFC));
+    cpu_rec_flag_clear(state, regFO);
 
     // The result is in EAX, so fiddle to get RZ mapped to EAX to avoid MOV-ing
     // if we can.
@@ -1908,6 +1920,11 @@ static void cpu_rec_op_negi(cpu_state *state)
     EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
     EMIT(0xb8 + (regXReg & 7));
     EMIT4i(-*(int16_t *)&i_hhll(state->i));
+    // CMP regXReg, 0
+    EMIT_REX_RBI(REG_NONE, regXReg, REG_NONE, DWORD);
+    EMIT(0x83);
+    EMIT(MODRM_REG_OPX_IMM8(7, regXReg));
+    EMIT(0);
 
     cpu_rec_flag_z(state, regFZ);
     cpu_rec_flag_n(state, regFN);
@@ -1946,6 +1963,80 @@ static void cpu_rec_op_neg_r2(cpu_state *state)
 
     cpu_rec_flag_z(state, regFZ);
     cpu_rec_flag_n(state, regFN);
+}
+
+bool cpu_rec_has_native_op(uint8_t op)
+{
+    switch (op) {
+    case 0x00:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x07:
+    case 0x08:
+    case 0x10:
+    case 0x11:
+    case 0x12:
+    case 0x13:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+    case 0x17:
+    case 0x18:
+    case 0x20:
+    case 0x21:
+    case 0x22:
+    case 0x23:
+    case 0x24:
+    case 0x30:
+    case 0x31:
+    case 0x40:
+    case 0x41:
+    case 0x42:
+    case 0x50:
+    case 0x51:
+    case 0x52:
+    case 0x53:
+    case 0x54:
+    case 0x60:
+    case 0x61:
+    case 0x62:
+    case 0x63:
+    case 0x64:
+    case 0x70:
+    case 0x71:
+    case 0x72:
+    case 0x80:
+    case 0x81:
+    case 0x82:
+    case 0x90:
+    case 0x91:
+    case 0x92:
+    case 0xa0:
+    case 0xa2:
+    case 0xb0:
+    case 0xb1:
+    case 0xb2:
+    case 0xb3:
+    case 0xb4:
+    case 0xb5:
+    case 0xc0:
+    case 0xc1:
+    case 0xc2:
+    case 0xc3:
+    case 0xc4:
+    case 0xc5:
+    case 0xe0:
+    case 0xe1:
+    case 0xe2:
+    case 0xe3:
+    case 0xe4:
+    case 0xe5:
+        return true;
+    default:
+        return false;
+    }
 }
 
 void cpu_rec_dispatch(cpu_state *state, uint8_t op)
