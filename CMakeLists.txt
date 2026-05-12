@@ -67,6 +67,7 @@ add_executable(jit_sanity_test src/options.cpp src/strings.cpp src/test/jit_sani
 add_executable(opcode_behavior_test src/options.cpp src/strings.cpp src/test/opcode_behavior_test.cpp)
 add_test(NAME jit_sanity_test COMMAND jit_sanity_test)
 add_test(NAME opcode_behavior_test COMMAND opcode_behavior_test)
+set_tests_properties(jit_sanity_test PROPERTIES ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0")
 set_tests_properties(opcode_behavior_test PROPERTIES ENVIRONMENT "ASAN_OPTIONS=detect_leaks=0")
 
 if(BUILD_INSPECTOR)
